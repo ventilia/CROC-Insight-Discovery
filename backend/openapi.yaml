@@ -1,0 +1,266 @@
+openapi: 3.1.0
+info:
+  title: КРОК Insight
+  version: 0.1.0
+  description: Первая версия API чтения карты ЛПР на синтетических данных.
+servers:
+  - url: http://127.0.0.1:8080
+security:
+  - demoBasic: []
+paths:
+  /api/v1/companies:
+    get:
+      operationId: listCompanies
+      summary: Доступные компании
+      responses:
+        '200':
+          description: Список компаний
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Company'
+              examples:
+                demo:
+                  externalValue: ./examples/companies.json
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/companies/{companyId}/initiatives:
+    get:
+      operationId: listInitiatives
+      summary: Инициативы выбранной компании
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Список инициатив
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Initiative'
+              examples:
+                northernLine:
+                  externalValue: ./examples/initiatives.json
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/initiatives/{initiativeId}/graph:
+    get:
+      operationId: getInitiativeGraph
+      summary: Люди и направленные связи в инициативе
+      parameters:
+        - name: initiativeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: roleCode
+          in: query
+          description: Код роли из filters.roles. Условия по роли и отделу применяются одновременно.
+          schema:
+            type: string
+            pattern: '^[A-Z][A-Z0-9_]{0,31}$'
+          example: BUDGET_APPROVER
+        - name: departmentId
+          in: query
+          description: Идентификатор отдела из filters.departments.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Граф, включая пустую выборку при отсутствии совпадений
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Graph'
+              examples:
+                unfiltered:
+                  externalValue: ./examples/graph.json
+                budgetApprover:
+                  externalValue: ./examples/graph-budget-approver.json
+                noMatches:
+                  externalValue: ./examples/graph-empty.json
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    demoBasic:
+      type: http
+      scheme: basic
+      description: Локальный профиль demo. Пользователь demo-reader, пароль из CROC_DEMO_API_PASSWORD.
+  responses:
+    BadRequest:
+      description: Ошибка формата идентификатора или фильтра
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unauthorized:
+      description: Требуются действительные учётные данные демопрофиля
+    NotFound:
+      description: Запись отсутствует или текущему пользователю недоступна
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Company:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    Initiative:
+      type: object
+      required: [id, companyId, name, asOf]
+      properties:
+        id:
+          type: string
+          format: uuid
+        companyId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        asOf:
+          type: string
+          format: date-time
+    Graph:
+      type: object
+      required: [companyId, initiativeId, asOf, nodes, edges, filters, matchingPeople]
+      properties:
+        companyId:
+          type: string
+          format: uuid
+        initiativeId:
+          type: string
+          format: uuid
+        asOf:
+          type: string
+          format: date-time
+          description: Дата среза данных инициативы.
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Node'
+        edges:
+          type: array
+          description: Направленные связи, оба участника которых входят в видимую выборку.
+          items:
+            $ref: '#/components/schemas/Edge'
+        filters:
+          $ref: '#/components/schemas/Filters'
+        matchingPeople:
+          type: integer
+          minimum: 0
+          description: Число участников после применения фильтров.
+    Node:
+      type: object
+      required: [id, name, jobTitle, department, role, decisionMaker]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: ID контакта сохраняется при смене инициативы.
+        name:
+          type: string
+        jobTitle:
+          type: [string, 'null']
+        department:
+          oneOf:
+            - $ref: '#/components/schemas/Department'
+            - type: 'null'
+        role:
+          oneOf:
+            - $ref: '#/components/schemas/Role'
+            - type: 'null'
+        decisionMaker:
+          type: boolean
+          description: Признак ЛПР в текущей инициативе. ЛПР может быть несколько.
+    Edge:
+      type: object
+      required: [id, source, target, type, label, confirmed]
+      properties:
+        id:
+          type: string
+          format: uuid
+        source:
+          type: string
+          format: uuid
+        target:
+          type: string
+          format: uuid
+        type:
+          type: string
+          description: Код типа связи. В демонаборе используются APPROVAL, EXPERTISE и COORDINATION.
+        label:
+          type: string
+        confirmed:
+          type: boolean
+    Department:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    Role:
+      type: object
+      required: [code, label]
+      properties:
+        code:
+          type: string
+          pattern: '^[A-Z][A-Z0-9_]{0,31}$'
+        label:
+          type: string
+    Filters:
+      type: object
+      description: Варианты фильтров для всей доступной инициативы.
+      required: [departments, roles]
+      properties:
+        departments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Department'
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+    Problem:
+      type: object
+      required: [title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
