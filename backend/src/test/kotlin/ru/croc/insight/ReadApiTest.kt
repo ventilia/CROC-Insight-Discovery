@@ -141,7 +141,11 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
     @Test
     fun `malformed filters and identifiers return a bad request`() {
         assertThat(get("/api/v1/initiatives/invalid/graph").statusCode()).isEqualTo(400)
+        assertThat(get("/api/v1/initiatives/20000000-0-4000-8000-1/graph").statusCode()).isEqualTo(400)
+        assertThat(get("/api/v1/companies/10000000-0-4000-8000-1/initiatives").statusCode()).isEqualTo(400)
         assertThat(get("/api/v1/initiatives/$modernization/graph?departmentId=invalid").statusCode()).isEqualTo(400)
+        assertThat(get("/api/v1/initiatives/$modernization/graph?departmentId=").statusCode()).isEqualTo(400)
+        assertThat(get("/api/v1/initiatives/$modernization/graph?departmentId=%20").statusCode()).isEqualTo(400)
         assertThat(get("/api/v1/initiatives/$modernization/graph?roleCode=invalid").statusCode()).isEqualTo(400)
     }
 

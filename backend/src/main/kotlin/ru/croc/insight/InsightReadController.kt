@@ -16,6 +16,8 @@ import ru.croc.insight.catalog.InitiativeSummary
 import ru.croc.insight.map.Graph
 import ru.croc.insight.map.GraphService
 
+private const val UUID_PATTERN = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+
 @RestController
 @RequestMapping("/api/v1")
 class InsightReadController(private val catalog: CatalogService, private val graphs: GraphService) {
@@ -23,15 +25,22 @@ class InsightReadController(private val catalog: CatalogService, private val gra
     fun companies(principal: Principal): List<CompanySummary> = catalog.companies(principal.name)
 
     @GetMapping("/companies/{companyId}/initiatives")
-    fun initiatives(@PathVariable companyId: UUID, principal: Principal): List<InitiativeSummary> =
-        catalog.initiatives(principal.name, companyId) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
+    fun initiatives(
+        @PathVariable @Pattern(regexp = UUID_PATTERN) companyId: String,
+        principal: Principal,
+    ): List<InitiativeSummary> = catalog.initiatives(principal.name, UUID.fromString(companyId))
+        ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
 
     @GetMapping("/initiatives/{initiativeId}/graph")
     fun graph(
-        @PathVariable initiativeId: UUID,
+        @PathVariable @Pattern(regexp = UUID_PATTERN) initiativeId: String,
         @RequestParam(required = false) @Pattern(regexp = "^[A-Z][A-Z0-9_]{0,31}$") roleCode: String?,
-        @RequestParam(required = false) departmentId: UUID?,
+        @RequestParam(required = false) @Pattern(regexp = UUID_PATTERN) departmentId: String?,
         principal: Principal,
-    ): Graph = graphs.findGraph(principal.name, initiativeId, roleCode, departmentId)
-        ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
+    ): Graph = graphs.findGraph(
+        principal.name,
+        UUID.fromString(initiativeId),
+        roleCode,
+        departmentId?.let(UUID::fromString),
+    ) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
 }
