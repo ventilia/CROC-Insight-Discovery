@@ -82,6 +82,69 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
         assertRejectedByForeignKey(statement)
     }
 
+    @Test
+    fun `demo endpoints require credentials and reject writes and other actuator endpoints`() {
+        assertThat(get("/api/v1/companies", password = null).statusCode()).isEqualTo(401)
+        assertThat(get("/api/v1/companies", password = "incorrect").statusCode()).isEqualTo(401)
+        assertThat(request("/api/v1/companies", apiPassword, "POST").statusCode()).isEqualTo(403)
+        assertThat(get("/actuator/env").statusCode()).isEqualTo(403)
+    }
+
+    @Test
+    fun `catalog shows only accessible companies and initiatives`() {
+        val companies = read("/api/v1/companies")
+        assertThat(companies.stringValues("name"))
+            .containsExactly("Северная линия", "Меридиан")
+        val initiatives = read("/api/v1/companies/$northernLine/initiatives")
+        assertThat(initiatives.stringValues("name"))
+            .containsExactly("Модернизация инфраструктуры", "Пилот защиты данных")
+        assertThat(get("/api/v1/companies/$privateCompany/initiatives").statusCode()).isEqualTo(404)
+        assertThat(get("/api/v1/initiatives/$privateInitiative/graph").statusCode()).isEqualTo(404)
+    }
+
+    @Test
+    fun `graph keeps contact identity across initiatives and renders directed edges`() {
+        val original = read("/api/v1/initiatives/$modernization/graph")
+        val other = read("/api/v1/initiatives/$dataProtection/graph")
+        assertThat(original.path("asOf").asString()).isEqualTo("2026-11-24T09:00:00Z")
+        assertThat(original.path("nodes").size()).isEqualTo(4)
+        assertThat(original.path("edges").size()).isEqualTo(2)
+        val firstEdge = original.path("edges").get(0)
+        assertThat(firstEdge.path("source").asString()).isEqualTo(itDirector)
+        assertThat(firstEdge.path("target").asString()).isEqualTo(marina)
+        assertThat(original.path("edges").get(1).path("confirmed").asBoolean()).isFalse()
+        val originalPerson = original.path("nodes").first { it.path("id").asString() == marina }
+        val otherPerson = other.path("nodes").first { it.path("id").asString() == marina }
+        assertThat(originalPerson.path("jobTitle").asString()).isEqualTo("Финансовый директор")
+        assertThat(otherPerson.path("jobTitle")).isEqualTo(originalPerson.path("jobTitle"))
+        assertThat(originalPerson.path("role").path("code").asString()).isEqualTo("BUDGET_APPROVER")
+        assertThat(otherPerson.path("role").path("code").asString()).isEqualTo("CONSULTANT")
+        assertThat(original.path("nodes").get(3).path("role").isNull).isTrue()
+        assertThat(original.path("nodes").get(3).path("department").isNull).isTrue()
+    }
+
+    @Test
+    fun `filters combine and keep only edges with both endpoints visible`() {
+        val path = "/api/v1/initiatives/$modernization/graph"
+        val byRole = read("$path?roleCode=BUDGET_APPROVER")
+        assertThat(byRole.path("nodes").stringValues("id")).containsExactly(marina)
+        assertThat(byRole.path("edges").size()).isZero()
+        assertThat(byRole.path("filters").path("departments").size()).isEqualTo(3)
+        val byDepartment = read("$path?departmentId=$itDepartment")
+        assertThat(byDepartment.path("nodes").stringValues("id")).containsExactly(itDirector)
+        val both = read("$path?roleCode=BUDGET_APPROVER&departmentId=$itDepartment")
+        assertThat(both.path("matchingPeople").asInt()).isZero()
+        assertThat(both.path("nodes").size()).isZero()
+        assertThat(both.path("edges").size()).isZero()
+    }
+
+    @Test
+    fun `malformed filters and identifiers return a bad request`() {
+        assertThat(get("/api/v1/initiatives/invalid/graph").statusCode()).isEqualTo(400)
+        assertThat(get("/api/v1/initiatives/$modernization/graph?departmentId=invalid").statusCode()).isEqualTo(400)
+        assertThat(get("/api/v1/initiatives/$modernization/graph?roleCode=invalid").statusCode()).isEqualTo(400)
+    }
+
     private fun assertRejectedByForeignKey(sql: String) {
         connect("croc_migrator", migratorPassword).use { connection ->
             connection.autoCommit = false
@@ -96,6 +159,12 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
     private fun get(path: String, password: String? = apiPassword): HttpResponse<String> =
         request(path, password, "GET")
 
+    private fun read(path: String): JsonNode {
+        val response = get(path)
+        assertThat(response.statusCode()).describedAs("GET $path").isEqualTo(200)
+        return json(response)
+    }
+
     private fun request(path: String, password: String?, method: String): HttpResponse<String> {
         val request = HttpRequest.newBuilder(URI("http://127.0.0.1:$port$path"))
             .timeout(Duration.ofSeconds(10))
@@ -109,14 +178,22 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
 
     private fun json(response: HttpResponse<String>): JsonNode = mapper.readTree(response.body())
 
+    private fun JsonNode.stringValues(field: String): List<String> =
+        iterator().asSequence().map { it.path(field).asString() }.toList()
+
     private fun connect(user: String, password: String): Connection =
         DriverManager.getConnection(postgres.jdbcUrl, user, password)
 
     companion object {
         private const val northernLine = "10000000-0000-4000-8000-000000000001"
         private const val modernization = "20000000-0000-4000-8000-000000000001"
+        private const val dataProtection = "20000000-0000-4000-8000-000000000002"
+        private const val itDepartment = "30000000-0000-4000-8000-000000000002"
         private const val marina = "40000000-0000-4000-8000-000000000001"
+        private const val itDirector = "40000000-0000-4000-8000-000000000002"
         private const val otherCompanyPerson = "40000000-0000-4000-8000-000000000004"
+        private const val privateCompany = "10000000-0000-4000-8000-000000000099"
+        private const val privateInitiative = "20000000-0000-4000-8000-000000000099"
 
         private val migratorPassword = UUID.randomUUID().toString()
         private val readerPassword = UUID.randomUUID().toString()
@@ -141,6 +218,7 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
             registry.add("spring.datasource.url", postgres::getJdbcUrl)
             registry.add("spring.datasource.password") { readerPassword }
             registry.add("spring.flyway.password") { migratorPassword }
+            registry.add("spring.flyway.locations") { "classpath:db/migration,classpath:db/demo,classpath:db/test" }
             registry.add("croc.demo.api-password") { apiPassword }
         }
     }
