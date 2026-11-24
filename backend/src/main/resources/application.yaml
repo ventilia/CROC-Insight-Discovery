@@ -1,0 +1,33 @@
+server:
+  address: 127.0.0.1
+
+spring:
+  application:
+    name: croc-insight
+  config:
+    import: optional:file:./.env[.properties]
+  datasource:
+    url: ${CROC_DB_URL:jdbc:postgresql://127.0.0.1:${CROC_DB_PORT:54329}/croc_insight}
+    username: croc_reader
+    password: ${CROC_DB_READER_PASSWORD}
+    hikari:
+      schema: insight
+      read-only: true
+  flyway:
+    url: ${spring.datasource.url}
+    user: croc_migrator
+    password: ${CROC_DB_MIGRATOR_PASSWORD}
+    default-schema: insight
+    create-schemas: false
+  mvc:
+    problemdetails:
+      enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

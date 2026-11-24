@@ -1,0 +1,24 @@
+name: croc-insight
+
+services:
+  postgres:
+    image: postgres:17.12-bookworm
+    environment:
+      POSTGRES_DB: croc_insight
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${CROC_DB_ADMIN_PASSWORD:?set CROC_DB_ADMIN_PASSWORD in .env}
+      CROC_DB_MIGRATOR_PASSWORD: ${CROC_DB_MIGRATOR_PASSWORD:?set CROC_DB_MIGRATOR_PASSWORD in .env}
+      CROC_DB_READER_PASSWORD: ${CROC_DB_READER_PASSWORD:?set CROC_DB_READER_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${CROC_DB_PORT:-54329}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/bootstrap.sql:/docker-entrypoint-initdb.d/01-bootstrap.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "croc_insight"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  postgres-data:
