@@ -149,6 +149,77 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
         assertThat(get("/api/v1/initiatives/$modernization/graph?roleCode=invalid").statusCode()).isEqualTo(400)
     }
 
+    @Test
+    fun `dossier exposes the same contact with the role of the current initiative`() {
+        val original = read("/api/v1/initiatives/$modernization/people/$marina")
+        val other = read("/api/v1/initiatives/$dataProtection/people/$marina")
+        assertThat(original.path("companyId").asString()).isEqualTo(northernLine)
+        assertThat(original.path("initiativeId").asString()).isEqualTo(modernization)
+        assertThat(original.path("asOf").asString()).isEqualTo("2026-11-24T09:00:00Z")
+        assertThat(original.path("person").path("id")).isEqualTo(other.path("person").path("id"))
+        assertThat(original.path("person").path("jobTitle").asString()).isEqualTo("Финансовый директор")
+        assertThat(original.path("person").path("role").path("code").asString()).isEqualTo("BUDGET_APPROVER")
+        assertThat(other.path("person").path("role").path("code").asString()).isEqualTo("CONSULTANT")
+    }
+
+    @Test
+    fun `history paginates tied timestamps and includes the other event participants`() {
+        val path = "/api/v1/initiatives/$modernization/events"
+        val first = read("$path?personId=$marina&limit=1")
+        assertThat(first.path("items").stringValues("id")).containsExactly(budgetEmail)
+        assertThat(first.path("nextCursor").asString()).isEqualTo(budgetEmail)
+        val second = read("$path?personId=$marina&limit=1&cursor=$budgetEmail")
+        val meeting = second.path("items").get(0)
+        assertThat(meeting.path("id").asString()).isEqualTo(budgetMeeting)
+        assertThat(meeting.path("occurredAt").asString()).isEqualTo("2026-11-18T10:00:00Z")
+        assertThat(meeting.path("type").asString()).isEqualTo("MEETING")
+        assertThat(meeting.path("outcome").asString()).isEqualTo("Согласовали подготовку расчёта")
+        assertThat(meeting.path("nextStep").asString()).isEqualTo("Предоставить расчёт затрат к 24 ноября")
+        assertThat(meeting.path("participants").stringValues("id")).containsExactly(marina, itDirector)
+        assertThat(second.path("nextCursor").isNull).isTrue()
+        assertThat(read(path).path("items").stringValues("id")).containsExactly(budgetEmail, budgetMeeting, securityCall)
+    }
+
+    @Test
+    fun `dossier and history hide data outside the company and current initiative`() {
+        assertThat(get("/api/v1/initiatives/$privateInitiative/people/$marina").statusCode()).isEqualTo(404)
+        assertThat(get("/api/v1/initiatives/$privateInitiative/events").statusCode()).isEqualTo(404)
+        assertThat(get("/api/v1/initiatives/$dataProtection/people/$itDirector").statusCode()).isEqualTo(404)
+        assertThat(get("/api/v1/initiatives/$dataProtection/events?personId=$itDirector").statusCode()).isEqualTo(404)
+        assertThat(get("/api/v1/initiatives/$modernization/events", password = null).statusCode()).isEqualTo(401)
+        assertThat(get("/api/v1/initiatives/$modernization/people/$marina", password = null).statusCode()).isEqualTo(401)
+    }
+
+    @Test
+    fun `history distinguishes an empty timeline from invalid pagination`() {
+        val path = "/api/v1/initiatives/$modernization/events"
+        val empty = read("$path?personId=$personWithoutEvents")
+        assertThat(empty.path("items").isEmpty).isTrue()
+        assertThat(empty.path("nextCursor").isNull).isTrue()
+        assertThat(get("$path?personId=$marina&cursor=$securityCall").statusCode()).isEqualTo(400)
+        assertThat(get("/api/v1/initiatives/$dataProtection/events?cursor=$budgetEmail").statusCode()).isEqualTo(400)
+        assertThat(get("$path?cursor=").statusCode()).isEqualTo(400)
+        assertThat(get("$path?limit=0").statusCode()).isEqualTo(400)
+        assertThat(get("$path?limit=51").statusCode()).isEqualTo(400)
+        assertThat(get("$path?limit=").statusCode()).isEqualTo(400)
+    }
+
+    @Test
+    fun `an event cannot include a contact from a different initiative`() {
+        assertRejectedByForeignKey(
+            """
+            INSERT INTO insight.touchpoint_participants (initiative_id, touchpoint_id, contact_id)
+            VALUES ('$modernization', '$budgetMeeting', '$otherCompanyPerson')
+            """.trimIndent(),
+        )
+        assertRejectedByForeignKey(
+            """
+            INSERT INTO insight.touchpoint_participants (initiative_id, touchpoint_id, contact_id)
+            VALUES ('$dataProtection', '$budgetMeeting', '$marina')
+            """.trimIndent(),
+        )
+    }
+
     private fun assertRejectedByForeignKey(sql: String) {
         connect("croc_migrator", migratorPassword).use { connection ->
             connection.autoCommit = false
@@ -196,6 +267,10 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
         private const val marina = "40000000-0000-4000-8000-000000000001"
         private const val itDirector = "40000000-0000-4000-8000-000000000002"
         private const val otherCompanyPerson = "40000000-0000-4000-8000-000000000004"
+        private const val personWithoutEvents = "40000000-0000-4000-8000-000000000005"
+        private const val budgetMeeting = "60000000-0000-4000-8000-000000000001"
+        private const val budgetEmail = "60000000-0000-4000-8000-000000000002"
+        private const val securityCall = "60000000-0000-4000-8000-000000000003"
         private const val privateCompany = "10000000-0000-4000-8000-000000000099"
         private const val privateInitiative = "20000000-0000-4000-8000-000000000099"
 

@@ -13,14 +13,23 @@ import org.springframework.web.server.ResponseStatusException
 import ru.croc.insight.catalog.CatalogService
 import ru.croc.insight.catalog.CompanySummary
 import ru.croc.insight.catalog.InitiativeSummary
+import ru.croc.insight.history.TouchpointPage
+import ru.croc.insight.history.TouchpointService
 import ru.croc.insight.map.Graph
 import ru.croc.insight.map.GraphService
+import ru.croc.insight.map.ParticipantService
+import ru.croc.insight.map.PersonDossier
 
 private const val UUID_PATTERN = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 
 @RestController
 @RequestMapping("/api/v1")
-class InsightReadController(private val catalog: CatalogService, private val graphs: GraphService) {
+class InsightReadController(
+    private val catalog: CatalogService,
+    private val graphs: GraphService,
+    private val participants: ParticipantService,
+    private val touchpoints: TouchpointService,
+) {
     @GetMapping("/companies")
     fun companies(principal: Principal): List<CompanySummary> = catalog.companies(principal.name)
 
@@ -42,5 +51,28 @@ class InsightReadController(private val catalog: CatalogService, private val gra
         UUID.fromString(initiativeId),
         roleCode,
         departmentId?.let(UUID::fromString),
+    ) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
+
+    @GetMapping("/initiatives/{initiativeId}/people/{personId}")
+    fun person(
+        @PathVariable @Pattern(regexp = UUID_PATTERN) initiativeId: String,
+        @PathVariable @Pattern(regexp = UUID_PATTERN) personId: String,
+        principal: Principal,
+    ): PersonDossier = participants.findDossier(principal.name, UUID.fromString(initiativeId), UUID.fromString(personId))
+        ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
+
+    @GetMapping("/initiatives/{initiativeId}/events")
+    fun events(
+        @PathVariable @Pattern(regexp = UUID_PATTERN) initiativeId: String,
+        @RequestParam(required = false) @Pattern(regexp = UUID_PATTERN) personId: String?,
+        @RequestParam(required = false) @Pattern(regexp = "^(?:[1-9]|[1-4][0-9]|50)$") limit: String?,
+        @RequestParam(required = false) @Pattern(regexp = UUID_PATTERN) cursor: String?,
+        principal: Principal,
+    ): TouchpointPage = touchpoints.history(
+        principal.name,
+        UUID.fromString(initiativeId),
+        personId?.let(UUID::fromString),
+        limit?.toInt() ?: 20,
+        cursor?.let(UUID::fromString),
     ) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
 }

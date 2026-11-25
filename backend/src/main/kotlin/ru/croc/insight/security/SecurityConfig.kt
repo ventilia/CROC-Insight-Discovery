@@ -30,6 +30,8 @@ class SecurityConfig {
                         "/api/v1/companies",
                         "/api/v1/companies/{companyId}/initiatives",
                         "/api/v1/initiatives/{initiativeId}/graph",
+                        "/api/v1/initiatives/{initiativeId}/people/{personId}",
+                        "/api/v1/initiatives/{initiativeId}/events",
                     ).hasRole("DEMO_READER")
                     .anyRequest().denyAll()
             }
