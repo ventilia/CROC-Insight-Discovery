@@ -2839,10 +2839,535 @@ td {
 }
 
 /* Neutral typography for the business interface. */
-.sidebar-footer { margin-top: auto; }
-h1 { font-weight: 500; letter-spacing: -0.015em; line-height: 1.2; }
-h2 { font-weight: 600; letter-spacing: 0; }
-.company-card h3 { font-weight: 600; font-size: 22px; letter-spacing: -0.015em; }
-.metric-card > strong { font-weight: 600; letter-spacing: -0.025em; }
-.page-title p, .section-heading p { color: #607565; }
-.profile-hero h2 { font-weight: 600; }
+.sidebar-footer {
+  margin-top: auto;
+}
+h1 {
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+h2 {
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.company-card h3 {
+  font-weight: 600;
+  font-size: 22px;
+  letter-spacing: -0.015em;
+}
+.metric-card > strong {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+.page-title p,
+.section-heading p {
+  color: #607565;
+}
+.profile-hero h2 {
+  font-weight: 600;
+}
+
+/* Free force-directed relationship map. */
+.force-map {
+  overflow: hidden;
+}
+.graph-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.force-map .surface-head {
+  align-items: center;
+}
+.force-map .surface-head h2 {
+  font-size: 20px;
+}
+.force-map .surface-head p {
+  font-size: 13px;
+}
+.graph-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+  padding: 0 24px 16px;
+  font-size: 12px;
+}
+.graph-mode {
+  display: flex;
+  background: #f0f4f1;
+  padding: 3px;
+  border: 1px solid #e3eae5;
+  border-radius: 8px;
+}
+.graph-mode button {
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  color: #7c8c81;
+  padding: 6px 13px;
+  font-size: 12px;
+}
+.graph-mode button[aria-pressed="true"] {
+  background: white;
+  color: #245b3e;
+  box-shadow: 0 1px 4px #17332615;
+  font-weight: 600;
+}
+.graph-color-control,
+.graph-depth-control {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.graph-toolbar select {
+  padding: 7px 29px 7px 9px;
+  font-size: 12px;
+}
+.graph-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: #7c9282;
+}
+.graph-toolbar > .text-button {
+  font-size: 12px;
+}
+.graph-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 205px;
+  border-block: 1px solid var(--line);
+  min-width: 0;
+}
+.force-stage {
+  position: relative;
+  min-width: 0;
+  height: clamp(420px, 65vh, 660px);
+  overflow: hidden;
+  background: #fbfcfb;
+  outline-offset: -3px;
+}
+.force-stage > div:first-child {
+  position: relative;
+}
+.force-stage canvas {
+  display: block;
+  touch-action: none;
+}
+.force-stage .graph-tooltip {
+  display: none !important;
+}
+.graph-directory {
+  border-left: 1px solid var(--line);
+  min-width: 0;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  max-height: clamp(420px, 65vh, 660px);
+}
+.graph-directory > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 18px 15px;
+  border-bottom: 1px solid #edf2ee;
+  font-size: 12px;
+}
+.graph-directory > div > strong {
+  font-weight: 600;
+}
+.graph-directory > div > span {
+  color: #91a899;
+}
+.graph-directory ul {
+  list-style: none;
+  padding: 6px;
+  margin: 0;
+  overflow: auto;
+}
+.graph-directory li {
+  margin: 0;
+}
+.graph-directory button {
+  width: 100%;
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  border: 1px solid transparent;
+  background: none;
+  text-align: left;
+  border-radius: 7px;
+  padding: 12px 7px;
+  min-width: 0;
+}
+.graph-directory button:hover {
+  background: #f3f8f4;
+}
+.graph-directory button[aria-pressed="true"] {
+  background: #ecf5ee;
+  border-color: #bed8c7;
+}
+.graph-directory button > i,
+.graph-legend button > i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.graph-directory button > span {
+  min-width: 0;
+}
+.graph-directory strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.graph-directory small {
+  display: block;
+  color: #82968a;
+  font-size: 11px;
+  margin-top: 4px;
+}
+.graph-directory b {
+  font-size: 9px;
+  color: #649175;
+  font-weight: 400;
+  margin-left: auto;
+}
+.graph-stage-controls {
+  position: absolute;
+  right: 15px;
+  bottom: 16px;
+  display: flex;
+  gap: 4px;
+  border: 1px solid #dce6df;
+  background: #ffffffef;
+  border-radius: 9px;
+  padding: 4px;
+  box-shadow: 0 2px 9px #133a2010;
+  z-index: 2;
+}
+.graph-stage-controls .icon-button {
+  min-width: 31px;
+  min-height: 31px;
+  border: 0;
+}
+.graph-canvas-caption {
+  position: absolute;
+  bottom: 20px;
+  left: 17px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #a0afa5;
+  font-size: 10px;
+  pointer-events: none;
+}
+.graph-hover-card {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  max-width: 310px;
+  border: 1px solid #d9e6dc;
+  background: #fffffff2;
+  border-radius: 9px;
+  padding: 13px 16px;
+  box-shadow: 0 5px 18px #20442c10;
+  pointer-events: none;
+}
+.graph-hover-card strong {
+  font-size: 13px;
+  display: block;
+  font-weight: 600;
+}
+.graph-hover-card span {
+  font-size: 12px;
+  display: block;
+  color: #688b71;
+  margin-top: 5px;
+}
+.graph-hover-card small {
+  font-size: 11px;
+  display: block;
+  color: #8ba493;
+  margin-top: 6px;
+  line-height: 1.6;
+}
+.graph-edge-card {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  max-width: 350px;
+  background: white;
+  border: 1px solid #c6dccd;
+  border-radius: 9px;
+  padding: 15px 40px 15px 16px;
+  box-shadow: 0 5px 18px #20442c15;
+  z-index: 2;
+}
+.graph-edge-card > .icon-button {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+}
+.graph-edge-card > strong {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+.graph-edge-card > p {
+  font-size: 12px;
+  color: #6e8b75;
+  line-height: 1.7;
+  margin-top: 7px;
+}
+.graph-edge-card > span {
+  font-size: 10px;
+  display: block;
+  margin-top: 8px;
+  color: #a58b56;
+}
+.graph-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 13px 24px 6px;
+}
+.graph-legend {
+  display: flex;
+  gap: 6px 13px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.graph-legend button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 4px 5px;
+  font-size: 11px;
+  color: #72927b;
+}
+.graph-legend button[aria-pressed="true"] {
+  border-color: #bad6c2;
+  background: #f0f7f1;
+}
+.graph-options {
+  display: flex;
+  gap: 13px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.graph-options label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #789481;
+}
+.graph-options input {
+  width: 13px;
+  height: 13px;
+  accent-color: #36865d;
+}
+.graph-options .text-button {
+  font-size: 11px;
+}
+.graph-instructions {
+  font-size: 11px;
+  color: #8ca695;
+  line-height: 1.7;
+  padding: 6px 24px 16px;
+}
+.graph-connections {
+  border-top: 1px solid var(--line);
+  padding: 17px 24px;
+  font-size: 13px;
+}
+.graph-connections summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+.graph-connections summary span {
+  margin-left: 8px;
+  color: #8aa793;
+}
+.graph-connections > ul {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.graph-connections li > button {
+  width: 100%;
+  border: 1px solid #e0eae3;
+  border-radius: 8px;
+  text-align: left;
+  padding: 13px;
+  background: #fbfdfb;
+}
+.graph-connections li > button:hover,
+.graph-connections li > button.selected {
+  border-color: #9fc4aa;
+  background: #f0f7f2;
+}
+.graph-connections strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+.graph-connections span {
+  display: block;
+  font-size: 12px;
+  color: #7c9984;
+  line-height: 1.6;
+  margin-top: 6px;
+}
+.graph-connections small {
+  font-size: 10px;
+  color: #9bac9e;
+  display: block;
+  margin-top: 7px;
+}
+.graph-connections > p {
+  font-size: 12px;
+  color: #8ca693;
+  margin-top: 12px;
+}
+.graph-unavailable {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  flex-direction: column;
+  height: 100%;
+  min-height: 300px;
+  padding: 25px;
+  text-align: center;
+  color: #8ba594;
+  font-size: 14px;
+}
+.graph-unavailable p {
+  max-width: 350px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.graph-dark .force-stage {
+  background: #121d28;
+}
+.graph-dark .graph-stage-controls {
+  background: #1c2b36;
+  border-color: #405160;
+}
+.graph-dark .graph-stage-controls .icon-button {
+  color: #b3c9d6;
+}
+.graph-dark .graph-hover-card,
+.graph-dark .graph-edge-card {
+  background: #1c2b36f2;
+  border-color: #3d5360;
+  color: #d3e4e9;
+}
+.graph-dark .graph-hover-card span,
+.graph-dark .graph-edge-card p {
+  color: #abc2c9;
+}
+.graph-dark .graph-hover-card small {
+  color: #849eac;
+}
+.graph-dark .graph-canvas-caption {
+  color: #526e7f;
+}
+@media (max-width: 1100px) {
+  .graph-workspace {
+    grid-template-columns: minmax(0, 1fr) 175px;
+  }
+  .graph-directory strong {
+    font-size: 11px;
+  }
+  .graph-directory b {
+    display: none;
+  }
+  .graph-count {
+    margin-left: 0;
+  }
+  .kit-app:has(.contact-drawer) .graph-workspace {
+    grid-template-columns: 1fr;
+  }
+  .kit-app:has(.contact-drawer) .graph-directory {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    max-height: 160px;
+  }
+}
+@media (max-width: 720px) {
+  .graph-toolbar {
+    padding-inline: 20px;
+    gap: 12px;
+  }
+  .graph-head-actions .secondary {
+    font-size: 12px;
+    min-height: 36px;
+  }
+  .graph-color-control {
+    font-size: 11px;
+  }
+  .graph-workspace {
+    grid-template-columns: 1fr;
+  }
+  .force-stage {
+    height: 450px;
+  }
+  .graph-directory {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    max-height: 190px;
+  }
+  .graph-directory ul {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+  }
+  .graph-directory strong {
+    font-size: 12px;
+  }
+  .graph-directory small {
+    font-size: 10px;
+  }
+  .graph-directory button {
+    padding: 10px 7px;
+  }
+  .graph-directory > div {
+    padding: 12px 15px;
+  }
+  .graph-footer,
+  .graph-instructions,
+  .graph-connections {
+    padding-inline: 20px;
+  }
+  .graph-connections > ul {
+    grid-template-columns: 1fr;
+  }
+  .graph-hover-card {
+    max-width: calc(100% - 32px);
+  }
+  .graph-edge-card {
+    max-width: calc(100% - 32px);
+  }
+  .graph-canvas-caption {
+    display: none;
+  }
+}
+.graph-connections summary span {
+  display: inline;
+  margin: 0 0 0 8px;
+}
