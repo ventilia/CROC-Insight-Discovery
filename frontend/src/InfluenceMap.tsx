@@ -1,13 +1,4 @@
-import {
-  Component,
-  lazy,
-  Suspense,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Focus,
   Minus,
@@ -15,8 +6,6 @@ import {
   Maximize2,
   RotateCcw,
   SlidersHorizontal,
-  Sun,
-  Moon,
   Pause,
   Play,
   X,
@@ -32,7 +21,6 @@ import {
   type SceneControls,
 } from "./forceGraph";
 import ForceScene2D from "./ForceScene2D";
-const ForceScene3D = lazy(() => import("./ForceScene3D"));
 const emptyFilters: MapFilters = {
   role: "",
   department: "",
@@ -40,31 +28,6 @@ const emptyFilters: MapFilters = {
   focus: null,
   depth: 1,
 };
-
-class SceneBoundary extends Component<
-  { children: ReactNode; fallback: () => void },
-  { failed: boolean }
-> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  render() {
-    return this.state.failed ? (
-      <div className="graph-unavailable" role="alert">
-        <h3>3D не удалось открыть</h3>
-        <p>
-          В этом браузере недоступна 3D-графика. Карта работает в режиме 2D.
-        </p>
-        <button className="secondary" onClick={this.props.fallback}>
-          Открыть 2D
-        </button>
-      </div>
-    ) : (
-      this.props.children
-    );
-  }
-}
 
 export function InfluenceMap({
   item,
@@ -79,12 +42,10 @@ export function InfluenceMap({
 }) {
   const [filters, setFilters] = useState(emptyFilters),
     [smart, setSmart] = useState(emptyContactFilters);
-  const [mode, setMode] = useState<"2d" | "3d">("2d"),
-    [dark, setDark] = useState(darkTheme),
-    [colorMode, setColorMode] = useState<ColorMode>("role");
+  const dark = darkTheme;
+  const [colorMode, setColorMode] = useState<ColorMode>("role");
   const [showFilters, setShowFilters] = useState(false),
     [labels, setLabels] = useState(true);
-  useEffect(() => setDark(darkTheme), [darkTheme]);
   const [paused, setPaused] = useState(
     () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
@@ -94,8 +55,7 @@ export function InfluenceMap({
     [size, setSize] = useState({ width: 600, height: 500 });
   const stage = useRef<HTMLDivElement>(null),
     controls = useRef<SceneControls | null>(null);
-  const positions2D = useRef<PositionCache>(new Map()),
-    positions3D = useRef<PositionCache>(new Map());
+  const positions2D = useRef<PositionCache>(new Map());
   const graph = item.graph;
   const visible = useMemo(() => {
     const selection = selectGraph(graph, filters);
@@ -152,7 +112,7 @@ export function InfluenceMap({
     hoveredId,
     color,
     controls,
-    positions: mode === "2d" ? positions2D.current : positions3D.current,
+    positions: positions2D.current,
     onSelect: (id: string) => {
       stage.current?.focus({ preventScroll: true });
       select(id);
@@ -160,7 +120,6 @@ export function InfluenceMap({
     onLink: (id: string) => {
       setEdge(id);
       setHovered(null);
-      setConnectionsOpen(true);
     },
     onHover: setHovered,
   };
@@ -219,26 +178,6 @@ export function InfluenceMap({
         />
       )}
       <div className="graph-toolbar">
-        <div className="graph-mode" role="group" aria-label="Режим карты">
-          <button
-            aria-pressed={mode === "2d"}
-            onClick={() => {
-              setMode("2d");
-              setHovered(null);
-            }}
-          >
-            2D
-          </button>
-          <button
-            aria-pressed={mode === "3d"}
-            onClick={() => {
-              setMode("3d");
-              setHovered(null);
-            }}
-          >
-            3D
-          </button>
-        </div>
         <label className="graph-color-control">
           Цвет узлов
           <select
@@ -296,21 +235,7 @@ export function InfluenceMap({
             aria-label="Интерактивный граф сотрудников"
             aria-describedby="graph-instructions"
           >
-            {mode === "2d" ? (
-              <ForceScene2D {...sceneProps} />
-            ) : (
-              <SceneBoundary fallback={() => setMode("2d")}>
-                <Suspense
-                  fallback={
-                    <div className="graph-unavailable" role="status">
-                      Загружаем 3D-карту…
-                    </div>
-                  }
-                >
-                  <ForceScene3D {...sceneProps} />
-                </Suspense>
-              </SceneBoundary>
-            )}
+            <ForceScene2D {...sceneProps} />
             <div className="graph-stage-controls">
               <button
                 className="icon-button"
@@ -378,9 +303,7 @@ export function InfluenceMap({
             )}
             <div className="graph-canvas-caption">
               <Network size={14} />
-              <span>
-                {mode === "2d" ? "Свободное расположение" : "Объёмный граф"}
-              </span>
+              <span>Свободное расположение</span>
             </div>
           </div>
           <aside className="graph-directory" aria-label="Участники карты">
@@ -499,21 +422,26 @@ export function InfluenceMap({
             {paused ? <Play size={14} /> : <Pause size={14} />}
             {paused ? "Продолжить движение" : "Остановить движение"}
           </button>
-          <button
-            className="icon-button"
-            aria-label={dark ? "Светлая карта" : "Тёмная карта"}
-            title={dark ? "Светлая карта" : "Тёмная карта"}
-            onClick={() => setDark(!dark)}
-          >
-            {dark ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
         </div>
       </div>
+      <div className="graph-link-legend" aria-label="Обозначения связей">
+        <span>
+          <i className="link-confirmed" />
+          Подтверждена
+        </span>
+        <span>
+          <i className="link-unconfirmed" />
+          Требует проверки
+        </span>
+        <span>
+          <i className="link-active" />
+          Связь с выбранным
+        </span>
+        <span>Стрелка — направление связи</span>
+      </div>
       <p className="graph-instructions" id="graph-instructions">
-        {mode === "2d"
-          ? "Перетаскивайте фон для перемещения, колесо — для масштаба."
-          : "Перетаскивайте фон для поворота, правой кнопкой — для перемещения, колесо — для масштаба."}{" "}
-        Размер узла — указанное влияние. Оранжевые связи требуют проверки.
+        Перетаскивайте узлы и фон. Колесо — масштаб. Наведите на человека, чтобы
+        увидеть его ближайшие связи и их описание. Размер узла — влияние.
       </p>
       <details
         className="graph-connections"

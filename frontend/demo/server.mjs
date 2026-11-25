@@ -65,7 +65,11 @@ export function startServer({
           return json(res, 200, { headerName: "X-KIT-CSRF", token });
         }
         if (path === "/api/v1/capabilities")
-          return json(res, 200, { mode: "demo", canCreateEvents: true });
+          return json(res, 200, {
+            mode: "demo",
+            canCreateEvents: true,
+            canImportContacts: true,
+          });
         if (path === "/api/v1/ai/settings")
           return json(res, 200, { enabled: false, model: null });
         if (path === "/api/v1/companies")
@@ -115,7 +119,7 @@ export function startServer({
         let length = 0;
         for await (const chunk of req) {
           length += chunk.length;
-          if (length > 32768)
+          if (length > (parts[2] === "imports" ? 512000 : 32768))
             throw new HttpError(413, "Слишком большой запрос.");
           chunks.push(chunk);
         }
@@ -128,6 +132,14 @@ export function startServer({
         }
         if (!value || Array.isArray(value) || typeof value !== "object")
           throw new HttpError(400, "Ожидается объект.");
+        if (
+          req.method === "POST" &&
+          parts[0] === "initiatives" &&
+          parts[2] === "imports" &&
+          parts[3] === "contacts" &&
+          parts.length === 4
+        )
+          return json(res, 201, store.importContacts(parts[1], value));
         if (
           req.method === "POST" &&
           parts[0] === "initiatives" &&

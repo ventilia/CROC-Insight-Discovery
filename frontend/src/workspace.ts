@@ -20,7 +20,7 @@ export type InitiativeData = {
 export type WorkspaceData = {
   companies: Company[];
   initiatives: InitiativeData[];
-  capabilities: { mode: string; canCreateEvents: boolean };
+  capabilities: { mode: string; canCreateEvents: boolean; canImportContacts?: boolean };
 };
 export type HistoryEntry = Touchpoint & {
   initiativeId: string;

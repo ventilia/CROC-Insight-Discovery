@@ -80,3 +80,15 @@ test("карта на 480 человек не теряет связи и не с
   );
   assert.equal(new Set(scene.nodes.map((node) => node.id)).size, 480);
 });
+
+test("подсветка охватывает только ближайших соседей в обоих направлениях", async () => {
+  const { adjacentIds } = await import("./forceGraph.ts");
+  const edge = graph.edges[0];
+  const edges = [
+    { ...edge, source: "a", target: "b" },
+    { ...edge, id: "2", source: "c", target: "a" },
+    { ...edge, id: "3", source: "b", target: "d" },
+  ];
+  assert.deepEqual(adjacentIds("a", edges), new Set(["a", "b", "c"]));
+  assert.equal(adjacentIds(null, edges), null);
+});

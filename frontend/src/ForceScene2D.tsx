@@ -32,6 +32,7 @@ export default function ForceScene2D(props: SceneProps) {
   );
   const autoFit = useRef(true);
   const [hover, setHover] = useState<string | null>(null),
+    [hoverLink, setHoverLink] = useState<string | null>(null),
     [revision, setRevision] = useState(0);
   const data = useMemo(
     () => createForceData(nodes, edges, positions),
@@ -97,7 +98,7 @@ export default function ForceScene2D(props: SceneProps) {
           radius = node.radius;
         ctx.save();
         ctx.globalAlpha = emphasized ? 1 : 0.2;
-        if (node.id === active) {
+        if (active && neighbors?.has(node.id)) {
           ctx.beginPath();
           ctx.arc(node.x, node.y, radius + 5 / scale, 0, Math.PI * 2);
           ctx.fillStyle = dark ? "#ffffff15" : "#16745416";
@@ -115,7 +116,7 @@ export default function ForceScene2D(props: SceneProps) {
         ctx.stroke();
         if (
           labels &&
-          (nodes.length <= 45 || scale > 1.2 || node.id === active)
+          (nodes.length <= 45 || scale > 1.2 || (active && emphasized))
         ) {
           const font = Math.min(15, 12 / scale);
           ctx.font = `${node.id === active ? 600 : 400} ${font}px Arial`;
@@ -148,9 +149,62 @@ export default function ForceScene2D(props: SceneProps) {
               : "#397e5a"
             : dark
               ? "#506a57"
-              : "#c7d3cb"
+              : "#87998d"
       }
       linkWidth={(link) => (active && linked(link) ? 2 : 1)}
+      linkCanvasObjectMode={() => "after"}
+      linkCanvasObject={(link, ctx, scale) => {
+        if (
+          !labels ||
+          !(
+            nodes.length <= 30 ||
+            (active && linked(link)) ||
+            link.id === hoverLink
+          )
+        )
+          return;
+        if (typeof link.source === "string" || typeof link.target === "string")
+          return;
+        const from = link.source,
+          to = link.target;
+        const length = Math.hypot(to.x - from.x, to.y - from.y);
+        if (length < from.radius + to.radius + 20) return;
+        let angle = Math.atan2(to.y - from.y, to.x - from.x);
+        if (angle > Math.PI / 2 || angle < -Math.PI / 2) angle += Math.PI;
+        ctx.save();
+        ctx.translate((from.x + to.x) / 2, (from.y + to.y) / 2);
+        ctx.rotate(angle);
+        ctx.globalAlpha = active && !linked(link) ? 0.18 : 1;
+        const font = Math.min(14, 11 / scale);
+        ctx.font = `${font}px Arial`;
+        const available = Math.max(24, length - from.radius - to.radius - 20);
+        let label = link.label;
+        while (
+          label.length > 1 &&
+          ctx.measureText(label + "…").width > available
+        )
+          label = label.slice(0, -1);
+        if (label !== link.label) label += "…";
+        const width = ctx.measureText(label).width;
+        ctx.fillStyle = dark ? "#101512" : "#fbfcfb";
+        ctx.fillRect(
+          -width / 2 - 3 / scale,
+          -font - 5 / scale,
+          width + 6 / scale,
+          font + 4 / scale,
+        );
+        ctx.fillStyle = !link.confirmed
+          ? dark
+            ? "#dfbc7a"
+            : "#906b2d"
+          : dark
+            ? "#bdcbbf"
+            : "#50655a";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.fillText(label, 0, -3 / scale);
+        ctx.restore();
+      }}
       linkLineDash={(link) => (link.confirmed ? [] : [5, 4])}
       linkDirectionalArrowLength={5}
       linkDirectionalArrowRelPos={0.85}
@@ -164,6 +218,7 @@ export default function ForceScene2D(props: SceneProps) {
       }}
       onNodeClick={(node) => onSelect(node.id)}
       onLinkClick={(link) => onLink(link.id)}
+      onLinkHover={(link) => setHoverLink(link?.id ?? null)}
       onNodeDragEnd={(node) => {
         node.fx = node.x;
         node.fy = node.y;

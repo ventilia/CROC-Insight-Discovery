@@ -17,6 +17,7 @@ import {
   Moon,
 } from "lucide-react";
 import type { Company } from "./api";
+import { CrmImport } from "./CrmImport";
 import { InfluenceMap } from "./InfluenceMap";
 import { RelationshipHealth } from "./RelationshipHealth";
 import { Navigator } from "./Navigator";
@@ -79,6 +80,7 @@ export function App() {
   const [search, setSearch] = useState(""),
     [mobileNav, setMobileNav] = useState(false),
     [toast, setToast] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [person, setPerson] = useState<{ iid: string; pid: string } | null>(
       null,
@@ -161,9 +163,6 @@ export function App() {
             setMobileNav(false);
           }}
         >
-          <span className="kit-symbol">
-            <Network size={23} />
-          </span>
           <span>
             KIT<small>KROK insight tool</small>
           </span>
@@ -262,14 +261,22 @@ export function App() {
             Аналитика
           </button>
         </nav>
+        <button
+          type="button"
+          className="sidebar-theme-toggle"
+          aria-label={
+            theme === "dark" ? "Включить светлую тему" : "Включить тёмную тему"
+          }
+          title={theme === "dark" ? "Светлая тема" : "Тёмная тема"}
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+        >
+          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          {theme === "dark" ? "Светлая тема" : "Тёмная тема"}
+        </button>
         <div className="sidebar-footer">
           <div>
             <strong>Команда КРОК</strong>
-            <small>
-              {data?.capabilities.mode === "demo"
-                ? "Демонстрационный режим"
-                : "Корпоративные отношения"}
-            </small>
+            <small>Рабочая группа</small>
           </div>
         </div>
       </aside>
@@ -343,25 +350,14 @@ export function App() {
               </div>
             )}
           </div>
+
           <button
-            type="button"
-            className="icon-button theme-toggle"
-            aria-label={
-              theme === "dark"
-                ? "Включить светлую тему"
-                : "Включить тёмную тему"
-            }
-            title={theme === "dark" ? "Светлая тема" : "Тёмная тема"}
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="secondary crm-import-trigger"
+            disabled={!data || !canEdit}
+            onClick={() => setImportOpen(true)}
           >
-            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            Импорт из CRM
           </button>
-          <span className="mode-badge">
-            <i />
-            {data?.capabilities.mode === "demo"
-              ? "Демо · локальное сохранение"
-              : "API команды"}
-          </span>
         </header>
         <main className="main-content" aria-busy={workspace.loading}>
           {workspace.error && (
@@ -562,11 +558,6 @@ export function App() {
         </main>
         <footer className="app-footer">
           <span>KIT · KROK insight tool</span>
-          <span>
-            {data?.capabilities.mode === "demo"
-              ? "Синтетические данные. Изменения хранятся на этом компьютере."
-              : "Данные из подключённых источников."}
-          </span>
         </footer>
       </div>
       {profileOpen &&
@@ -582,6 +573,18 @@ export function App() {
             onEvent={() => setForm({ iid: person.iid, pid: person.pid })}
           />
         )}
+      {importOpen && data && (
+        <CrmImport
+          data={data}
+          initialId={active?.initiative.id}
+          close={() => setImportOpen(false)}
+          saved={(message) => {
+            setImportOpen(false);
+            setToast(message);
+            workspace.refresh();
+          }}
+        />
+      )}
       {form && data && (
         <EventForm
           items={data.initiatives.filter(
@@ -658,7 +661,7 @@ function Dashboard({
     },
   ];
   return (
-    <>
+    <div className="dashboard">
       <div className="page-title">
         <div>
           <h1>Работа с клиентами</h1>
@@ -744,7 +747,7 @@ function Dashboard({
           />
         </section>
       </div>
-    </>
+    </div>
   );
 }
 function CompanyGrid({

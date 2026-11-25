@@ -134,6 +134,15 @@ test("HTTP API требует CSRF, сохраняет запись, блоки�
       body: JSON.stringify(payload()),
     });
     assert.equal(denied.status, 403);
+    const deniedImport = await fetch(
+      `${base}/initiatives/${iid}/imports/contacts`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contacts: [{ name: "Тест CRM" }] }),
+      },
+    );
+    assert.equal(deniedImport.status, 403);
     const csrf = await fetch(base + "/csrf"),
       token = await csrf.json(),
       cookie = csrf.headers.get("set-cookie").split(";")[0];
@@ -142,6 +151,22 @@ test("HTTP API требует CSRF, сохраняет запись, блоки�
       [token.headerName]: token.token,
       Cookie: cookie,
     };
+    const imported = await fetch(
+      `${base}/initiatives/${iid}/imports/contacts`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          contacts: [{ name: "Тест CRM", email: "http@example.com" }],
+        }),
+      },
+    );
+    assert.equal(imported.status, 201);
+    assert.deepEqual(await imported.json(), {
+      created: 1,
+      attached: 1,
+      skipped: 0,
+    });
     const badOrigin = await fetch(`${base}/initiatives/${iid}/events`, {
       method: "POST",
       headers: { ...headers, Origin: "https://untrusted.example" },
@@ -162,5 +187,62 @@ test("HTTP API требует CSRF, сохраняет запись, блоки�
     assert.equal(capabilities.canCreateEvents, true);
   } finally {
     await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("импорт CRM: атомарность, дубли, привязка к проекту и отсутствие выдуманных оценок", () => {
+  const store = createStore(":memory:");
+  const row = {
+    name: "Тест Импорта",
+    jobTitle: "Архитектор",
+    department: "Тестовый отдел",
+    email: "crm@example.com",
+    phone: "",
+  };
+  try {
+    const before = store.graph(iid).nodes.length;
+    assert.throws(
+      () =>
+        store.importContacts(iid, { contacts: [row, { ...row, name: "" }] }),
+      { status: 400 },
+    );
+    assert.equal(store.graph(iid).nodes.length, before);
+    assert.deepEqual(
+      store.importContacts(iid, {
+        contacts: [row, { ...row, email: "CRM@example.com" }],
+      }),
+      { created: 1, attached: 1, skipped: 1 },
+    );
+    assert.deepEqual(
+      store.importContacts(iid, { contacts: [{ ...row, name: "Новое имя" }] }),
+      { created: 0, attached: 0, skipped: 1 },
+    );
+    const imported = store.graph(iid).nodes.find((p) => p.email === row.email);
+    assert.equal(imported.name, row.name);
+    assert.equal(imported.role, null);
+    assert.equal(imported.influence, "UNKNOWN");
+    assert.equal(imported.decisionMaker, false);
+    const other = store
+      .initiatives(
+        store
+          .companies()
+          .find((c) => c.id === store.dossier(iid, imported.id).companyId).id,
+      )
+      .find((i) => i.id !== iid);
+    assert.ok(other);
+    assert.deepEqual(store.importContacts(other.id, { contacts: [row] }), {
+      created: 0,
+      attached: 1,
+      skipped: 0,
+    });
+    assert.throws(
+      () =>
+        store.importContacts("20000000-0000-4000-8000-999999999999", {
+          contacts: [row],
+        }),
+      { status: 404 },
+    );
+  } finally {
+    store.close();
   }
 });

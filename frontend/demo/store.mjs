@@ -1,7 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 export class HttpError extends Error {
   constructor(status, message) {
@@ -334,6 +334,104 @@ export function createStore(filename) {
     }
     return { id: value.id };
   }
+  function importContacts(iid, value) {
+    const i = initiative(iid);
+    if (
+      !Array.isArray(value.contacts) ||
+      !value.contacts.length ||
+      value.contacts.length > 500
+    )
+      throw new HttpError(400, "Ожидается от 1 до 500 контактов.");
+    const records = value.contacts.map((p) => {
+      if (!p || Array.isArray(p) || typeof p !== "object")
+        throw new HttpError(400, "Некорректный контакт.");
+      const result = {
+        name: text(p.name, 200, true),
+        jobTitle: text(p.jobTitle, 300),
+        department: text(p.department, 160),
+        email: text(p.email, 254),
+        phone: text(p.phone, 60),
+      };
+      if (result.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(result.email))
+        throw new HttpError(400, "Некорректный email.");
+      return result;
+    });
+    const normalize = (s) => (s ?? "").trim().toLocaleLowerCase("ru");
+    const nameKey = (name, job, department) =>
+      JSON.stringify([name, job, department].map(normalize));
+    let created = 0,
+      attached = 0,
+      skipped = 0;
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      const existing = all(
+        "SELECT c.*, d.name AS department_name FROM contacts c LEFT JOIN departments d ON d.id=c.department_id WHERE c.company_id=?",
+        i.company_id,
+      );
+      const emails = new Map(
+        existing.filter((p) => p.email).map((p) => [normalize(p.email), p.id]),
+      );
+      const names = new Map(
+        existing.map((p) => [
+          nameKey(p.name, p.job_title, p.department_name),
+          p.id,
+        ]),
+      );
+      const departments = new Map(
+        all(
+          "SELECT id,name FROM departments WHERE company_id=?",
+          i.company_id,
+        ).map((d) => [normalize(d.name), d.id]),
+      );
+      for (const p of records) {
+        const key = nameKey(p.name, p.jobTitle, p.department);
+        let id = p.email ? emails.get(normalize(p.email)) : names.get(key);
+        if (!id) {
+          let did = p.department
+            ? departments.get(normalize(p.department))
+            : null;
+          if (p.department && !did) {
+            did = randomUUID();
+            run(
+              "INSERT INTO departments(id,company_id,name) VALUES (?,?,?)",
+              did,
+              i.company_id,
+              p.department,
+            );
+            departments.set(normalize(p.department), did);
+          }
+          id = randomUUID();
+          run(
+            "INSERT INTO contacts(id,company_id,department_id,name,job_title,email,phone) VALUES (?,?,?,?,?,?,?)",
+            id,
+            i.company_id,
+            did,
+            p.name,
+            p.jobTitle,
+            p.email,
+            p.phone,
+          );
+          if (p.email) emails.set(normalize(p.email), id);
+          names.set(key, id);
+          created++;
+        }
+        const result = run(
+          "INSERT OR IGNORE INTO initiative_participants(initiative_id,company_id,contact_id,decision_maker,influence) VALUES (?,?,?,0,?)",
+          iid,
+          i.company_id,
+          id,
+          "UNKNOWN",
+        );
+        if (result.changes) attached++;
+        else skipped++;
+      }
+      db.exec("COMMIT");
+      return { created, attached, skipped };
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+  }
   return {
     close: () => db.close(),
     companies: () =>
@@ -429,5 +527,6 @@ export function createStore(filename) {
     events,
     coverage,
     createEvent,
+    importContacts,
   };
 }

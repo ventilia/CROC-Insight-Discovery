@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test src/api.test.ts src/coverage.test.ts src/graph.test.ts src/forceGraph.test.ts src/health.test.ts src/workspace.test.ts demo/store.test.mjs",
+    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test src/api.test.ts src/crm.test.ts src/coverage.test.ts src/graph.test.ts src/forceGraph.test.ts src/health.test.ts src/workspace.test.ts demo/store.test.mjs",
     "preview": "vite preview",
     "demo": "node demo/server.mjs"
   },
@@ -17,15 +17,12 @@
     "lucide-react": "1.80.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "react-force-graph-2d": "1.29.2",
-    "react-force-graph-3d": "1.29.2",
-    "three": "0.187.0"
+    "react-force-graph-2d": "1.29.2"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@types/three": "0.187.0",
     "typescript": "5.9.3",
     "vite": "7.3.8"
   }

@@ -1,8 +1,5 @@
 import { useState } from "react";
-import {
-  CalendarDays,
-  Search,
-} from "lucide-react";
+import { CalendarDays, Search } from "lucide-react";
 import { formatDate } from "./coverage";
 import type { HistoryEntry } from "./workspace";
 
