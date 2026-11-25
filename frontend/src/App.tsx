@@ -265,7 +265,6 @@ export function App() {
           </button>
         </nav>
         <div className="sidebar-footer">
-          <span className="team-avatar">К</span>
           <div>
             <strong>Команда КРОК</strong>
             <small>
@@ -769,7 +768,7 @@ function CompanyGrid({
 }) {
   return data.companies.length ? (
     <div className="company-grid">
-      {data.companies.map((company, index) => {
+      {data.companies.map((company) => {
         const items = companyData(data, company.id),
           people = uniquePeople(items),
           departments = new Set(
@@ -787,17 +786,6 @@ function CompanyGrid({
             onClick={() => onOpen(company.id)}
           >
             <div className="company-card-top">
-              <span
-                className={
-                  "company-monogram tone-" + (index % 2 ? "blue" : "green")
-                }
-              >
-                {company.name
-                  .split(" ")
-                  .map((word) => word[0])
-                  .slice(0, 2)
-                  .join("")}
-              </span>
               <span className="pill">Проектов: {items.length}</span>
               <ChevronRight size={20} />
             </div>
@@ -954,14 +942,6 @@ function CompanyOverview({
                   key={person.id}
                   onClick={() => onPerson(item.initiative.id, person.id)}
                 >
-                  <span
-                    className={"avatar tone-" + roleTone(person.role?.code)}
-                  >
-                    {person.name
-                      .split(" ")
-                      .map((word) => word[0])
-                      .join("")}
-                  </span>
                   <div>
                     <strong>{person.name}</strong>
                     <small>{person.jobTitle ?? "Должность не указана"}</small>
@@ -1057,17 +1037,6 @@ function ContactTable({
                         className="person-button"
                         onClick={() => onPerson(item.initiative.id, person.id)}
                       >
-                        <span
-                          className={
-                            "avatar tone-" + roleTone(person.role?.code)
-                          }
-                        >
-                          {person.name
-                            .split(" ")
-                            .slice(0, 2)
-                            .map((word) => word[0])
-                            .join("")}
-                        </span>
                         <span>
                           <strong>{person.name}</strong>
                           <small>

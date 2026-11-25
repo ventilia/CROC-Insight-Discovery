@@ -93,13 +93,6 @@ export function ContactDrawer({
       </header>
       <div className="drawer-scroll">
         <div className="profile-hero">
-          <span className={"avatar large tone-" + roleTone(person.role?.code)}>
-            {person.name
-              .split(" ")
-              .slice(0, 2)
-              .map((part) => part[0])
-              .join("")}
-          </span>
           <div className="profile-identity">
             <h2 id="contact-drawer-title" ref={heading} tabIndex={-1}>
               {person.name}

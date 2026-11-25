@@ -178,13 +178,7 @@ export function EventForm({
                       )
                     }
                   />
-                  <span className="avatar small">
-                    {person.name
-                      .split(" ")
-                      .map((part) => part[0])
-                      .slice(0, 2)
-                      .join("")}
-                  </span>
+
                   <span>{person.name}</span>
                   {selected.includes(person.id) && <Check size={15} />}
                 </label>
