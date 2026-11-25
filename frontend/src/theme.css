@@ -1,0 +1,408 @@
+/* KIT dark palette. Scoped so the light workspace stays available. */
+:root {
+  color-scheme: light;
+}
+.theme-toggle {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  color: #dce7de;
+  background: #101512;
+  --accent: #91c66a;
+  --accent-dark: #a3d17f;
+  --ink-muted: #a0aea4;
+  --line: #303e34;
+  --panel: #19211c;
+  --soft: #202b24;
+  --secondary-panel: #26332b;
+}
+html[data-theme="dark"] ::selection {
+  color: #101512;
+  background: #91c66a;
+}
+html[data-theme="dark"] :focus-visible {
+  outline-color: #91c66a;
+}
+html[data-theme="dark"] :is(.sidebar, .topbar) {
+  background: #131b16;
+  border-color: var(--line);
+}
+html[data-theme="dark"] .sidebar {
+  border-right: 1px solid var(--line);
+}
+html[data-theme="dark"] .kit-brand {
+  color: #dce7de;
+}
+html[data-theme="dark"] .kit-symbol {
+  background: #91c66a;
+  color: #172311;
+}
+html[data-theme="dark"]
+  :is(.kit-brand small, .nav-caption, .sidebar-footer small) {
+  color: #89978d;
+}
+html[data-theme="dark"] .sidebar nav button {
+  color: #aab8ae;
+}
+html[data-theme="dark"] .sidebar nav button:hover {
+  background: #202b24;
+}
+html[data-theme="dark"] .sidebar nav button.active {
+  background: #26382a;
+  color: #b1d892;
+}
+html[data-theme="dark"] .sidebar-footer {
+  border-color: var(--line);
+}
+html[data-theme="dark"] .team-avatar {
+  background: #26332b;
+  color: #b1d892;
+}
+html[data-theme="dark"]
+  :is(
+    .surface,
+    .metric-card,
+    .company-card,
+    .contact-drawer,
+    .event-dialog,
+    .search-results,
+    .graph-directory
+  ) {
+  background: var(--panel);
+  border-color: var(--line);
+  color: #dce7de;
+}
+html[data-theme="dark"] :is(.contact-drawer, .event-dialog, .search-results) {
+  box-shadow: 0 18px 60px #0005;
+}
+html[data-theme="dark"]
+  :is(
+    .secondary,
+    .icon-button,
+    .snapshot-label,
+    .total-label,
+    .pill,
+    .count-badge,
+    .department-icon,
+    .activity-icon
+  ) {
+  background: var(--soft);
+  border-color: var(--line);
+  color: #bdcbbf;
+}
+html[data-theme="dark"] :is(.secondary, .icon-button):hover:not(:disabled) {
+  background: #304133;
+  color: #dce7de;
+}
+html[data-theme="dark"] .primary {
+  background: #91c66a;
+  border-color: #91c66a;
+  color: #172311;
+}
+html[data-theme="dark"] .primary:hover:not(:disabled) {
+  background: #a3d17f;
+}
+html[data-theme="dark"]
+  :is(
+    input,
+    select,
+    textarea,
+    .select select,
+    .source-editor select,
+    .source-editor textarea,
+    .map-filters input,
+    .map-filters select
+  ) {
+  color: #dce7de;
+  background: #131b16;
+  border-color: #3b4b40;
+  accent-color: #91c66a;
+}
+html[data-theme="dark"] :is(input, textarea)::placeholder {
+  color: #89978d;
+  opacity: 1;
+}
+html[data-theme="dark"]
+  :is(
+    label,
+    .breadcrumb > span,
+    .breadcrumb > svg,
+    .eyebrow,
+    .mode-badge,
+    .app-footer,
+    .global-search > svg,
+    .page-title p,
+    .section-heading p,
+    .metric-card > div,
+    .metric-card > small,
+    .company-card > p,
+    .company-card-stats,
+    .company-card-footer small,
+    .risk-list small,
+    .scope-bar > span,
+    .company-summary p,
+    .company-facts span,
+    .department-cards small,
+    .key-people small,
+    .person-button small,
+    .cell-date,
+    .activity-meta,
+    .activity-content p,
+    .activity-content > small,
+    .drawer-header,
+    .profile-hero > p,
+    .profile-hero > span:last-of-type,
+    .profile-section > p,
+    .position-summary p,
+    .position-summary small,
+    .linked-people span,
+    .linked-people p,
+    .participant-picker > span,
+    .participant-picker small,
+    .search-results small,
+    .updating,
+    .empty-inline,
+    .read-only-note,
+    .graph-count,
+    .graph-color-control,
+    .graph-directory small,
+    .graph-directory > div > span,
+    .graph-legend button,
+    .graph-options label,
+    .graph-instructions,
+    .graph-connections span,
+    .graph-connections small,
+    .graph-connections > p,
+    .insight-grid p,
+    .status-tag.UNKNOWN,
+    .status-tag,
+    .empty-state
+  ) {
+  color: #a0aea4;
+}
+html[data-theme="dark"] :is(.activity-context, .profile-section > small) {
+  color: #a0aea4 !important;
+}
+html[data-theme="dark"]
+  :is(
+    .risk-list > button,
+    .department-cards > div,
+    .key-people > button,
+    .search-results button
+  ) {
+  color: inherit;
+  background: transparent;
+  border-color: var(--line);
+}
+html[data-theme="dark"]
+  :is(
+    .search-results button:hover,
+    .key-people > button:hover,
+    .risk-list > button:hover
+  ) {
+  background: var(--soft);
+}
+html[data-theme="dark"] :is(.company-card:hover, .linked-people button:hover) {
+  border-color: #688b55;
+  box-shadow: none;
+}
+html[data-theme="dark"]
+  :is(.client-tabs, th, td, .graph-directory > div, .participant-picker label) {
+  border-color: var(--line);
+}
+html[data-theme="dark"] .client-tabs button {
+  color: #a0aea4;
+}
+html[data-theme="dark"] .client-tabs button[aria-current="page"] {
+  color: #b1d892;
+}
+html[data-theme="dark"]
+  :is(
+    th,
+    .extra-filters,
+    .next-step,
+    .source-editor,
+    .editor-latest,
+    .linked-people button,
+    .insight-grid article,
+    .graph-connections li > button
+  ) {
+  background: var(--soft);
+  border-color: var(--line);
+  color: inherit;
+}
+html[data-theme="dark"] th {
+  color: #a0aea4;
+}
+html[data-theme="dark"] tbody tr:hover {
+  background: #223027;
+}
+html[data-theme="dark"] .person-button {
+  color: #dce7de;
+}
+html[data-theme="dark"] .profile-hero {
+  background: #1d2921;
+}
+html[data-theme="dark"]
+  :is(
+    .contact-line a,
+    .health-body summary,
+    .filter-bottom > details,
+    .activity-content b,
+    .participant-picker svg,
+    .empty-state h2,
+    .empty-state h3
+  ) {
+  color: #b1d892;
+}
+html[data-theme="dark"] .health-score {
+  background: #26382a;
+  color: #dce7de;
+}
+html[data-theme="dark"] .health-score strong {
+  color: #b1d892;
+}
+html[data-theme="dark"] :is(.health-score div span, .health-score small) {
+  color: #b0c0b4;
+}
+html[data-theme="dark"] :is(.health-risk, .attention-text, .status-tag.STALE) {
+  color: #d9b878;
+}
+html[data-theme="dark"]
+  :is(.attention-note, .position-summary strong, .insight-label) {
+  background: #342f22;
+  color: #e0c185 !important;
+}
+html[data-theme="dark"] .status-tag.RECENT {
+  color: #a3cc8b;
+}
+html[data-theme="dark"] :is(.error-banner, .form-error) {
+  background: #35251f;
+  border-color: #684437;
+  color: #edb79e;
+}
+html[data-theme="dark"] .event-dialog::backdrop {
+  background: #050906b8;
+}
+html[data-theme="dark"] .participant-picker label:has(input:checked) {
+  background: #26382a;
+  border-color: #688b55;
+}
+html[data-theme="dark"] .participant-picker .avatar {
+  background: #26332b;
+  color: #b1d892;
+}
+html[data-theme="dark"] .activity-list > li:not(:last-child)::after {
+  background: var(--line);
+}
+html[data-theme="dark"] .event-EMAIL {
+  background: #2a2435;
+  border-color: #41354e;
+  color: #b7a0d0;
+}
+html[data-theme="dark"] .event-CALL {
+  background: #202f3b;
+  border-color: #334956;
+  color: #98b9d3;
+}
+html[data-theme="dark"] .activity-people button {
+  background: var(--soft);
+  border-color: #3b4b40;
+  color: #bdcbbf;
+}
+html[data-theme="dark"] .toast {
+  background: #26382a;
+  border: 1px solid #688b55;
+  color: #dce7de;
+}
+html[data-theme="dark"] .toast .icon-button {
+  color: #dce7de;
+}
+html[data-theme="dark"] .tone-green {
+  --tone: #a3cc8b;
+  --tint: #27392a;
+}
+html[data-theme="dark"] .tone-blue {
+  --tone: #a0beda;
+  --tint: #23323e;
+}
+html[data-theme="dark"] .tone-violet {
+  --tone: #c1a8da;
+  --tint: #302839;
+}
+html[data-theme="dark"] .tone-amber {
+  --tone: #dec080;
+  --tint: #373121;
+}
+html[data-theme="dark"] .tone-rose {
+  --tone: #d7a8bc;
+  --tint: #382a31;
+}
+html[data-theme="dark"] .tone-gray {
+  --tone: #b0bfb4;
+  --tint: #2a342e;
+}
+html[data-theme="dark"] .graph-mode {
+  background: #131b16;
+  border-color: var(--line);
+}
+html[data-theme="dark"] .graph-mode button {
+  color: #a0aea4;
+}
+html[data-theme="dark"] .graph-mode button[aria-pressed="true"] {
+  background: #304133;
+  color: #c0dfa8;
+  box-shadow: none;
+}
+html[data-theme="dark"]
+  :is(.graph-directory button:hover, .graph-connections li > button:hover) {
+  background: #26332b;
+}
+html[data-theme="dark"]
+  :is(
+    .graph-directory button[aria-pressed="true"],
+    .graph-legend button[aria-pressed="true"],
+    .graph-connections li > button.selected
+  ) {
+  background: #26382a;
+  border-color: #688b55;
+  color: #c0dfa8;
+}
+/* The canvas can also be switched independently in the light workspace. */
+.graph-dark .force-stage {
+  background: #101512;
+}
+.graph-dark .graph-stage-controls {
+  background: #19211cf2;
+  border-color: #3b4b40;
+}
+.graph-dark .graph-stage-controls .icon-button {
+  color: #bdcbbf;
+  background: transparent;
+}
+.graph-dark :is(.graph-hover-card, .graph-edge-card) {
+  background: #19211cf5;
+  border-color: #3b4b40;
+  color: #dce7de;
+}
+.graph-dark :is(.graph-hover-card span, .graph-edge-card p) {
+  color: #bdcbbf;
+}
+.graph-dark :is(.graph-hover-card small, .graph-canvas-caption) {
+  color: #a0aea4;
+}
+@media (max-width: 720px) {
+  .topbar {
+    gap: 10px;
+  }
+  .topbar .global-search {
+    min-width: 0;
+    flex: 1;
+  }
+  .theme-toggle {
+    width: 34px;
+  }
+}

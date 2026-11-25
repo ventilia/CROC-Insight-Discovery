@@ -3,18 +3,21 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "engines": {"node": ">=22.12.0"},
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test src/api.test.ts src/coverage.test.ts",
-    "preview": "vite preview"
+    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test src/api.test.ts src/crm.test.ts src/projectLinks.test.ts src/coverage.test.ts src/graph.test.ts src/forceGraph.test.ts src/health.test.ts src/workspace.test.ts demo/store.test.mjs demo/workspace-store.test.mjs",
+    "preview": "vite preview",
+    "demo": "node demo/server.mjs"
   },
   "dependencies": {
-    "@fontsource-variable/onest": "5.3.1",
     "lucide-react": "1.80.0",
     "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "react-dom": "19.3.1",
+    "react-force-graph-2d": "1.29.2"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

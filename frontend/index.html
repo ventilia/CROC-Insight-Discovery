@@ -3,8 +3,20 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f2f5f2" />
-    <title>КРОК Insight — Детектор потерянных связей</title>
+    <meta name="theme-color" content="#101512" />
+    <script>
+      try {
+        document.documentElement.dataset.theme =
+          localStorage.getItem("kit.theme") === "light" ? "light" : "dark";
+      } catch {
+        document.documentElement.dataset.theme = "dark";
+      }
+    </script>
+    <title>KIT — KROK insight tool</title>
+    <meta
+      name="description"
+      content="Корпоративные отношения: клиенты, карта связей, история и аналитика команды КРОК."
+    />
   </head>
   <body>
     <div id="root"></div>

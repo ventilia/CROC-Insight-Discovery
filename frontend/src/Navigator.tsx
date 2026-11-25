@@ -38,13 +38,13 @@ export function Navigator({ initiativeId, days, asOf }: { initiativeId: string; 
   return <section className="surface navigator" aria-labelledby="navigator-heading">
     <div className="navigator-meta">
       <h2 id="navigator-heading"><Sparkles size={18} /> Навигатор</h2>
-      {settings.data?.enabled && <small>{answer?.model ?? settings.data.model} · срез {formatDate(answer?.asOf ?? asOf)}</small>}
+      {settings.data?.enabled && <small>{answer?.model ?? settings.data.model} · данные на {formatDate(answer?.asOf ?? asOf)}</small>}
     </div>
     {settings.loading && <p role="status">Проверяем настройки модели…</p>}
     {settings.error && <p role="alert">{settings.error} <button type="button" className="secondary" onClick={() => setAttempt(attempt + 1)}>Повторить</button></p>}
-    {settings.data && !settings.data.enabled && <p>Локальная модель не подключена. Задайте её адрес и имя на бэкенде.</p>}
+    {settings.data && !settings.data.enabled && <p>AI-помощник не подключён. Выше доступны рекомендации по данным.</p>}
     {settings.data?.enabled && <form onSubmit={submit}>
-      <label htmlFor="navigator-question">Вопрос о контактах инициативы</label>
+      <label htmlFor="navigator-question">Вопрос по проекту</label>
       <div className="navigator-input">
         <textarea id="navigator-question" rows={2} maxLength={400} required value={question}
           onChange={(event) => setQuestion(event.target.value)} disabled={pending} />
@@ -55,7 +55,7 @@ export function Navigator({ initiativeId, days, asOf }: { initiativeId: string; 
     </form>}
     {error && <p role="alert">{error}</p>}
     {answer && <div className="navigator-answer" role="status">
-      <strong>Подсказка локальной модели</strong><p>{answer.answer}</p>
+      <strong>Ответ помощника</strong><p>{answer.answer}</p>
     </div>}
   </section>;
 }

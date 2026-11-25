@@ -1,0 +1,27 @@
+import type { Coverage } from "./coverage.ts";
+
+export function relationshipHealth(data: Coverage) {
+  const decisionMakers = data.contacts.filter((person) => person.decisionMaker);
+  const active = decisionMakers.filter((person) => person.touchStatus === "RECENT");
+  const verified = decisionMakers.filter((person) => person.verificationStatus === "RECENT");
+  const departments = data.departments.filter((department) => department.recentCount > 0);
+  const unknown = data.contacts.filter((person) => person.touchStatus === "UNKNOWN").length;
+  // Pilot heuristic over the complete initiative, independent of UI filters.
+  const hasEvidence = decisionMakers.some((person) => person.touchStatus !== "UNKNOWN") &&
+    decisionMakers.some((person) => person.verificationStatus !== "UNKNOWN") &&
+    data.departments.some((department) => department.touchStatus !== "UNKNOWN");
+  const score = hasEvidence
+    ? Math.round(50 * active.length / decisionMakers.length +
+      30 * departments.length / data.departments.length + 20 * verified.length / decisionMakers.length)
+    : null;
+  const risks: string[] = [];
+  if (!decisionMakers.length) risks.push("ЛПР пока не определены. Уточните роли сотрудников.");
+  else if (!active.length) risks.push("Нет недавних записей об общении с ЛПР.");
+  else if (active.length === 1) risks.push("В истории есть контакт только с одним ЛПР: " + active[0].name + ".");
+  if (verified.length < decisionMakers.length) risks.push("ЛПР с непроверенными данными: " + (decisionMakers.length - verified.length) + ".");
+  if (departments.length < data.departments.length) risks.push("Отделы без недавних контактов в истории: " + (data.departments.length - departments.length) + ".");
+  if (unknown) risks.push("Сотрудники без записей об общении: " + unknown + ".");
+  if (data.contacts.some((person) => !person.department)) risks.push("У части сотрудников не указан отдел.");
+  return { score, active: active.length, decisionMakers: decisionMakers.length,
+    verified: verified.length, departments: departments.length, totalDepartments: data.departments.length, risks };
+}
