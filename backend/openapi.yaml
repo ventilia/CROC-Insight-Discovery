@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: КРОК Insight
-  version: 0.1.0
-  description: Первая версия API чтения карты ЛПР на синтетических данных.
+  version: 0.2.0
+  description: API чтения карты ЛПР, карточек участников и истории касаний на синтетических данных.
 servers:
   - url: http://127.0.0.1:8080
 security:
@@ -99,7 +99,88 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/initiatives/{initiativeId}/people/{personId}:
+    get:
+      operationId: getPersonDossier
+      summary: Карточка участника в контексте инициативы
+      parameters:
+        - $ref: '#/components/parameters/InitiativeId'
+        - name: personId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Данные участника и дата среза
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonDossier'
+              examples:
+                marina:
+                  externalValue: ./examples/person.json
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/initiatives/{initiativeId}/events:
+    get:
+      operationId: listTouchpoints
+      summary: История касаний инициативы или участника
+      parameters:
+        - $ref: '#/components/parameters/InitiativeId'
+        - name: personId
+          in: query
+          description: ID участника этой инициативы. Без параметра возвращается история всей инициативы.
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: cursor
+          in: query
+          description: ID последнего события предыдущей страницы. При смене фильтра начните с первой страницы. Если события нет в текущей выборке, сервер возвращает 400.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Страница событий от новых к старым. При одинаковой дате порядок определяется ID по убыванию.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TouchpointPage'
+              examples:
+                marina:
+                  externalValue: ./examples/events-person.json
+                firstPage:
+                  externalValue: ./examples/events-first-page.json
+                noEvents:
+                  externalValue: ./examples/events-empty.json
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
+  parameters:
+    InitiativeId:
+      name: initiativeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
   securitySchemes:
     demoBasic:
       type: http
@@ -107,7 +188,7 @@ components:
       description: Локальный профиль demo. Пользователь demo-reader, пароль из CROC_DEMO_API_PASSWORD.
   responses:
     BadRequest:
-      description: Ошибка формата идентификатора или фильтра
+      description: Ошибка идентификатора, фильтра или параметра пагинации
       content:
         application/problem+json:
           schema:
@@ -248,6 +329,69 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Role'
+    PersonDossier:
+      type: object
+      required: [companyId, initiativeId, asOf, person]
+      properties:
+        companyId:
+          type: string
+          format: uuid
+        initiativeId:
+          type: string
+          format: uuid
+        asOf:
+          type: string
+          format: date-time
+        person:
+          $ref: '#/components/schemas/Node'
+    TouchpointPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Touchpoint'
+        nextCursor:
+          type: [string, 'null']
+          format: uuid
+          description: Значение для следующего запроса или null в конце истории.
+    Touchpoint:
+      type: object
+      required: [id, type, occurredAt, team, subject, outcome, nextStep, sourceLabel, participants]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          description: Код вида касания. В демонаборе используются MEETING, EMAIL и CALL.
+        occurredAt:
+          type: string
+          format: date-time
+        team:
+          type: string
+        subject:
+          type: string
+        outcome:
+          type: [string, 'null']
+        nextStep:
+          type: [string, 'null']
+        sourceLabel:
+          type: [string, 'null']
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/TouchpointParticipant'
+    TouchpointParticipant:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
     Problem:
       type: object
       required: [title, status]
