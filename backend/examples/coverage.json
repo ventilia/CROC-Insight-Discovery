@@ -1,0 +1,87 @@
+{
+  "initiativeId": "20000000-0000-4000-8000-000000000001",
+  "asOf": "2026-11-24T09:00:00Z",
+  "days": 7,
+  "verificationDays": 90,
+  "contacts": [
+    {
+      "id": "40000000-0000-4000-8000-000000000001",
+      "name": "Марина Орлова",
+      "jobTitle": "Финансовый директор",
+      "department": {
+        "id": "30000000-0000-4000-8000-000000000001",
+        "name": "Финансы"
+      },
+      "decisionMaker": true,
+      "lastTouchAt": "2026-11-18T10:00:00Z",
+      "touchStatus": "RECENT",
+      "lastVerifiedAt": "2026-08-01T09:00:00Z",
+      "verificationStatus": "STALE"
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000002",
+      "name": "Александр Волков",
+      "jobTitle": "ИТ-директор",
+      "department": {
+        "id": "30000000-0000-4000-8000-000000000002",
+        "name": "ИТ"
+      },
+      "decisionMaker": true,
+      "lastTouchAt": "2026-11-18T10:00:00Z",
+      "touchStatus": "RECENT",
+      "lastVerifiedAt": "2026-11-10T09:00:00Z",
+      "verificationStatus": "RECENT"
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000003",
+      "name": "Дарья Белова",
+      "jobTitle": "Руководитель ИБ",
+      "department": {
+        "id": "30000000-0000-4000-8000-000000000003",
+        "name": "ИБ"
+      },
+      "decisionMaker": false,
+      "lastTouchAt": "2026-11-12T08:30:00Z",
+      "touchStatus": "STALE",
+      "lastVerifiedAt": null,
+      "verificationStatus": "UNKNOWN"
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000005",
+      "name": "Никита Сорокин",
+      "jobTitle": null,
+      "department": null,
+      "decisionMaker": false,
+      "lastTouchAt": null,
+      "touchStatus": "UNKNOWN",
+      "lastVerifiedAt": null,
+      "verificationStatus": "UNKNOWN"
+    }
+  ],
+  "departments": [
+    {
+      "id": "30000000-0000-4000-8000-000000000003",
+      "name": "ИБ",
+      "participantCount": 1,
+      "recentCount": 0,
+      "lastTouchAt": "2026-11-12T08:30:00Z",
+      "touchStatus": "STALE"
+    },
+    {
+      "id": "30000000-0000-4000-8000-000000000002",
+      "name": "ИТ",
+      "participantCount": 1,
+      "recentCount": 1,
+      "lastTouchAt": "2026-11-18T10:00:00Z",
+      "touchStatus": "RECENT"
+    },
+    {
+      "id": "30000000-0000-4000-8000-000000000001",
+      "name": "Финансы",
+      "participantCount": 1,
+      "recentCount": 1,
+      "lastTouchAt": "2026-11-18T10:00:00Z",
+      "touchStatus": "RECENT"
+    }
+  ]
+}

@@ -220,6 +220,58 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
         )
     }
 
+    @Test
+    fun `coverage separates old touchpoints from missing history and stale verification`() {
+        val path = "/api/v1/initiatives/$modernization/coverage"
+        val result = read("$path?days=7")
+        val contacts = result.path("contacts").associateBy { it.path("id").asString() }
+        val budgetOwner = requireNotNull(contacts[marina])
+        val securityLead = requireNotNull(contacts["40000000-0000-4000-8000-000000000003"])
+        val unrecorded = requireNotNull(contacts[personWithoutEvents])
+        assertThat(budgetOwner.path("touchStatus").asString()).isEqualTo("RECENT")
+        assertThat(budgetOwner.path("verificationStatus").asString()).isEqualTo("STALE")
+        assertThat(securityLead.path("touchStatus").asString()).isEqualTo("STALE")
+        assertThat(securityLead.path("verificationStatus").asString()).isEqualTo("UNKNOWN")
+        assertThat(unrecorded.path("touchStatus").asString()).isEqualTo("UNKNOWN")
+        assertThat(unrecorded.path("lastTouchAt").isNull).isTrue()
+        assertThat(result.path("departments").first { it.path("name").asString() == "ИБ" }
+            .path("touchStatus").asString()).isEqualTo("STALE")
+        assertThat(read("$path?days=30").path("contacts")
+            .first { it.path("id").asString() == securityLead.path("id").asString() }
+            .path("touchStatus").asString()).isEqualTo("RECENT")
+    }
+
+    @Test
+    fun `coverage validates the observation window and hides inaccessible initiatives`() {
+        val path = "/api/v1/initiatives/$modernization/coverage"
+        assertThat(get("$path?days=0").statusCode()).isEqualTo(400)
+        assertThat(get("$path?days=366").statusCode()).isEqualTo(400)
+        assertThat(get("$path?days=").statusCode()).isEqualTo(400)
+        assertThat(get(path, password = null).statusCode()).isEqualTo(401)
+        assertThat(get("/api/v1/initiatives/$privateInitiative/coverage").statusCode()).isEqualTo(404)
+    }
+
+    @Test
+    fun `coverage ignores future events and uses an inclusive age threshold`() {
+        val data = read("/api/v1/initiatives/$dataProtection/coverage?days=7")
+        val contact = data.path("contacts").first { it.path("id").asString() == marina }
+        assertThat(contact.path("lastTouchAt").asString()).isEqualTo("2026-11-17T09:00:00Z")
+        assertThat(contact.path("touchStatus").asString()).isEqualTo("STALE")
+    }
+
+    @Test
+    fun `snapshot history excludes later events before paginating`() {
+        val path = "/api/v1/initiatives/$dataProtection/events?personId=$marina&limit=1"
+        val later = "60000000-0000-4000-8000-000000000099"
+        assertThat(read(path).path("items").stringValues("id")).containsExactly(later)
+        val through = "2026-11-24T09:00:00Z"
+        val snapshot = read("$path&through=$through")
+        assertThat(snapshot.path("items").stringValues("id")).containsExactly("60000000-0000-4000-8000-000000000004")
+        assertThat(snapshot.path("nextCursor").isNull).isTrue()
+        assertThat(get("$path&through=$through&cursor=$later").statusCode()).isEqualTo(400)
+        assertThat(get("$path&through=").statusCode()).isEqualTo(400)
+    }
+
     private fun assertRejectedByForeignKey(sql: String) {
         connect("croc_migrator", migratorPassword).use { connection ->
             connection.autoCommit = false

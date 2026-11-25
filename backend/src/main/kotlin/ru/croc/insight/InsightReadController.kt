@@ -1,7 +1,10 @@
 package ru.croc.insight
 
 import jakarta.validation.constraints.Pattern
+import jakarta.validation.constraints.Size
 import java.security.Principal
+import java.time.Instant
+import java.time.format.DateTimeParseException
 import java.util.UUID
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
@@ -13,6 +16,8 @@ import org.springframework.web.server.ResponseStatusException
 import ru.croc.insight.catalog.CatalogService
 import ru.croc.insight.catalog.CompanySummary
 import ru.croc.insight.catalog.InitiativeSummary
+import ru.croc.insight.history.Coverage
+import ru.croc.insight.history.CoverageService
 import ru.croc.insight.history.TouchpointPage
 import ru.croc.insight.history.TouchpointService
 import ru.croc.insight.map.Graph
@@ -29,6 +34,7 @@ class InsightReadController(
     private val graphs: GraphService,
     private val participants: ParticipantService,
     private val touchpoints: TouchpointService,
+    private val coverage: CoverageService,
 ) {
     @GetMapping("/companies")
     fun companies(principal: Principal): List<CompanySummary> = catalog.companies(principal.name)
@@ -67,6 +73,7 @@ class InsightReadController(
         @RequestParam(required = false) @Pattern(regexp = UUID_PATTERN) personId: String?,
         @RequestParam(required = false) @Pattern(regexp = "^(?:[1-9]|[1-4][0-9]|50)$") limit: String?,
         @RequestParam(required = false) @Pattern(regexp = UUID_PATTERN) cursor: String?,
+        @RequestParam(required = false) @Size(max = 40) @Pattern(regexp = "[0-9]{4}-.+") through: String?,
         principal: Principal,
     ): TouchpointPage = touchpoints.history(
         principal.name,
@@ -74,5 +81,24 @@ class InsightReadController(
         personId?.let(UUID::fromString),
         limit?.toInt() ?: 20,
         cursor?.let(UUID::fromString),
+        through?.let(::parseThrough),
     ) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
+
+    private fun parseThrough(value: String): Instant = try {
+        Instant.parse(value)
+    } catch (_: DateTimeParseException) {
+        throw ResponseStatusException(HttpStatus.BAD_REQUEST, "through must be an ISO date-time")
+    }
+
+    @GetMapping("/initiatives/{initiativeId}/coverage")
+    fun coverage(
+        @PathVariable @Pattern(regexp = UUID_PATTERN) initiativeId: String,
+        @RequestParam(required = false) @Pattern(regexp = "[0-9]{1,3}") days: String?,
+        principal: Principal,
+    ): Coverage {
+        val period = days?.toInt() ?: 30
+        if (period !in 1..365) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "days must be between 1 and 365")
+        return coverage.find(principal.name, UUID.fromString(initiativeId), period)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
+    }
 }

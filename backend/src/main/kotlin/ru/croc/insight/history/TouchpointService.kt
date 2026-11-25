@@ -3,6 +3,7 @@ package ru.croc.insight.history
 import java.sql.Types
 import java.time.Instant
 import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import java.util.UUID
 import org.springframework.http.HttpStatus
 import org.springframework.jdbc.core.simple.JdbcClient
@@ -36,15 +37,18 @@ class TouchpointService(
     private val jdbc: JdbcClient,
 ) {
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    fun history(viewer: String, initiativeId: UUID, personId: UUID?, limit: Int, cursor: UUID?): TouchpointPage? {
+    fun history(
+        viewer: String, initiativeId: UUID, personId: UUID?, limit: Int, cursor: UUID?, through: Instant?,
+    ): TouchpointPage? {
         val initiative = catalog.findInitiative(viewer, initiativeId) ?: return null
         if (personId != null && !participants.exists(initiative.id, personId)) return null
 
+        val throughDate = through?.atOffset(ZoneOffset.UTC)
         val boundary = cursor?.let {
-            cursorTime(initiative.id, personId, it)
+            cursorTime(initiative.id, personId, it, throughDate)
                 ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Cursor does not match this timeline")
         }
-        val events = page(initiative.id, personId, cursor, boundary, limit + 1)
+        val events = page(initiative.id, personId, cursor, boundary, throughDate, limit + 1)
         if (events.isEmpty()) return TouchpointPage(emptyList(), null)
 
         val currentPage = events.take(limit)
@@ -55,18 +59,21 @@ class TouchpointService(
         )
     }
 
-    private fun cursorTime(initiativeId: UUID, personId: UUID?, cursor: UUID): OffsetDateTime? =
+    private fun cursorTime(
+        initiativeId: UUID, personId: UUID?, cursor: UUID, through: OffsetDateTime?,
+    ): OffsetDateTime? =
         jdbc.sql(
             """
             SELECT t.occurred_at
             FROM touchpoints t
             WHERE t.initiative_id = :initiativeId AND t.id = :cursor
-              AND $PERSON_MATCH
+              AND $TIMELINE_MATCH
             """.trimIndent(),
         )
             .param("initiativeId", initiativeId)
             .param("personId", personId)
             .param("cursor", cursor)
+            .param("through", through, Types.TIMESTAMP_WITH_TIMEZONE)
             .query(OffsetDateTime::class.java)
             .optional()
             .orElse(null)
@@ -76,6 +83,7 @@ class TouchpointService(
         personId: UUID?,
         cursor: UUID?,
         cursorAt: OffsetDateTime?,
+        through: OffsetDateTime?,
         count: Int,
     ): List<Touchpoint> =
         jdbc.sql(
@@ -83,7 +91,7 @@ class TouchpointService(
             SELECT t.id, t.type, t.occurred_at, t.team, t.subject, t.outcome, t.next_step, t.source_label
             FROM touchpoints t
             WHERE t.initiative_id = :initiativeId
-              AND $PERSON_MATCH
+              AND $TIMELINE_MATCH
               AND (CAST(:cursorAt AS timestamptz) IS NULL OR (t.occurred_at, t.id) < (:cursorAt, :cursor))
             ORDER BY t.occurred_at DESC, t.id DESC
             LIMIT :count
@@ -93,6 +101,7 @@ class TouchpointService(
             .param("personId", personId)
             .param("cursor", cursor)
             .param("cursorAt", cursorAt, Types.TIMESTAMP_WITH_TIMEZONE)
+            .param("through", through, Types.TIMESTAMP_WITH_TIMEZONE)
             .param("count", count)
             .query { row, _ ->
                 Touchpoint(
@@ -128,12 +137,13 @@ class TouchpointService(
             .groupBy({ it.first }, { it.second })
 
     private companion object {
-        const val PERSON_MATCH = """
+        const val TIMELINE_MATCH = """
             (CAST(:personId AS uuid) IS NULL OR EXISTS (
                 SELECT 1 FROM touchpoint_participants p
                 WHERE p.initiative_id = t.initiative_id
                   AND p.touchpoint_id = t.id AND p.contact_id = :personId
             ))
+            AND (CAST(:through AS timestamptz) IS NULL OR t.occurred_at <= :through)
         """
     }
 }

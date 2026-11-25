@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: КРОК Insight
-  version: 0.2.0
-  description: API чтения карты ЛПР, карточек участников и истории касаний на синтетических данных.
+  version: 0.3.0
+  description: API карты ЛПР, истории касаний и охвата участников на синтетических данных.
 servers:
   - url: http://127.0.0.1:8080
 security:
@@ -152,6 +152,12 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: through
+          in: query
+          description: Включительная граница по дате события. Используйте дату среза, чтобы история совпадала с охватом.
+          schema:
+            type: string
+            format: date-time
       responses:
         '200':
           description: Страница событий от новых к старым. При одинаковой дате порядок определяется ID по убыванию.
@@ -166,6 +172,36 @@ paths:
                   externalValue: ./examples/events-first-page.json
                 noEvents:
                   externalValue: ./examples/events-empty.json
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/initiatives/{initiativeId}/coverage:
+    get:
+      operationId: getInitiativeCoverage
+      summary: Давность касаний и проверок контактных данных
+      parameters:
+        - $ref: '#/components/parameters/InitiativeId'
+        - name: days
+          in: query
+          description: Порог давности касаний в сутках от даты среза.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+      responses:
+        '200':
+          description: Сведения об охвате по участникам и подразделениям
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coverage'
+              examples:
+                northernLine:
+                  externalValue: ./examples/coverage.json
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -392,6 +428,56 @@ components:
           format: uuid
         name:
           type: string
+    Coverage:
+      type: object
+      required: [initiativeId, asOf, days, verificationDays, contacts, departments]
+      properties:
+        initiativeId: {type: string, format: uuid}
+        asOf: {type: string, format: date-time}
+        days: {type: integer, minimum: 1, maximum: 365}
+        verificationDays: {type: integer, minimum: 1}
+        contacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContactCoverage'
+        departments:
+          type: array
+          description: Подразделения с указанным отделом хотя бы у одного участника.
+          items:
+            $ref: '#/components/schemas/DepartmentCoverage'
+    Recency:
+      type: string
+      enum: [RECENT, STALE, UNKNOWN]
+      description: STALE означает достижение порога давности, UNKNOWN означает отсутствие записи к дате среза.
+    ContactCoverage:
+      type: object
+      required: [id, name, jobTitle, department, decisionMaker, lastTouchAt, touchStatus, lastVerifiedAt, verificationStatus]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        jobTitle: {type: [string, 'null']}
+        department:
+          oneOf:
+            - $ref: '#/components/schemas/Department'
+            - type: 'null'
+        decisionMaker: {type: boolean}
+        lastTouchAt: {type: [string, 'null'], format: date-time}
+        touchStatus:
+          $ref: '#/components/schemas/Recency'
+        lastVerifiedAt: {type: [string, 'null'], format: date-time}
+        verificationStatus:
+          $ref: '#/components/schemas/Recency'
+    DepartmentCoverage:
+      type: object
+      required: [id, name, participantCount, recentCount, lastTouchAt, touchStatus]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        participantCount: {type: integer, minimum: 1}
+        recentCount: {type: integer, minimum: 0}
+        lastTouchAt: {type: [string, 'null'], format: date-time}
+        touchStatus:
+          $ref: '#/components/schemas/Recency'
     Problem:
       type: object
       required: [title, status]
