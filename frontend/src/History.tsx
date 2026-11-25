@@ -1,10 +1,6 @@
 import { useState } from "react";
 import {
   CalendarDays,
-  Mail,
-  Phone,
-  MessageSquare,
-  FileText,
   Search,
 } from "lucide-react";
 import { formatDate } from "./coverage";
@@ -16,13 +12,6 @@ export const eventLabels: Record<string, string> = {
   EMAIL: "Письмо",
   NOTE: "Комментарий",
   PROPOSAL: "Предложение",
-};
-const icons = {
-  MEETING: CalendarDays,
-  CALL: Phone,
-  EMAIL: Mail,
-  NOTE: MessageSquare,
-  PROPOSAL: FileText,
 };
 export function HistoryList({
   entries,
@@ -38,12 +27,8 @@ export function HistoryList({
     <>
       <ol className={"activity-list" + (compact ? " compact" : "")}>
         {entries.slice(0, compact ? 4 : limit).map((event) => {
-          const Icon = icons[event.type as keyof typeof icons] ?? MessageSquare;
           return (
             <li key={event.id}>
-              <span className={"activity-icon event-" + event.type}>
-                <Icon size={18} />
-              </span>
               <div className="activity-content">
                 <div className="activity-meta">
                   <span>{eventLabels[event.type] ?? event.type}</span>
@@ -108,9 +93,7 @@ export function HistoryList({
     <div className="empty-state">
       <CalendarDays size={30} />
       <h3>Записей пока нет</h3>
-      <p>
-        Добавьте встречу, звонок или договорённость.
-      </p>
+      <p>Добавьте встречу, звонок или договорённость.</p>
     </div>
   );
 }

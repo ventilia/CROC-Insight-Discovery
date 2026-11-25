@@ -221,3 +221,12 @@ html[data-theme="dark"] .sidebar-footer strong {
 .company-card-top > svg {
   margin-left: auto;
 }
+
+.activity-list > li:not(:last-child)::after {
+  display: none;
+}
+.activity-list > li:not(:last-child) {
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+}

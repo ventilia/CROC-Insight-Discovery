@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  Activity,
-  Bell,
   Building2,
   CalendarDays,
   ChevronRight,
@@ -637,30 +635,26 @@ function Dashboard({
     {
       label: "Компании",
       value: stats.companies,
-      icon: Building2,
+
       note: "Доступны вашей команде",
-      tone: "green",
     },
     {
       label: "Контакты в базе",
       value: stats.contacts,
-      icon: Users,
+
       note: "Сотрудники компаний",
-      tone: "blue",
     },
     {
       label: "Взаимодействия",
       value: stats.events,
-      icon: Activity,
+
       note: "За 30 дней до указанной даты",
-      tone: "violet",
     },
     {
       label: "Замечания",
       value: stats.risks,
-      icon: Bell,
+
       note: "По данным проектов",
-      tone: "amber",
     },
   ];
   return (
@@ -680,9 +674,6 @@ function Dashboard({
           <div className="metric-card" key={metric.label}>
             <div>
               <span>{metric.label}</span>
-              <span className={"metric-icon tone-" + metric.tone}>
-                <metric.icon size={19} />
-              </span>
             </div>
             <strong>{metric.value}</strong>
             <small>{metric.note}</small>
@@ -707,9 +698,6 @@ function Dashboard({
               <h2>Что нужно проверить</h2>
               <p>По истории общения и данным сотрудников.</p>
             </div>
-            <span className="icon-tile tone-amber">
-              <Bell size={18} />
-            </span>
           </div>
           <div className="risk-list">
             {riskItems.slice(0, 4).map(({ item, text }, index) => (
@@ -897,9 +885,6 @@ function CompanyOverview({
                 );
               return (
                 <div key={department.id}>
-                  <span className="department-icon">
-                    <Building2 size={19} />
-                  </span>
                   <div>
                     <strong>{department.name}</strong>
                     <small>
@@ -1123,9 +1108,6 @@ function Insights({
             <h2>Рекомендации</h2>
             <p>Что можно сделать по выбранному проекту.</p>
           </div>
-          <span className="icon-tile tone-violet">
-            <ChartColumn size={19} />
-          </span>
         </div>
         <div className="insight-grid">
           {health.risks.map((risk, index) => (
