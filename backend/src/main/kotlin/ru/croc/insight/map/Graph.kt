@@ -21,6 +21,10 @@ data class GraphNode(
     val department: Department?,
     val role: ParticipantRole?,
     val decisionMaker: Boolean,
+    val influence: String? = null,
+    val influenceBasis: String? = null,
+    val email: String? = null,
+    val phone: String? = null,
 )
 
 data class GraphEdge(
