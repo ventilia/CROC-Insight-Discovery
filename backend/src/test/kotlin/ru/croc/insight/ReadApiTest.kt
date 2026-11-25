@@ -8,11 +8,13 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.file.Path
+import java.security.MessageDigest
 import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.SQLException
 import java.time.Duration
 import java.util.Base64
+import java.util.HexFormat
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
@@ -77,6 +79,41 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
         assertThat(items[0].path("author").asString()).isEqualTo("demo-editor")
         val catalog = request("/api/v1/companies/$company/initiatives", editorPassword, "GET", "demo-editor")
         assertThat(json(catalog)[0].path("asOf").asString()).isEqualTo("2026-11-24T09:00:00Z")
+    }
+
+    @Test
+    fun `editor can retry an event recorded by V5 with an uppercase participant id`() {
+        val initiative = "20000000-0000-4000-8000-000000000098"
+        val person = "40000000-0000-4000-8000-00000000009A"
+        val id = UUID.randomUUID()
+        val recordedAt = "2026-11-23T11:00:00Z"
+        val fields = listOf(initiative, "demo-editor", "CALL", recordedAt, "Продажи", "Старая запись", "", "", "Менеджер V5", person)
+        val digest = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+            .digest(fields.joinToString("") { "${it.length}:$it" }.toByteArray()))
+        connect("croc_migrator", migratorPassword).use { connection ->
+            connection.prepareStatement(
+                """
+                INSERT INTO insight.touchpoints (id, initiative_id, type, occurred_at, team, subject,
+                    responsible_manager, created_by, request_fingerprint)
+                VALUES (?, ?::uuid, 'CALL', ?::timestamptz, 'Продажи', 'Старая запись', 'Менеджер V5', 'demo-editor', ?)
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setObject(1, id)
+                statement.setString(2, initiative)
+                statement.setString(3, recordedAt)
+                statement.setString(4, digest)
+                statement.executeUpdate()
+            }
+        }
+        preparedWriter
+        val headers = csrf("demo-editor", editorPassword) + ("Content-Type" to "application/json")
+        val payload = mapper.writeValueAsString(mapOf(
+            "id" to id, "type" to "CALL", "occurredAt" to recordedAt, "team" to "Продажи",
+            "subject" to "Старая запись", "responsibleManager" to "Менеджер V5", "participantIds" to listOf(person),
+        ))
+        val response = request("/api/v1/initiatives/$initiative/events", editorPassword, "POST", "demo-editor", headers, payload)
+        assertThat(response.statusCode()).isEqualTo(201)
+        assertThat(json(response).path("id").asString()).isEqualTo(id.toString())
     }
 
     @Test

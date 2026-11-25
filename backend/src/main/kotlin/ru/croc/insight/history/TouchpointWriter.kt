@@ -40,16 +40,20 @@ class TouchpointWriter(
             nextStep = change.nextStep?.trim()?.takeIf(String::isNotEmpty),
             comment = change.comment?.trim()?.takeIf(String::isNotEmpty), responsibleManager = change.responsibleManager.trim(),
         )
-        val fingerprint = fingerprint(initiative, author, normalized, participants)
+        val requestFingerprint = fingerprint(initiative, author, normalized, participants.map(UUID::toString))
         try {
             transaction.executeWithoutResult {
                 if (!canWrite(initiative, author)) throw ResponseStatusException(HttpStatus.NOT_FOUND)
-                if (insert(id, initiative, author, normalized, fingerprint) == 0) {
+                if (insert(id, initiative, author, normalized, requestFingerprint) == 0) {
                     val existing = jdbc.sql(
                         "SELECT request_fingerprint FROM touchpoints WHERE id = :id AND initiative_id = :initiative AND created_by = :author",
                     ).param("id", id).param("initiative", initiative).param("author", author)
                         .query(String::class.java).optional().orElse(null)
-                    if (existing != fingerprint) throw ResponseStatusException(HttpStatus.CONFLICT, "Event ID already used")
+                    val matchesV5 = existing != null && normalized.comment == null &&
+                        existing == fingerprint(initiative, author, normalized, normalized.participantIds.filterNotNull())
+                    if (existing != requestFingerprint && !matchesV5) {
+                        throw ResponseStatusException(HttpStatus.CONFLICT, "Event ID already used")
+                    }
                     return@executeWithoutResult
                 }
                 val recordedParticipants = jdbc.sql(
@@ -99,11 +103,11 @@ class TouchpointWriter(
             .param("nextStep", change.nextStep).param("manager", change.responsibleManager).param("author", author)
             .param("fingerprint", fingerprint).param("comment", change.comment).update()
 
-    private fun fingerprint(initiative: UUID, author: String, change: TouchpointChange, participants: List<UUID>): String {
+    private fun fingerprint(initiative: UUID, author: String, change: TouchpointChange, participants: List<String>): String {
         val base = listOf(
             initiative.toString(), author, change.type, change.occurredAt.toString(), change.team, change.subject,
             change.outcome.orEmpty(), change.nextStep.orEmpty(), change.responsibleManager,
-            participants.map(UUID::toString).sorted().joinToString(","),
+            participants.sorted().joinToString(","),
         )
         val canonical = (base + listOfNotNull(change.comment)).joinToString("") { "${it.length}:$it" }
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(canonical.toByteArray(Charsets.UTF_8)))
