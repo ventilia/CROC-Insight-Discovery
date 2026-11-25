@@ -70,18 +70,21 @@ export function InfluenceMap({
   item,
   selectedId,
   onSelect,
+  darkTheme = false,
 }: {
   item: InitiativeData;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  darkTheme?: boolean;
 }) {
   const [filters, setFilters] = useState(emptyFilters),
     [smart, setSmart] = useState(emptyContactFilters);
   const [mode, setMode] = useState<"2d" | "3d">("2d"),
-    [dark, setDark] = useState(false),
+    [dark, setDark] = useState(darkTheme),
     [colorMode, setColorMode] = useState<ColorMode>("role");
   const [showFilters, setShowFilters] = useState(false),
     [labels, setLabels] = useState(true);
+  useEffect(() => setDark(darkTheme), [darkTheme]);
   const [paused, setPaused] = useState(
     () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );

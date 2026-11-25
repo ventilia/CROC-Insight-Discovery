@@ -86,7 +86,7 @@ export default function ForceScene2D(props: SceneProps) {
       width={width}
       height={height}
       graphData={data}
-      backgroundColor={dark ? "#121d28" : "#fbfcfb"}
+      backgroundColor={dark ? "#101512" : "#fbfcfb"}
       minZoom={0.12}
       maxZoom={6}
       nodeLabel={() => ""}
@@ -111,7 +111,7 @@ export default function ForceScene2D(props: SceneProps) {
         ctx.fillStyle = color(node);
         ctx.fill();
         ctx.lineWidth = 1.5 / scale;
-        ctx.strokeStyle = dark ? "#dbeaf1b0" : "#fff";
+        ctx.strokeStyle = dark ? "#dce7deb0" : "#fff";
         ctx.stroke();
         if (
           labels &&
@@ -122,9 +122,9 @@ export default function ForceScene2D(props: SceneProps) {
           ctx.textAlign = "center";
           ctx.textBaseline = "top";
           ctx.lineWidth = 3 / scale;
-          ctx.strokeStyle = dark ? "#121d28" : "#fbfcfb";
+          ctx.strokeStyle = dark ? "#101512" : "#fbfcfb";
           ctx.strokeText(node.name, node.x, node.y + radius + 7 / scale);
-          ctx.fillStyle = dark ? "#e4ebf0" : "#334c40";
+          ctx.fillStyle = dark ? "#dce7de" : "#334c40";
           ctx.fillText(node.name, node.x, node.y + radius + 7 / scale);
         }
         ctx.restore();
@@ -144,10 +144,10 @@ export default function ForceScene2D(props: SceneProps) {
               : "#dbcdb4"
           : active && linked(link)
             ? dark
-              ? "#96d3b4"
+              ? "#91c66a"
               : "#397e5a"
             : dark
-              ? "#455a6a"
+              ? "#506a57"
               : "#c7d3cb"
       }
       linkWidth={(link) => (active && linked(link) ? 2 : 1)}

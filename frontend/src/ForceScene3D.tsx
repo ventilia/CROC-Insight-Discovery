@@ -154,7 +154,7 @@ export default function ForceScene3D(props: SceneProps) {
       ctx.font = "32px Arial";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = dark ? "#e2ebf1" : "#355141";
+      ctx.fillStyle = dark ? "#dce7de" : "#355141";
       ctx.fillText(node.name, 256, 32, 500);
       const texture = new CanvasTexture(canvas);
       texture.colorSpace = SRGBColorSpace;
@@ -183,7 +183,7 @@ export default function ForceScene3D(props: SceneProps) {
       graphData={data}
       width={width}
       height={height}
-      backgroundColor={dark ? "#121d28" : "#fbfcfb"}
+      backgroundColor={dark ? "#101512" : "#fbfcfb"}
       showNavInfo={false}
       controlType="orbit"
       nodeLabel={() => ""}
@@ -195,7 +195,7 @@ export default function ForceScene3D(props: SceneProps) {
       nodeColor={(node) =>
         neighbors && !neighbors.has(node.id)
           ? dark
-            ? "#31404b"
+            ? "#314136"
             : "#d1dad4"
           : color(node)
       }
@@ -209,7 +209,7 @@ export default function ForceScene3D(props: SceneProps) {
           : active && linked(link)
             ? "#4b9b73"
             : dark
-              ? "#658090"
+              ? "#708d77"
               : "#a4b7aa"
       }
       linkWidth={(link) => (active && linked(link) ? 1.2 : 0.5)}

@@ -15,6 +15,8 @@ import {
   Users,
   X,
   Copy,
+  Sun,
+  Moon,
 } from "lucide-react";
 import type { Company } from "./api";
 import { InfluenceMap } from "./InfluenceMap";
@@ -57,6 +59,16 @@ function useRoute() {
   return route;
 }
 export function App() {
+  const [theme, setTheme] = useState<"dark" | "light">(() =>
+    document.documentElement.dataset.theme === "light" ? "light" : "dark",
+  );
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute(
+      "content", theme === "dark" ? "#101512" : "#f2f5f2",
+    );
+    try { localStorage.setItem("kit.theme", theme); } catch { /* Storage may be unavailable. */ }
+  }, [theme]);
   const route = useRoute(),
     [path, query = ""] = route.split("?"),
     parts = path.split("/").filter(Boolean);
@@ -279,6 +291,15 @@ export function App() {
               </div>
             )}
           </div>
+          <button
+            type="button"
+            className="icon-button theme-toggle"
+            aria-label={theme === "dark" ? "Включить светлую тему" : "Включить тёмную тему"}
+            title={theme === "dark" ? "Светлая тема" : "Тёмная тема"}
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          >
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
           <span className="mode-badge">
             <i />
             {data?.capabilities.mode === "demo"
@@ -428,6 +449,7 @@ export function App() {
                         <InfluenceMap
                           key={active.initiative.id}
                           item={active}
+                          darkTheme={theme === "dark"}
                           selectedId={
                             person?.iid === active.initiative.id
                               ? person.pid
