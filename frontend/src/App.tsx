@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Building2, ChevronDown, Clock3, Copy, Network, X } from "lucide-react";
-import { useRemote, type Company, type Dossier, type EventPage, type Initiative } from "./api";
+import { ArrowRight, Building2, ChevronDown, Clock3, Copy, Network, Sparkles, X } from "lucide-react";
+import { useRemote, type Company, type Dossier, type EventPage, type Initiative, type Position } from "./api";
+import { PositionEditor, PositionSummary } from "./PositionEditor";
+import { Navigator } from "./Navigator";
 import {
   formatDate, meetingBrief, selectContacts, summarizeCoverage,
   type ContactCoverage, type ContactFilter, type Coverage, type Recency,
@@ -73,6 +75,7 @@ function Workspace({ initiative }: { initiative: Initiative }) {
   const [personId, setPerson] = useState<string | null>(null);
   const [clipboard, setClipboard] = useState<{ selection: string; message: string }>();
   const [attempt, retry] = useState(0);
+  const [navigatorOpen, showNavigator] = useState(false);
   const opener = useRef<HTMLButtonElement | null>(null);
   const contactsHeading = useRef<HTMLHeadingElement | null>(null);
   const result = useRemote<Coverage>("/initiatives/" + initiative.id + "/coverage?days=" + days, attempt);
@@ -97,10 +100,15 @@ function Workspace({ initiative }: { initiative: Initiative }) {
     <>
       <div className="toolbar">
         <span className="snapshot"><Clock3 size={16} /> Срез на {formatDate(data?.asOf ?? initiative.asOf)}</span>
-        <label className="period"><span id="period-label">Период касаний</span><span className="select"><select aria-labelledby="period-label" value={days}
-          onChange={(event) => { setDays(Number(event.target.value)); setClipboard(undefined); }}>
-          {[7, 14, 30, 60, 90].map((value) => <option key={value} value={value}>{value} дней</option>)}
-        </select><ChevronDown size={15} /></span></label>
+        <div className="toolbar-actions">
+          <button type="button" className="secondary" aria-expanded={navigatorOpen} onClick={() => showNavigator(!navigatorOpen)}>
+            <Sparkles size={15} /> Навигатор
+          </button>
+          <label className="period"><span id="period-label">Период касаний</span><span className="select"><select aria-labelledby="period-label" value={days}
+            onChange={(event) => { setDays(Number(event.target.value)); setClipboard(undefined); }}>
+            {[7, 14, 30, 60, 90].map((value) => <option key={value} value={value}>{value} дней</option>)}
+          </select><ChevronDown size={15} /></span></label>
+        </div>
       </div>
       {result.error && <Notice text={result.error} retry={() => retry(attempt + 1)} />}
       {result.loading && <Notice text="Рассчитываем охват по истории касаний…" />}
@@ -124,6 +132,7 @@ function Workspace({ initiative }: { initiative: Initiative }) {
               </button>
             ))}
           </section>
+          {navigatorOpen && <Navigator key={data.asOf + ":" + data.days} initiativeId={initiative.id} days={data.days} asOf={data.asOf} />}
           <div className="work-area">
             <section className="surface contacts" aria-labelledby="contacts-heading">
               <div className="surface-head">
@@ -200,6 +209,8 @@ function PersonPanel({ initiativeId, asOf, person, close }: {
   initiativeId: string; asOf: string; person: ContactCoverage; close: () => void;
 }) {
   const heading = useRef<HTMLHeadingElement | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [sourcePosition, setSourcePosition] = useState<Position | null>(null);
   const path = "/initiatives/" + initiativeId;
   const dossier = useRemote<Dossier>(path + "/people/" + person.id);
   const events = useRemote<EventPage>(path + "/events?" + new URLSearchParams({ personId: person.id, limit: "3", through: asOf }));
@@ -214,6 +225,13 @@ function PersonPanel({ initiativeId, asOf, person, close }: {
     </div>
     <div className="person-panel">
       <div className="person-facts"><Status value={person.touchStatus} label={touchLabels[person.touchStatus]} /><span>{formatDate(person.lastTouchAt)}</span></div>
+      <h3>Позиция по инициативе</h3>
+      {dossier.error ? <p role="alert">{dossier.error}</p> : dossier.loading ? <p role="status">Загружаем позицию…</p>
+        : <PositionSummary position={sourcePosition ?? dossier.data?.position ?? null} />}
+      <button type="button" className="secondary source-toggle" aria-expanded={editing} onClick={() => setEditing(!editing)}>
+        {editing ? "Свернуть источник" : "Открыть тестовый источник"}
+      </button>
+      {editing && <PositionEditor path={path + "/people/" + person.id + "/demo-source"} onPositionChange={setSourcePosition} />}
       <h3>Последние касания</h3>
       {events.error && <p role="alert">{events.error}</p>}
       {events.loading && <p role="status">Загружаем историю…</p>}

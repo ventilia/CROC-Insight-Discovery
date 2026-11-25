@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test src/coverage.test.ts",
+    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test src/api.test.ts src/coverage.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {
