@@ -42,6 +42,7 @@ class SecurityConfig {
                         "/api/v1/initiatives/{initiativeId}/people/{personId}",
                         "/api/v1/initiatives/{initiativeId}/events",
                         "/api/v1/initiatives/{initiativeId}/coverage",
+                        "/api/v1/initiatives/{initiativeId}/relationship-health",
                         "/api/v1/initiatives/{initiativeId}/people/{personId}/demo-source",
                         "/api/v1/csrf",
                         "/api/v1/ai/settings",

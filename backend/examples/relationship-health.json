@@ -1,0 +1,28 @@
+{
+  "initiativeId": "20000000-0000-4000-8000-000000000001",
+  "asOf": "2026-11-24T09:00:00Z",
+  "days": 7,
+  "verificationDays": 90,
+  "status": "PARTIAL",
+  "score": 80,
+  "decisionMakerTouches": {
+    "total": 2,
+    "recent": 2,
+    "unknown": 0,
+    "weight": 50
+  },
+  "departmentTouches": {
+    "total": 3,
+    "recent": 2,
+    "unknown": 0,
+    "weight": 30
+  },
+  "decisionMakerVerification": {
+    "total": 2,
+    "recent": 1,
+    "unknown": 0,
+    "weight": 20
+  },
+  "contactsWithoutTouchpoints": 1,
+  "contactsWithoutDepartment": 1
+}

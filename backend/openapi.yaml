@@ -258,6 +258,31 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/initiatives/{initiativeId}/relationship-health:
+    get:
+      operationId: getRelationshipHealth
+      summary: Индекс устойчивости отношений по срезу инициативы
+      parameters:
+        - $ref: '#/components/parameters/InitiativeId'
+        - name: days
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 365, default: 30}
+      responses:
+        '200':
+          description: Оценка, полнота данных и вклад каждого показателя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipHealth'
+              examples:
+                northernLine:
+                  externalValue: ./examples/relationship-health.json
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/initiatives/{initiativeId}/people/{personId}/demo-source:
     parameters:
       - $ref: '#/components/parameters/InitiativeId'
@@ -701,6 +726,40 @@ components:
           description: Подразделения с указанным отделом хотя бы у одного участника.
           items:
             $ref: '#/components/schemas/DepartmentCoverage'
+    RelationshipHealth:
+      type: object
+      required: [initiativeId, asOf, days, verificationDays, status, score, decisionMakerTouches, departmentTouches,
+                 decisionMakerVerification, contactsWithoutTouchpoints, contactsWithoutDepartment]
+      properties:
+        initiativeId: {type: string, format: uuid}
+        asOf: {type: string, format: date-time}
+        days: {type: integer, minimum: 1, maximum: 365}
+        verificationDays: {type: integer, minimum: 1}
+        status:
+          type: string
+          enum: [READY, PARTIAL, INSUFFICIENT_DATA]
+          description: Для расчёта нужна хотя бы одна известная давность по каждому показателю.
+        score:
+          type: [integer, 'null']
+          minimum: 0
+          maximum: 100
+          description: Сумма взвешенных долей recent от total. При INSUFFICIENT_DATA приходит null.
+        decisionMakerTouches:
+          $ref: '#/components/schemas/HealthFactor'
+        departmentTouches:
+          $ref: '#/components/schemas/HealthFactor'
+        decisionMakerVerification:
+          $ref: '#/components/schemas/HealthFactor'
+        contactsWithoutTouchpoints: {type: integer, minimum: 0}
+        contactsWithoutDepartment: {type: integer, minimum: 0}
+    HealthFactor:
+      type: object
+      required: [total, recent, unknown, weight]
+      properties:
+        total: {type: integer, minimum: 0}
+        recent: {type: integer, minimum: 0}
+        unknown: {type: integer, minimum: 0}
+        weight: {type: integer, minimum: 0, maximum: 100}
     Recency:
       type: string
       enum: [RECENT, STALE, UNKNOWN]

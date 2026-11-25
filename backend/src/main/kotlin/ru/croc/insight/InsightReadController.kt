@@ -18,8 +18,10 @@ import ru.croc.insight.catalog.CompanySummary
 import ru.croc.insight.catalog.InitiativeSummary
 import ru.croc.insight.history.Coverage
 import ru.croc.insight.history.CoverageService
+import ru.croc.insight.history.RelationshipHealth
 import ru.croc.insight.history.TouchpointPage
 import ru.croc.insight.history.TouchpointService
+import ru.croc.insight.history.relationshipHealth
 import ru.croc.insight.map.Graph
 import ru.croc.insight.map.GraphService
 import ru.croc.insight.map.ParticipantService
@@ -95,7 +97,16 @@ class InsightReadController(
         @PathVariable @Pattern(regexp = UUID_PATTERN) initiativeId: String,
         @RequestParam(required = false) @Pattern(regexp = "[0-9]{1,3}") days: String?,
         principal: Principal,
-    ): Coverage {
+    ): Coverage = readCoverage(principal, initiativeId, days)
+
+    @GetMapping("/initiatives/{initiativeId}/relationship-health")
+    fun relationshipHealth(
+        @PathVariable @Pattern(regexp = UUID_PATTERN) initiativeId: String,
+        @RequestParam(required = false) @Pattern(regexp = "[0-9]{1,3}") days: String?,
+        principal: Principal,
+    ): RelationshipHealth = readCoverage(principal, initiativeId, days).relationshipHealth()
+
+    private fun readCoverage(principal: Principal, initiativeId: String, days: String?): Coverage {
         val period = days?.toInt() ?: 30
         if (period !in 1..365) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "days must be between 1 and 365")
         return coverage.find(principal.name, UUID.fromString(initiativeId), period)

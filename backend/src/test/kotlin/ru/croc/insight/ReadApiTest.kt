@@ -40,6 +40,22 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
     private val mapper = JsonMapper.builder().build()
 
     @Test
+    fun `relationship health returns a scored snapshot with factor counts`() {
+        val path = "/api/v1/initiatives/$modernization/relationship-health"
+        val health = read("$path?days=7")
+        assertThat(health.path("score").asInt()).isEqualTo(80)
+        assertThat(health.path("status").asString()).isEqualTo("PARTIAL")
+        assertThat(health.path("decisionMakerTouches").path("recent").asInt()).isEqualTo(2)
+        assertThat(health.path("departmentTouches").path("total").asInt()).isEqualTo(3)
+        assertThat(health.path("decisionMakerVerification").path("recent").asInt()).isEqualTo(1)
+        assertThat(health.path("contactsWithoutTouchpoints").asInt()).isEqualTo(1)
+        assertThat(health.path("asOf").asString()).isEqualTo("2026-11-24T09:00:00Z")
+        assertThat(get("$path?days=0").statusCode()).isEqualTo(400)
+        assertThat(get(path, password = null).statusCode()).isEqualTo(401)
+        assertThat(get("/api/v1/initiatives/$privateInitiative/relationship-health").statusCode()).isEqualTo(404)
+    }
+
+    @Test
     fun `health reports database status without exposing components`() {
         val response = get("/actuator/health", password = null)
 
