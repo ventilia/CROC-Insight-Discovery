@@ -24,6 +24,13 @@ export async function connect(signal) {
       if (filters.departmentId) query.set('departmentId', filters.departmentId);
       return json(`${path}/initiatives/${encodeURIComponent(id)}/graph?${query}`, signal);
     },
+    events: (id, { personId, cursor }, signal) => {
+      const query = new URLSearchParams();
+      if (personId) query.set('personId', personId);
+      if (cursor) query.set('cursor', cursor);
+      const suffix = query.size ? `?${query}` : '';
+      return json(`${path}/initiatives/${encodeURIComponent(id)}/events${suffix}`, signal);
+    },
   };
 }
 

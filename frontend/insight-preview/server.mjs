@@ -6,7 +6,7 @@ const port = Number(process.env.CROC_FRONTEND_PORT || 4173);
 const live = process.argv.includes('--live');
 const password = process.env.CROC_DEMO_API_PASSWORD;
 const uuid = '[\\da-f]{8}(?:-[\\da-f]{4}){3}-[\\da-f]{12}';
-const apiRoute = new RegExp(`^/api/v1/(?:companies(?:/${uuid}/initiatives)?|initiatives/${uuid}/graph)$`, 'i');
+const apiRoute = new RegExp(`^/api/v1/(?:companies(?:/${uuid}/initiatives)?|initiatives/${uuid}/(?:graph|events))$`, 'i');
 const files = new Map([
   ['/', ['index.html', 'text/html']],
   ['/index.html', ['index.html', 'text/html']],

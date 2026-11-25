@@ -5,6 +5,7 @@ const $ = (selector) => document.querySelector(selector);
 const esc = (value = '') => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const fmt = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Moscow' });
 const shortDate = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/Moscow' });
+const eventDate = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 const plural = new Intl.PluralRules('ru');
 const participantCount = (count) => `${count} ${{ one: 'участник', few: 'участника', many: 'участников' }[plural.select(count)] ?? 'участника'}`;
 const dateText = (value, formatter = fmt) => value && Number.isFinite(Date.parse(value)) ? formatter.format(new Date(value)) : 'Дата не указана';
@@ -13,6 +14,7 @@ const emptyFilters = () => ({ departmentId: '', roleCode: '', search: '', decisi
 const blankRecords = () => ({ contacts: [], contactEdits: {}, edges: [], touches: [], requests: [], assessments: {} });
 const tones = { positive: 'Положительные', neutral: 'Нейтральные', negative: 'Напряжённые', unknown: 'Не оценены' };
 const relationLabels = { APPROVAL: 'Согласование', COORDINATION: 'Координация', EXPERTISE: 'Экспертиза' };
+const eventTypes = { MEETING: 'Встреча', EMAIL: 'Письмо', CALL: 'Звонок' };
 const nav = [
   ['graph', 'Карта связей'], ['people', 'Участники'], ['projects', 'Связи проектов'],
   ['timeline', 'Хронология'], ['requests', 'Запросы'], ['assistant', 'Ассистент'],
@@ -33,6 +35,7 @@ const state = {
 let loadRequest;
 let filterRequest;
 let projectRequest;
+const eventPages = new Map();
 
 function readRecords() {
   if (!state.initiativeId) return blankRecords();
@@ -55,8 +58,64 @@ const allEdges = () => [...(state.base?.edges ?? []), ...state.records.edges];
 const personById = (id) => allNodes().find((node) => node.id === id);
 const options = (items, selected, key = 'id', label = 'name') => items.map((item) =>
   `<option value="${esc(item[key])}"${item[key] === selected ? ' selected' : ''}>${esc(item[label])}</option>`).join('');
-const touchList = () => [...(state.api?.interactions?.(state.initiativeId) ?? []), ...state.records.touches]
-  .sort((a, b) => b.date.localeCompare(a.date));
+
+function touchList(personId = '') {
+  const serverEvents = (eventPages.get(personId)?.items ?? []).map((event) => ({
+    ...event, date: event.occurredAt, type: eventTypes[event.type] ?? event.type, text: event.subject,
+  }));
+  const exampleEvents = state.api?.interactions?.(state.initiativeId) ?? [];
+  const localEvents = [...exampleEvents, ...state.records.touches]
+    .filter((entry) => !personId || entry.personId === personId)
+    .map((entry) => ({
+      ...entry, participants: [{ id: entry.personId, name: personById(entry.personId)?.name ?? 'Участник' }],
+      sourceLabel: state.api?.live ? 'Локальная запись' : null,
+    }));
+  return [...serverEvents, ...localEvents].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+}
+
+function canLoadEvents(personId) {
+  return state.api?.live && state.base && (!personId || state.base.nodes.some((person) => person.id === personId));
+}
+
+function latestTouchLabel() {
+  const latest = touchList()[0];
+  if (latest) return dateText(latest.date, shortDate);
+  if (!state.api?.live) return 'Нет записей';
+  const page = eventPages.get('');
+  if (!page || page.loading) return 'Загружается…';
+  return page.error ? 'Не удалось загрузить' : 'Нет записей';
+}
+
+function refreshEventPanel(personId) {
+  const panel = $('[data-events-for]');
+  if (panel?.dataset.eventsFor === personId) panel.innerHTML = eventPanelContent(personId);
+  const latest = $('[data-latest-touch]');
+  if (!personId && latest) latest.textContent = latestTouchLabel();
+}
+
+async function loadEvents(personId = '', cursor = null) {
+  if (!canLoadEvents(personId) || eventPages.get(personId)?.loading) return;
+  const page = eventPages.get(personId) ?? { items: [], nextCursor: null };
+  const controller = new AbortController();
+  const { signal } = controller;
+  Object.assign(page, { controller, loading: true, error: '', requestedCursor: cursor });
+  eventPages.set(personId, page);
+  refreshEventPanel(personId);
+  try {
+    const result = await state.api.events(state.initiativeId, { personId, cursor }, signal);
+    if (signal.aborted) return;
+    const items = cursor ? [...page.items, ...result.items] : result.items;
+    page.items = [...new Map(items.map((item) => [item.id, item])).values()];
+    page.nextCursor = result.nextCursor;
+  } catch (error) {
+    if (!signal.aborted) page.error = error.message;
+  } finally {
+    if (!signal.aborted) {
+      page.loading = false;
+      refreshEventPanel(personId);
+    }
+  }
+}
 
 function visibleGraph() {
   const nodes = [...(state.graph?.nodes ?? []), ...state.records.contacts].map(withEdits).filter((node) => matches(node, state.filters));
@@ -94,6 +153,8 @@ async function load(companyId = state.companyId, initiativeId = state.initiative
   loadRequest?.abort();
   filterRequest?.abort();
   projectRequest?.abort();
+  for (const page of eventPages.values()) page.controller.abort();
+  eventPages.clear();
   const controller = new AbortController();
   loadRequest = controller;
   const { signal } = controller;
@@ -118,6 +179,7 @@ async function load(companyId = state.companyId, initiativeId = state.initiative
     if (!signal.aborted) {
       state.busy = false;
       render();
+      if (state.base && state.api.live) void loadEvents();
       if (state.view === 'projects' && state.base) void loadProjects();
     }
   }
@@ -200,14 +262,13 @@ function summary() {
   const edges = allEdges();
   const departments = new Set(nodes.map((person) => person.department?.id).filter(Boolean));
   const unconfirmed = edges.filter((edge) => !edge.confirmed).length;
-  const latest = touchList()[0];
   return `<h2>Сводка проекта</h2>
     <dl class="definition">
       <div><dt>Участники</dt><dd>${nodes.length}</dd></div>
       <div><dt>Отделы</dt><dd>${departments.size}</dd></div>
       <div><dt>Связи</dt><dd>${edges.length}</dd></div>
       <div><dt>Связи на проверке</dt><dd${unconfirmed ? ' class="attention"' : ''}>${unconfirmed}</dd></div>
-      <div><dt>Последнее касание</dt><dd>${latest ? esc(dateText(latest.date, shortDate)) : 'Нет записей'}</dd></div>
+      <div><dt>Последнее касание</dt><dd data-latest-touch>${esc(latestTouchLabel())}</dd></div>
       <div><dt>Дата среза</dt><dd>${esc(dateText(state.base.asOf, shortDate))}</dd></div>
     </dl>
     <section class="rail-section"><h3>Принимают решения <span class="subtle-count">${leaders.length}</span></h3>
@@ -218,14 +279,13 @@ function summary() {
 function dossier(person) {
   const avatar = esc(person.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join(''));
   const links = allEdges().filter((edge) => edge.source === person.id || edge.target === person.id);
-  const touches = touchList().filter((touch) => touch.personId === person.id);
   const tabs = [['overview', 'Обзор'], ['links', 'Связи'], ['touches', 'Касания']];
   let content = `<dl class="definition"><div><dt>Отдел</dt><dd>${esc(person.department?.name ?? 'Не указан')}</dd></div><div><dt>Роль</dt><dd>${esc(person.role?.label ?? 'Не указана')}</dd></div><div><dt>Отношения</dt><dd>${esc(tones[state.records.assessments[person.id] ?? 'unknown'])}</dd></div></dl><div class="dossier-actions"><button type="button" class="button" data-action="assessment">Изменить оценку</button><button type="button" class="button" data-action="edit-contact">Править карточку</button></div>`;
   if (state.dossier === 'links') content = links.length ? `<ul class="detail-list">${links.map((edge) => {
     const other = personById(edge.source === person.id ? edge.target : edge.source);
     return `<li><span class="muted">${edge.source === person.id ? 'Исходящая связь' : 'Входящая связь'} · ${edge.confirmed ? 'Подтверждена' : 'Требует проверки'}</span>${other ? contactButton(other) : ''}<p>${esc(edge.label)}</p></li>`;
   }).join('')}</ul>` : '<p class="muted">У участника нет связей.</p>';
-  if (state.dossier === 'touches') content = `${touches.length ? `<ul class="detail-list">${touches.map((entry) => `<li><strong>${esc(entry.type)} · ${esc(dateText(entry.date))}</strong><p>${esc(entry.text)}</p></li>`).join('')}</ul>` : '<p class="muted">История общения пуста.</p>'}<button type="button" class="button" data-action="touch">Добавить касание</button>`;
+  if (state.dossier === 'touches') content = `${eventPanel(person.id)}<button type="button" class="button" data-action="touch">Добавить касание</button>`;
   return `<div class="dossier-heading"><span class="avatar ${departmentTone(departmentName(person))}">${avatar}</span><div><h2>${esc(person.name)}</h2><p>${esc(person.jobTitle ?? 'Должность не указана')}</p></div><button type="button" class="icon-button" data-action="close-dossier" aria-label="Закрыть досье">×</button></div>
     <div class="tabs" aria-label="Разделы досье">${tabs.map(([id, title]) => `<button type="button" data-dossier="${id}" aria-pressed="${state.dossier === id}">${title}</button>`).join('')}</div><div class="dossier-body">${content}</div>`;
 }
@@ -285,9 +345,32 @@ function projectsContent() {
 
 const pageSection = (title, content, action = '') => `<section class="surface page-section"><div class="section-heading"><h2>${title}</h2>${action}</div>${content}</section>`;
 
+function eventPanelContent(personId) {
+  const touches = touchList(personId);
+  const page = eventPages.get(personId);
+  const loading = canLoadEvents(personId) && (!page || page.loading);
+  const emptyClass = personId ? 'muted event-status' : 'empty';
+  const records = touches.map((entry) => {
+    const names = entry.participants.map((participant) => participant.name).join(', ');
+    const datetime = `<time datetime="${esc(entry.date)}">${esc(dateText(entry.date, entry.occurredAt ? eventDate : fmt))}</time>`;
+    const context = [entry.type, entry.team, personId && entry.participants.length === 1 ? null : names].filter(Boolean).join(' · ');
+    return `<li>${datetime}<div class="event-text"><strong>${esc(entry.text)}</strong><p class="event-context">${esc(context)}</p>
+      ${entry.outcome ? `<p><b>Итог:</b> ${esc(entry.outcome)}</p>` : ''}${entry.nextStep ? `<p><b>Следующий шаг:</b> ${esc(entry.nextStep)}</p>` : ''}
+      ${entry.sourceLabel ? `<p class="event-context">${esc(entry.sourceLabel)}</p>` : ''}</div></li>`;
+  }).join('');
+  const status = loading ? '<p class="event-status muted" role="status">Загружаем касания…</p>'
+    : page?.error ? `<div class="event-status" role="alert"><p>Не удалось загрузить касания. ${esc(page.error)}</p><button type="button" class="button" data-action="events-retry">Повторить</button></div>`
+    : page?.nextCursor ? '<div class="event-status"><button type="button" class="button" data-action="events-more">Показать ещё</button></div>'
+    : touches.length ? '' : `<p class="${emptyClass}">${personId ? 'У участника пока нет касаний.' : 'Касаний пока нет.'}</p>`;
+  return `${records ? `<ol class="${personId ? 'detail-list' : 'records timeline'}">${records}</ol>` : ''}${status}`;
+}
+
+function eventPanel(personId = '') {
+  return `<div data-events-for="${esc(personId)}">${eventPanelContent(personId)}</div>`;
+}
+
 function timelineContent() {
-  const touches = touchList();
-  return pageSection('Хронология касаний', touches.length ? `<ol class="records timeline">${touches.map((entry) => `<li><time datetime="${esc(entry.date)}">${esc(dateText(entry.date))}</time><div><strong>${esc(entry.type)} · ${esc(personById(entry.personId)?.name ?? 'Участник')}</strong><p>${esc(entry.text)}</p></div></li>`).join('')}</ol>` : '<div class="empty">Касаний пока нет.</div>', '<button class="button" type="button" data-action="touch">＋ Касание</button>');
+  return pageSection('Хронология касаний', eventPanel(), '<button class="button" type="button" data-action="touch">＋ Касание</button>');
 }
 
 function requestsContent() {
@@ -407,7 +490,7 @@ function recommendations() {
   const nodes = allNodes();
   const leads = nodes.filter((node) => node.decisionMaker);
   const unconfirmed = allEdges().filter((edge) => !edge.confirmed);
-  const previous = new Set(touchList().map((item) => item.personId));
+  const previous = new Set(touchList().flatMap((item) => item.participants.map((participant) => participant.id)));
   const target = leads.find((node) => !previous.has(node.id)) ?? leads[0];
   const actions = [];
   if (target) actions.push(`Запланируйте разговор с участником «${target.name}». Роль в инициативе — ${target.role?.label ?? 'ЛПР'}. Уточните критерии решения и ближайший срок.`);
@@ -418,6 +501,7 @@ function recommendations() {
   }
   const last = touchList()[0];
   if (last) actions.push(`Перед разговором проверьте последнее касание от ${dateText(last.date)}. ${last.text}`);
+  else if (state.api.live && !eventPages.get('')?.loading && eventPages.get('')?.error) actions.push('Проверьте хронологию после восстановления связи с API.');
   else actions.push('После контакта запишите договорённость и следующий шаг в хронологии.');
   state.advice = actions;
   updateContent();
@@ -464,7 +548,12 @@ document.addEventListener('click', (event) => {
     }
     selectPerson(person);
   }
-  if (tab) { state.dossier = tab; updateContent(); $(`[data-dossier="${tab}"]`)?.focus({ preventScroll: true }); }
+  if (tab) {
+    state.dossier = tab;
+    updateContent();
+    $(`[data-dossier="${tab}"]`)?.focus({ preventScroll: true });
+    if (tab === 'touches' && state.selected && !eventPages.has(state.selected)) void loadEvents(state.selected);
+  }
   if (initiative) void load(state.companyId, initiative);
   if (reviewed) {
     const next = { ...state.records, requests: state.records.requests.map((item) => item.id === reviewed ? { ...item, reviewed: true } : item) };
@@ -476,6 +565,11 @@ document.addEventListener('click', (event) => {
   if (action === 'close-modal') $('#modal').close();
   if (action === 'retry') void load();
   if (action === 'retry-projects') void loadProjects();
+  if (action === 'events-more' || action === 'events-retry') {
+    const personId = button.closest('[data-events-for]').dataset.eventsFor;
+    const page = eventPages.get(personId);
+    void loadEvents(personId, action === 'events-more' ? page.nextCursor : page.requestedCursor);
+  }
   if (['contact', 'edit-contact', 'link', 'touch', 'request', 'assessment'].includes(action)) openModal(action);
   if (action === 'close-dossier') { state.selected = ''; state.focus = 0; updateContent(); }
   if (action === 'clear-filters') {
