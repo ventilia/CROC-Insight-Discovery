@@ -29,7 +29,7 @@ class DashboardService(private val jdbc: JdbcClient) {
         )
     }
 
-    fun companyInsights(viewer: String, companyId: UUID, days: Int): CompanyInsightsResponse? {
+    fun companyInsights(viewer: String, companyId: UUID, days: Int, maxRiskFacts: Int? = null): CompanyInsightsResponse? {
         val rows = scopedQuery(COMPANY_SQL, viewer, companyId, days)
             .query { row, _ ->
                 CompanyRow(
@@ -45,7 +45,7 @@ class DashboardService(private val jdbc: JdbcClient) {
             .list()
         val company = rows.firstOrNull() ?: return null
         val initiatives = rows.mapNotNull { it.initiative }
-        val risks = risks(viewer, companyId, days, null)
+        val risks = risks(viewer, companyId, days, maxRiskFacts)
         return CompanyInsightsResponse(
             companyId, company.name, days, VERIFICATION_DAYS, company.contacts,
             initiatives.sumOf { it.activeInteractionCount }, initiatives.minOfOrNull { it.asOf },

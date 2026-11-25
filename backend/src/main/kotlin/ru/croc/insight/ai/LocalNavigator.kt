@@ -87,7 +87,7 @@ class LocalNavigator(
     }
 
     fun adviseCompany(viewer: String, companyId: UUID, days: Int, question: String): NavigatorAnswer {
-        val facts = dashboard.companyInsights(viewer, companyId, days)
+        val facts = dashboard.companyInsights(viewer, companyId, days, maxRiskFacts = 24)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
         return answer(question, facts.latestAsOf, mapOf(
             "company" to facts.companyName.take(160),
@@ -97,7 +97,7 @@ class LocalNavigator(
             "registeredContactCount" to facts.registeredContactCount,
             "activeInteractionCount" to facts.activeInteractionCount,
             "riskCount" to facts.riskCount,
-            "risks" to facts.risks.take(24).map {
+            "risks" to facts.risks.map {
                 mapOf("code" to it.code, "evidenceStatus" to it.evidenceStatus,
                     "initiative" to it.initiativeName.take(160), "subject" to it.subjectName.take(160),
                     "lastObservedAt" to it.lastObservedAt, "asOf" to it.asOf)
