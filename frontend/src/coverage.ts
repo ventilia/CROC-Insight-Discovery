@@ -64,10 +64,10 @@ export function selectContacts(contacts: ContactCoverage[], filter: ContactFilte
 export function meetingBrief(initiative: string, asOf: string, days: number, contacts: ContactCoverage[]) {
   const lines = contacts.map((person) => {
     const facts = [];
-    if (person.touchStatus === "STALE") facts.push("давнее касание " + formatDate(person.lastTouchAt));
+    if (person.touchStatus === "STALE") facts.push("давно не общались, последний контакт " + formatDate(person.lastTouchAt));
     if (person.touchStatus === "UNKNOWN") facts.push("нет записей");
     if (needsVerification(person)) facts.push("данные ЛПР требуют проверки");
-    return person.name + " — " + (facts.join(", ") || "последнее касание " + formatDate(person.lastTouchAt));
+    return person.name + " — " + (facts.join(", ") || "последний контакт " + formatDate(person.lastTouchAt));
   });
-  return [initiative, "Срез " + formatDate(asOf) + " · период " + days + " дн.", "", ...lines].join("\n");
+  return [initiative, "Данные на " + formatDate(asOf) + " · период " + days + " дн.", "", ...lines].join("\n");
 }

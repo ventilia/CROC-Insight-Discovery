@@ -109,8 +109,8 @@ export function ContactFilters({
                 onChange={(event) => set("interaction", event.target.value)}
               >
                 <option value="">Все контакты</option>
-                <option value="RECENT">Недавнее касание</option>
-                <option value="STALE">Давнее касание</option>
+                <option value="RECENT">Недавний контакт</option>
+                <option value="STALE">Давно не общались</option>
                 <option value="UNKNOWN">Нет записей</option>
               </select>
             </label>

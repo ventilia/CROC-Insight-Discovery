@@ -107,10 +107,9 @@ export function HistoryList({
   ) : (
     <div className="empty-state">
       <CalendarDays size={30} />
-      <h3>Взаимодействий пока нет</h3>
+      <h3>Записей пока нет</h3>
       <p>
-        Зафиксируйте встречу, звонок или договорённость, чтобы сохранить
-        контекст.
+        Добавьте встречу, звонок или договорённость.
       </p>
     </div>
   );
@@ -160,8 +159,8 @@ export function HistoryPanel({
     <section className="surface">
       <div className="section-heading">
         <div>
-          <h2>История отношений</h2>
-          <p>Встречи, договорённости и знания всей команды</p>
+          <h2>История работы с клиентом</h2>
+          <p>Встречи, переписка и договорённости.</p>
         </div>
         <span className="count-badge">{visible.length}</span>
       </div>
@@ -179,7 +178,7 @@ export function HistoryPanel({
           </div>
         </label>
         <label>
-          Тип взаимодействия
+          Тип записи
           <select
             value={type}
             onChange={(event) => setType(event.target.value)}
@@ -205,12 +204,12 @@ export function HistoryPanel({
           </select>
         </label>
         <label>
-          Инициатива в истории
+          Проект в истории
           <select
             value={initiative}
             onChange={(event) => setInitiative(event.target.value)}
           >
-            <option value="">Все инициативы</option>
+            <option value="">Все проекты</option>
             {initiatives.map(([id, name]) => (
               <option key={id} value={id}>
                 {name}

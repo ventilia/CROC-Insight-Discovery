@@ -131,12 +131,12 @@ export function ContactDrawer({
           <h3>Влияние на решение</h3>
           <strong>{influenceLabels[person.influence ?? "UNKNOWN"]}</strong>
           <p>
-            {person.influenceBasis ?? "Основание оценки пока не зафиксировано."}
+            {person.influenceBasis ?? "Обоснование оценки не указано."}
           </p>
-          <small>В контексте: {item.initiative.name}</small>
+          <small>Проект: {item.initiative.name}</small>
         </section>
         <section className="profile-section">
-          <h3>Позиция по инициативе</h3>
+          <h3>Отношение к проекту</h3>
           {dossier.loading ? (
             <p role="status">Загружаем позицию…</p>
           ) : dossier.error ? (
@@ -160,7 +160,7 @@ export function ContactDrawer({
             aria-expanded={editing}
             onClick={() => setEditing(!editing)}
           >
-            {editing ? "Свернуть источник" : "Позиция в источнике"}
+            {editing ? "Свернуть источник" : "Изменить оценку"}
           </button>
           {editing && (
             <PositionEditor
@@ -202,7 +202,7 @@ export function ContactDrawer({
               })}
             </div>
           ) : (
-            <p>Связи пока не зафиксированы.</p>
+            <p>Связи не указаны.</p>
           )}
         </section>
         <section className="profile-section">

@@ -56,7 +56,7 @@ export function InfluenceMap({
           <h2 id="map-heading">
             Карта влияния <span>{visible?.nodes.length ?? "—"}</span>
           </h2>
-          <p>Выберите человека, чтобы увидеть его позицию и историю.</p>
+          <p>Нажмите на сотрудника, чтобы открыть профиль.</p>
         </div>
         <button
           type="button"
@@ -95,7 +95,7 @@ export function InfluenceMap({
             <span>
               {focus
                 ? "Окружение: " + focus.name + " · прямые связи"
-                : "Участники выбранной инициативы"}
+                : "Участники проекта"}
             </span>
             <span>
               {visible.nodes.length} из {graph.nodes.length} · связей{" "}
@@ -277,7 +277,7 @@ export function InfluenceMap({
             <p className="notice">
               {graph.nodes.length
                 ? "По выбранным фильтрам никого нет."
-                : "В инициативе пока нет участников."}
+                : "Участники проекта не указаны."}
             </p>
           )}
         </>

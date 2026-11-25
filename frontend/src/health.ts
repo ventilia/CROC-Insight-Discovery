@@ -12,13 +12,13 @@ export function relationshipHealth(data: Coverage) {
       30 * departments.length / data.departments.length + 20 * verified.length / decisionMakers.length)
     : null;
   const risks: string[] = [];
-  if (!decisionMakers.length) risks.push("ЛПР пока не определены. Уточните роли участников.");
-  else if (!active.length) risks.push("Нет недавних касаний с ЛПР в доступной истории.");
-  else if (active.length === 1) risks.push("Недавний контакт есть только с одним ЛПР: " + active[0].name + ". Расширьте круг контактов.");
-  if (verified.length < decisionMakers.length) risks.push("Данные ЛПР требуют проверки: " + (decisionMakers.length - verified.length) + ".");
-  if (departments.length < data.departments.length) risks.push("Подразделения без недавних касаний: " + (data.departments.length - departments.length) + ".");
-  if (unknown) risks.push("Участники без записей о касаниях: " + unknown + ". Уточните историю.");
-  if (data.contacts.some((person) => !person.department)) risks.push("У части участников не указан отдел. Охват подразделений может быть неполным.");
+  if (!decisionMakers.length) risks.push("ЛПР пока не определены. Уточните роли сотрудников.");
+  else if (!active.length) risks.push("Нет недавних записей об общении с ЛПР.");
+  else if (active.length === 1) risks.push("В истории есть контакт только с одним ЛПР: " + active[0].name + ".");
+  if (verified.length < decisionMakers.length) risks.push("ЛПР с непроверенными данными: " + (decisionMakers.length - verified.length) + ".");
+  if (departments.length < data.departments.length) risks.push("Отделы без недавних контактов в истории: " + (data.departments.length - departments.length) + ".");
+  if (unknown) risks.push("Сотрудники без записей об общении: " + unknown + ".");
+  if (data.contacts.some((person) => !person.department)) risks.push("У части сотрудников не указан отдел.");
   return { score, active: active.length, decisionMakers: decisionMakers.length,
     verified: verified.length, departments: departments.length, totalDepartments: data.departments.length, risks };
 }

@@ -97,8 +97,8 @@ export function EventForm({
     >
       <header>
         <div>
-          <span className="eyebrow">Корпоративная память</span>
-          <h2 id="event-form-title">Новое взаимодействие</h2>
+          <span className="eyebrow">История работы с клиентом</span>
+          <h2 id="event-form-title">Добавить запись</h2>
         </div>
         <button
           type="button"
@@ -113,7 +113,7 @@ export function EventForm({
       <form onSubmit={submit}>
         <fieldset disabled={pending}>
           <label>
-            Инициатива
+            Проект
             <select
               value={initiative}
               onChange={(event) => {
@@ -130,7 +130,7 @@ export function EventForm({
           </label>
           <div className="form-row">
             <label>
-              Тип взаимодействия
+              Тип записи
               <select name="type" defaultValue="MEETING">
                 {Object.entries(eventLabels).map(([value, label]) => (
                   <option key={value} value={value}>
@@ -250,7 +250,7 @@ export function EventForm({
             className="primary"
             disabled={pending || !current?.graph.nodes.length}
           >
-            {pending ? "Сохраняем…" : "Сохранить взаимодействие"}
+            {pending ? "Сохраняем…" : "Сохранить запись"}
           </button>
         </footer>
       </form>

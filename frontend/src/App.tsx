@@ -5,15 +5,13 @@ import {
   Building2,
   CalendarDays,
   ChevronRight,
-  CircleHelp,
-  Compass,
   LayoutDashboard,
   Menu,
   Network,
   Plus,
   RefreshCw,
   Search,
-  Sparkles,
+  ChartColumn,
   Users,
   X,
   Copy,
@@ -195,15 +193,10 @@ export function App() {
             onClick={() => quickRoute("insights")}
             disabled={!companies.length}
           >
-            <Sparkles size={19} />
+            <ChartColumn size={19} />
             Аналитика
           </button>
         </nav>
-        <div className="sidebar-note">
-          <Compass size={20} />
-          <strong>Контекст остаётся с командой</strong>
-          <p>Люди, связи и договорённости в одном пространстве.</p>
-        </div>
         <div className="sidebar-footer">
           <span className="team-avatar">К</span>
           <div>
@@ -307,7 +300,7 @@ export function App() {
               <RefreshCw size={28} />
               <h2>
                 {workspace.loading
-                  ? "Собираем картину отношений…"
+                  ? "Загружаем данные…"
                   : "Данные пока недоступны"}
               </h2>
               <p>Компании, контакты и история взаимодействий</p>
@@ -335,7 +328,7 @@ export function App() {
                       <h1>{company.name}</h1>
                       <p>
                         {company.industry ?? "Отрасль пока не указана"} ·
-                        инициатив: {items.length} · срез{" "}
+                        проектов: {items.length} · данные на{" "}
                         {formatDate(snapshot(items))}
                       </p>
                     </div>
@@ -384,16 +377,16 @@ export function App() {
                     />
                   ) : !active ? (
                     <div className="empty-state">
-                      <h2>В компании пока нет инициатив</h2>
+                      <h2>Проекты пока не указаны</h2>
                       <p>
-                        Карта появится после загрузки инициатив из источника.
+                        Карта появится после добавления проектов.
                       </p>
                     </div>
                   ) : (
                     <>
                       <div className="scope-bar">
                         <label>
-                          Инициатива
+                          Проект
                           <select
                             value={active.initiative.id}
                             onChange={(event) =>
@@ -413,7 +406,7 @@ export function App() {
                           </select>
                         </label>
                         <label>
-                          Период касаний
+                          Период общения
                           <select
                             value={days}
                             onChange={(event) =>
@@ -469,7 +462,7 @@ export function App() {
                 <>
                   <div className="page-title">
                     <div>
-                      <span className="eyebrow">Ваш портфель</span>
+                      <span className="eyebrow">Компании</span>
                       <h1>Клиенты</h1>
                       <p>
                         Структура, контакты и состояние отношений с каждой
@@ -496,7 +489,7 @@ export function App() {
           <span>
             {data?.capabilities.mode === "demo"
               ? "Синтетические данные. Изменения хранятся на этом компьютере."
-              : "Сведения из доступных вам источников."}
+              : "Данные из подключённых источников."}
           </span>
         </footer>
       </div>
@@ -564,7 +557,7 @@ function Dashboard({
     );
   const metrics = [
     {
-      label: "Компании в портфеле",
+      label: "Компании",
       value: stats.companies,
       icon: Building2,
       note: "Доступны вашей команде",
@@ -574,21 +567,21 @@ function Dashboard({
       label: "Контакты в базе",
       value: stats.contacts,
       icon: Users,
-      note: "Уникальные сотрудники",
+      note: "Сотрудники компаний",
       tone: "blue",
     },
     {
       label: "Взаимодействия",
       value: stats.events,
       icon: Activity,
-      note: "За 30 дней до даты среза",
+      note: "За 30 дней до указанной даты",
       tone: "violet",
     },
     {
-      label: "Зоны внимания",
+      label: "Замечания",
       value: stats.risks,
       icon: Bell,
-      note: "Сигналы по инициативам",
+      note: "По данным проектов",
       tone: "amber",
     },
   ];
@@ -596,16 +589,16 @@ function Dashboard({
     <>
       <div className="page-title">
         <div>
-          <span className="eyebrow">Отношения в фокусе</span>
-          <h1>Обзор отношений</h1>
-          <p>Что происходит с клиентами и где команде стоит уделить внимание</p>
+
+          <h1>Работа с клиентами</h1>
+          <p>Компании, контакты и последние записи.</p>
         </div>
         <span className="snapshot-label">
           <CalendarDays size={16} />
           {formatDate(snapshot(data.initiatives))}
         </span>
       </div>
-      <section className="metric-grid" aria-label="Показатели портфеля">
+      <section className="metric-grid" aria-label="Основные показатели">
         {metrics.map((metric) => (
           <div className="metric-card" key={metric.label}>
             <div>
@@ -621,8 +614,8 @@ function Dashboard({
       </section>
       <div className="section-heading outside">
         <div>
-          <h2>Ваши клиенты</h2>
-          <p>Начните с компании, чтобы увидеть всю структуру отношений</p>
+          <h2>Клиенты</h2>
+          <p>Контакты и история работы с каждой компанией.</p>
         </div>
         <button className="text-button" onClick={() => go("/companies")}>
           Все клиенты
@@ -634,8 +627,8 @@ function Dashboard({
         <section className="surface">
           <div className="section-heading">
             <div>
-              <h2>Требуют внимания</h2>
-              <p>Сигналы из доступной истории</p>
+              <h2>Что нужно проверить</h2>
+              <p>По истории общения и данным сотрудников.</p>
             </div>
             <span className="icon-tile tone-amber">
               <Bell size={18} />
@@ -668,7 +661,7 @@ function Dashboard({
             ))}
             {!riskItems.length && (
               <p className="empty-inline">
-                По текущим правилам зон внимания нет.
+                Замечаний по текущим данным нет.
               </p>
             )}
           </div>
@@ -677,7 +670,7 @@ function Dashboard({
           <div className="section-heading">
             <div>
               <h2>Последние взаимодействия</h2>
-              <p>Контекст работы команды</p>
+              <p>Встречи, звонки и переписка.</p>
             </div>
             <CalendarDays size={19} />
           </div>
@@ -729,7 +722,7 @@ function CompanyGrid({
                   .slice(0, 2)
                   .join("")}
               </span>
-              <span className="pill">Инициатив: {items.length}</span>
+              <span className="pill">Проектов: {items.length}</span>
               <ChevronRight size={20} />
             </div>
             <h3>{company.name}</h3>
@@ -746,7 +739,7 @@ function CompanyGrid({
             </div>
             <div className="company-card-footer">
               <span className={risks ? "attention-text" : ""}>
-                {risks ? `Зон внимания: ${risks}` : "Нет сигналов риска"}
+                {risks ? `Замечаний: ${risks}` : "Нет замечаний"}
               </span>
               <small>Обновлено {formatDate(snapshot(items))}</small>
             </div>
@@ -794,7 +787,7 @@ function CompanyOverview({
           <h2>{company.name}</h2>
           <p>
             {company.description ??
-              "Описание компании пока не заполнено в источнике."}
+              "Описание компании не заполнено."}
           </p>
           <button className="primary" disabled={!items.length} onClick={onMap}>
             <Network size={17} />
@@ -825,7 +818,7 @@ function CompanyOverview({
           <div className="section-heading">
             <div>
               <h2>Подразделения</h2>
-              <p>Представлены в доступных инициативах</p>
+              <p>Отделы, указанные в проектах компании.</p>
             </div>
             <Building2 size={19} />
           </div>
@@ -849,7 +842,7 @@ function CompanyOverview({
                   <div>
                     <strong>{department.name}</strong>
                     <small>
-                      Контактов: {members.length} · с недавним касанием:{" "}
+                      Контактов: {members.length} · с недавним контактом:{" "}
                       {recent.length}
                     </small>
                   </div>
@@ -858,7 +851,7 @@ function CompanyOverview({
                       "status-tag " + (recent.length ? "RECENT" : "STALE")
                     }
                   >
-                    {recent.length ? "Есть контакт" : "Нет недавних касаний"}
+                    {recent.length ? "Есть контакт" : "Нет недавних контактов"}
                   </span>
                 </div>
               );
@@ -914,7 +907,7 @@ function CompanyOverview({
         <div className="section-heading">
           <div>
             <h2>Последние взаимодействия</h2>
-            <p>Общая история компании по всем инициативам</p>
+            <p>Записи по всем проектам компании.</p>
           </div>
         </div>
         <HistoryList entries={history(items)} onPerson={onPerson} compact />
@@ -1031,8 +1024,8 @@ function ContactTable({
                       >
                         {
                           {
-                            RECENT: "Недавнее касание",
-                            STALE: "Давнее касание",
+                            RECENT: "Недавний контакт",
+                            STALE: "Давно не общались",
                             UNKNOWN: "Нет записей",
                           }[coverage?.touchStatus ?? "UNKNOWN"]
                         }
@@ -1085,26 +1078,26 @@ function Insights({
       <section className="surface insights-panel">
         <div className="section-heading">
           <div>
-            <h2>Возможности для развития отношений</h2>
-            <p>Рекомендации по фактам выбранной инициативы</p>
+            <h2>Рекомендации</h2>
+            <p>Что можно сделать по выбранному проекту.</p>
           </div>
           <span className="icon-tile tone-violet">
-            <Sparkles size={19} />
+            <ChartColumn size={19} />
           </span>
         </div>
         <div className="insight-grid">
           {health.risks.map((risk, index) => (
             <article key={risk}>
-              <span className="insight-label">Сигнал по данным</span>
+              <span className="insight-label">Требует проверки</span>
               <h3>{risk}</h3>
               <p>
                 {index === 0 && health.active <= 1
-                  ? "Уточните участников решения и запланируйте знакомство с дополнительными ЛПР."
-                  : risk.includes("проверки")
-                    ? "Свяжитесь с ответственным за контакт и подтвердите должность, роль и контактные данные."
-                    : risk.includes("Подразделения")
-                      ? "Обсудите с действующими контактами знакомство с представителями этих подразделений."
-                      : "Сверьте историю с командой и зафиксируйте недостающий контекст в источнике."}
+                  ? "Уточните, кто ещё принимает решения, и запланируйте знакомство."
+                  : risk.includes("непроверенными данными")
+                    ? "Попросите ответственного менеджера проверить должность и контакты сотрудника."
+                    : risk.includes("Отделы")
+                      ? "Попросите знакомых сотрудников представить вас коллегам из этих отделов."
+                      : "Уточните информацию у коллег и добавьте недостающие записи."}
               </p>
               <button className="text-button" onClick={onContacts}>
                 Посмотреть контакты
@@ -1114,8 +1107,7 @@ function Insights({
           ))}
           {!health.risks.length && (
             <p className="empty-inline">
-              По текущим правилам зон внимания нет. Продолжайте фиксировать
-              взаимодействия.
+              Замечаний по текущим данным нет. Добавляйте результаты встреч и звонков.
             </p>
           )}
         </div>

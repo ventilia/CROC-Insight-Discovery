@@ -4,7 +4,7 @@ import { formatDate } from "./coverage";
 
 const labels: Record<Stance, string> = {
   SUPPORTS: "Поддерживает",
-  NEUTRAL: "Нейтральна",
+  NEUTRAL: "Нейтральное отношение",
   DOUBTS: "Сомневается",
   OPPOSES: "Возражает",
 };
@@ -16,7 +16,7 @@ export function PositionSummary({ position }: { position: Position | null }) {
       <p>{position.basis}</p>
       <small>Изменено {formatDate(position.changedAt)} · версия {position.version} · автор: {position.author}</small>
     </div>
-  ) : <p>Позиция пока не зафиксирована.</p>;
+  ) : <p>Оценка пока не указана.</p>;
 }
 
 export function PositionEditor({ path, onPositionChange }: { path: string; onPositionChange: (position: Position) => void }) {
@@ -60,7 +60,7 @@ export function PositionEditor({ path, onPositionChange }: { path: string; onPos
   }
 
   return <section className="source-editor" aria-labelledby="source-heading">
-    <h3 id="source-heading">Тестовый источник</h3>
+    <h3 id="source-heading">Оценка в источнике</h3>
     {remote.loading && !source && <p role="status">Загружаем запись…</p>}
     {remote.error && !source && <p role="alert">{remote.error} <button type="button" className="secondary" onClick={() => retry(attempt + 1)}>Повторить</button></p>}
     {source?.canEdit ? <form onSubmit={submit}>
@@ -69,9 +69,9 @@ export function PositionEditor({ path, onPositionChange }: { path: string; onPos
         <PositionSummary position={source.position} />
         <p>Ваш черновик остался в полях ниже.</p>
       </div>}
-      <label>Позиция<select value={stance} required disabled={state === "saving"}
+      <label>Оценка<select value={stance} required disabled={state === "saving"}
         onChange={(event) => edit({ stance: event.target.value as Stance | "", basis })}>
-        <option value="" disabled>Выберите позицию</option>
+        <option value="" disabled>Выберите оценку</option>
         {Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select></label>
       <label>Основание<textarea value={basis} maxLength={1200} required disabled={state === "saving"}
@@ -85,11 +85,11 @@ export function PositionEditor({ path, onPositionChange }: { path: string; onPos
           retry(attempt + 1);
         }}>Перечитать версию</button>
       </div>}
-      {state === "error" && <p role="alert">Запись не сохранилась. Проверьте, что тестовый источник доступен.</p>}
+      {state === "error" && <p role="alert">Не удалось сохранить запись. Повторите попытку.</p>}
       <button type="submit" className="primary" disabled={!stance || !basis.trim() || state === "saving" || state === "conflict"}>
-        {state === "saving" ? "Сохраняем…" : compareLatest ? "Сохранить свой вариант" : "Сохранить позицию"}
+        {state === "saving" ? "Сохраняем…" : compareLatest ? "Сохранить свой вариант" : "Сохранить оценку"}
       </button>
-      {state === "saved" && <p role="status">Позиция сохранена.</p>}
+      {state === "saved" && <p role="status">Оценка сохранена.</p>}
     </form> : source && <p>Доступен просмотр. Для правки подключите деморедактора.</p>}
   </section>;
 }
