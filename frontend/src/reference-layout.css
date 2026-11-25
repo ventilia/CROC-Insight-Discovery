@@ -1,0 +1,224 @@
+/* Structure adapted from the supplied KIT studio mockups; product colours stay in theme.css. */
+[hidden] {
+  display: none !important;
+}
+.sidebar {
+  padding: 23px 13px 16px;
+  overflow-y: auto;
+  background: #f0f6f2;
+  border-right: 1px solid var(--line);
+}
+.kit-brand {
+  padding: 0 7px 26px;
+  color: #173d2c;
+  gap: 10px;
+}
+.kit-brand > span:last-child {
+  font-size: 27px;
+}
+.kit-brand small {
+  color: #607565;
+}
+.kit-symbol {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+}
+.sidebar-context {
+  display: grid;
+  gap: 13px;
+  padding: 0 4px 26px;
+}
+.sidebar-context label {
+  font-size: 11px;
+  font-weight: 500;
+  gap: 7px;
+  color: var(--ink-muted);
+}
+.sidebar-context select {
+  width: 100%;
+  min-height: 38px;
+  font-size: 12px;
+  padding: 8px 24px 8px 9px;
+  border-radius: 6px;
+  text-overflow: ellipsis;
+}
+.nav-caption {
+  color: #607565;
+  padding: 0 10px 11px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+.sidebar nav {
+  gap: 3px;
+}
+.sidebar nav button {
+  min-height: 40px;
+  gap: 9px;
+  padding: 10px;
+  border-radius: 6px;
+  color: #50645a;
+  font-size: 13px;
+}
+.sidebar nav button svg {
+  width: 17px;
+  height: 17px;
+}
+.sidebar nav button:hover {
+  background: #e4eee7;
+}
+.sidebar nav button.active {
+  background: #dceee3;
+  color: #173d2c;
+}
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 15px;
+  border-color: var(--line);
+}
+.sidebar-footer strong {
+  color: #244c36;
+}
+.sidebar-footer small {
+  color: #607565;
+}
+html[data-theme="dark"] .sidebar-footer strong {
+  color: #dce7de;
+}
+.contact-drawer .profile-hero {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px 12px;
+  padding: 20px;
+  text-align: left;
+}
+.contact-drawer .profile-hero > .avatar {
+  display: inline-grid;
+  width: 48px;
+  height: 48px;
+  border-radius: 11px;
+  font-size: 17px;
+  margin: 0;
+}
+.profile-identity {
+  min-width: 0;
+}
+.profile-identity h2 {
+  font-size: 20px;
+  line-height: 1.25;
+  margin: 0 0 6px;
+  overflow-wrap: anywhere;
+}
+.profile-identity p {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+.profile-identity > span {
+  display: block;
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  margin-top: 4px;
+}
+.contact-drawer .profile-badges {
+  grid-column: 1 / -1;
+  justify-content: start;
+  margin-top: 3px;
+}
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 20px 10px;
+  background: var(--panel);
+}
+.profile-actions :is(.secondary, .primary) {
+  min-height: 34px;
+  font-size: 12px;
+  padding: 7px 10px;
+}
+.profile-context-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 7px;
+  padding: 0 20px 12px;
+}
+.copy-result {
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+.copy-result:empty {
+  display: none;
+}
+.person-pager {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+.person-pager .icon-button {
+  min-height: 28px;
+  min-width: 28px;
+}
+.profile-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 14px;
+  border-block: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--panel);
+}
+.profile-tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--ink-muted);
+  min-height: 43px;
+  padding: 10px 7px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.profile-tabs button:hover,
+.profile-tabs button[aria-pressed="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
+}
+.profile-tabs button[aria-pressed="true"] {
+  font-weight: 600;
+}
+.contact-drawer .profile-section {
+  padding: 19px 20px;
+}
+.contact-drawer [id^="profile-"] > .profile-section:first-child {
+  border-top: 0;
+}
+.contact-drawer .profile-section h3 {
+  font-size: 14px;
+}
+.contact-drawer .profile-section > p {
+  font-size: 12px;
+}
+.drawer-header {
+  min-height: 58px;
+  padding: 11px 20px;
+}
+@media (max-width: 720px) {
+  .sidebar-context {
+    padding-bottom: 20px;
+  }
+  .profile-tabs {
+    gap: 1px;
+    padding-inline: 12px;
+  }
+  .profile-tabs button {
+    padding-inline: 6px;
+  }
+}

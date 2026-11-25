@@ -6,11 +6,17 @@
     <meta name="theme-color" content="#101512" />
     <script>
       try {
-        document.documentElement.dataset.theme = localStorage.getItem("kit.theme") === "light" ? "light" : "dark";
-      } catch { document.documentElement.dataset.theme = "dark"; }
+        document.documentElement.dataset.theme =
+          localStorage.getItem("kit.theme") === "light" ? "light" : "dark";
+      } catch {
+        document.documentElement.dataset.theme = "dark";
+      }
     </script>
     <title>KIT — KROK insight tool</title>
-    <meta name="description" content="Корпоративные отношения: клиенты, карта связей, история и аналитика команды КРОК." />
+    <meta
+      name="description"
+      content="Корпоративные отношения: клиенты, карта связей, история и аналитика команды КРОК."
+    />
   </head>
   <body>
     <div id="root"></div>

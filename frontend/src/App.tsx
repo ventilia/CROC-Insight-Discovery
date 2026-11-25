@@ -64,10 +64,14 @@ export function App() {
   );
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute(
-      "content", theme === "dark" ? "#101512" : "#f2f5f2",
-    );
-    try { localStorage.setItem("kit.theme", theme); } catch { /* Storage may be unavailable. */ }
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", theme === "dark" ? "#101512" : "#f2f5f2");
+    try {
+      localStorage.setItem("kit.theme", theme);
+    } catch {
+      /* Storage may be unavailable. */
+    }
   }, [theme]);
   const route = useRoute(),
     [path, query = ""] = route.split("?"),
@@ -166,7 +170,50 @@ export function App() {
             KIT<small>KROK insight tool</small>
           </span>
         </a>
-        <span className="nav-caption">Рабочее пространство</span>
+        <div className="sidebar-context">
+          <label>
+            Компания
+            <select
+              aria-label="Компания в рабочем пространстве"
+              value={company?.id ?? ""}
+              onChange={(event) =>
+                go(
+                  `/client/${event.target.value}/${isClient ? tab : "overview"}`,
+                )
+              }
+            >
+              <option value="" disabled>
+                Выберите компанию
+              </option>
+              {companies.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {entry.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {active && (
+            <label>
+              Проект
+              <select
+                aria-label="Проект в рабочем пространстве"
+                value={active.initiative.id}
+                onChange={(event) =>
+                  go(
+                    `/client/${company!.id}/${tab}?initiative=${event.target.value}`,
+                  )
+                }
+              >
+                {items.map((entry) => (
+                  <option key={entry.initiative.id} value={entry.initiative.id}>
+                    {entry.initiative.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+        <span className="nav-caption">Разделы</span>
         <nav aria-label="Основная навигация">
           <button
             className={!isClient && !isCompanies ? "active" : ""}
@@ -191,6 +238,14 @@ export function App() {
           >
             <Network size={19} />
             Карта связей
+          </button>
+          <button
+            className={isClient && tab === "contacts" ? "active" : ""}
+            onClick={() => quickRoute("contacts")}
+            disabled={!companies.length}
+          >
+            <Users size={19} />
+            Контакты
           </button>
           <button
             className={isClient && tab === "history" ? "active" : ""}
@@ -294,7 +349,11 @@ export function App() {
           <button
             type="button"
             className="icon-button theme-toggle"
-            aria-label={theme === "dark" ? "Включить светлую тему" : "Включить тёмную тему"}
+            aria-label={
+              theme === "dark"
+                ? "Включить светлую тему"
+                : "Включить тёмную тему"
+            }
             title={theme === "dark" ? "Светлая тема" : "Тёмная тема"}
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           >
@@ -399,9 +458,7 @@ export function App() {
                   ) : !active ? (
                     <div className="empty-state">
                       <h2>Проекты пока не указаны</h2>
-                      <p>
-                        Карта появится после добавления проектов.
-                      </p>
+                      <p>Карта появится после добавления проектов.</p>
                     </div>
                   ) : (
                     <>
@@ -611,7 +668,6 @@ function Dashboard({
     <>
       <div className="page-title">
         <div>
-
           <h1>Работа с клиентами</h1>
           <p>Компании, контакты и последние записи.</p>
         </div>
@@ -682,9 +738,7 @@ function Dashboard({
               </button>
             ))}
             {!riskItems.length && (
-              <p className="empty-inline">
-                Замечаний по текущим данным нет.
-              </p>
+              <p className="empty-inline">Замечаний по текущим данным нет.</p>
             )}
           </div>
         </section>
@@ -807,10 +861,7 @@ function CompanyOverview({
         <div>
           <span className="eyebrow">О клиенте</span>
           <h2>{company.name}</h2>
-          <p>
-            {company.description ??
-              "Описание компании не заполнено."}
-          </p>
+          <p>{company.description ?? "Описание компании не заполнено."}</p>
           <button className="primary" disabled={!items.length} onClick={onMap}>
             <Network size={17} />
             Открыть карту связей
@@ -1129,7 +1180,8 @@ function Insights({
           ))}
           {!health.risks.length && (
             <p className="empty-inline">
-              Замечаний по текущим данным нет. Добавляйте результаты встреч и звонков.
+              Замечаний по текущим данным нет. Добавляйте результаты встреч и
+              звонков.
             </p>
           )}
         </div>
