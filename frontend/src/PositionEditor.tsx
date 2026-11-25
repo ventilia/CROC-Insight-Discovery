@@ -14,7 +14,7 @@ export function PositionSummary({ position }: { position: Position | null }) {
     <div className="position-summary">
       <strong>{labels[position.stance]}</strong>
       <p>{position.basis}</p>
-      <small>Изменено {formatDate(position.changedAt)} · версия {position.version}</small>
+      <small>Изменено {formatDate(position.changedAt)} · версия {position.version} · автор: {position.author}</small>
     </div>
   ) : <p>Позиция пока не зафиксирована.</p>;
 }

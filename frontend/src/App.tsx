@@ -3,6 +3,8 @@ import { ArrowRight, Building2, ChevronDown, Clock3, Copy, Network, Sparkles, X 
 import { useRemote, type Company, type Dossier, type EventPage, type Initiative, type Position } from "./api";
 import { PositionEditor, PositionSummary } from "./PositionEditor";
 import { Navigator } from "./Navigator";
+import { InfluenceMap } from "./InfluenceMap";
+import { RelationshipHealth } from "./RelationshipHealth";
 import {
   formatDate, meetingBrief, selectContacts, summarizeCoverage,
   type ContactCoverage, type ContactFilter, type Coverage, type Recency,
@@ -46,8 +48,8 @@ export function App() {
       <main className="workspace">
         <header className="page-head">
           <div>
-            <h1>Детектор потерянных связей</h1>
-            <p>Посмотрите давность зафиксированных касаний и проверок контактных данных.</p>
+            <h1>Карта отношений с клиентом</h1>
+            <p>Участники решения, связи и зоны внимания по выбранной инициативе.</p>
           </div>
           <div className="scope">
             <label><span id="company-label">Компания</span><span className="select"><select aria-labelledby="company-label" value={company?.id ?? ""} disabled={!company}
@@ -76,6 +78,7 @@ function Workspace({ initiative }: { initiative: Initiative }) {
   const [clipboard, setClipboard] = useState<{ selection: string; message: string }>();
   const [attempt, retry] = useState(0);
   const [navigatorOpen, showNavigator] = useState(false);
+  const [view, setView] = useState<"contacts" | "map">("contacts");
   const opener = useRef<HTMLButtonElement | null>(null);
   const contactsHeading = useRef<HTMLHeadingElement | null>(null);
   const result = useRemote<Coverage>("/initiatives/" + initiative.id + "/coverage?days=" + days, attempt);
@@ -114,6 +117,7 @@ function Workspace({ initiative }: { initiative: Initiative }) {
       {result.loading && <Notice text="Рассчитываем охват по истории касаний…" />}
       {data && summary && (
         <>
+          <RelationshipHealth data={data} />
           <section className="summary" aria-label="Охват участников">
             <div className="summary-primary">
               <span>Охват за {data.days} дней</span>
@@ -126,15 +130,21 @@ function Workspace({ initiative }: { initiative: Initiative }) {
             </div>
             {summaryTiles(summary).map(({ value, label, status, key }) => (
               <button key={key} type="button" className="summary-stat" aria-pressed={filter === key}
-                onClick={() => { setFilter(filter === key ? "all" : key); setDepartment(null); setClipboard(undefined); }}>
+                onClick={() => { setView("contacts"); setFilter(filter === key ? "all" : key); setDepartment(null); setClipboard(undefined); }}>
                 <span><i className={"dot " + status} />{label}<ArrowRight size={14} className="stat-arrow" /></span>
                 <strong>{value}</strong>
               </button>
             ))}
           </section>
           {navigatorOpen && <Navigator key={data.asOf + ":" + data.days} initiativeId={initiative.id} days={data.days} asOf={data.asOf} />}
+          <nav className="workspace-views" aria-label="Вид инициативы">
+            <button type="button" aria-pressed={view === "contacts"} onClick={() => setView("contacts")}>Потерянные связи</button>
+            <button type="button" aria-pressed={view === "map"} onClick={() => setView("map")}>Карта влияния</button>
+          </nav>
           <div className="work-area">
-            <section className="surface contacts" aria-labelledby="contacts-heading">
+            {view === "map" ? <InfluenceMap initiativeId={initiative.id} selectedId={personId}
+              onSelect={(id, button) => { opener.current = button; setPerson(id); }} />
+              : <section className="surface contacts" aria-labelledby="contacts-heading">
               <div className="surface-head">
                 <div><h2 id="contacts-heading" ref={contactsHeading} tabIndex={-1}>Участники <span>{contacts.length}</span></h2>
                   <p>{department ? department.name : "Последние касания и свежесть контактных данных"}</p></div>
@@ -169,7 +179,7 @@ function Workspace({ initiative }: { initiative: Initiative }) {
                 </table>
               </div> : <Notice text={data.contacts.length ? "По выбранным фильтрам никого нет." : "В инициативе пока нет участников."}
                 retry={data.contacts.length ? () => { setFilter("all"); setDepartment(null); } : undefined} label="Сбросить фильтры" />}
-            </section>
+            </section>}
             {selected ? <PersonPanel key={selected.id} initiativeId={initiative.id} asOf={data.asOf} person={selected}
               close={() => {
                 setPerson(null);
