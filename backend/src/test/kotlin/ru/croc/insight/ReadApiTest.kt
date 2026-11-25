@@ -384,6 +384,44 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
         assertThat(advise("Короткий тестовый ответ").statusCode()).isEqualTo(200)
     }
 
+    @Test
+    fun `KIT event writes enforce access and preserve an idempotent history record`() {
+        preparedWriter
+        val id = UUID.randomUUID().toString()
+        val path = "/api/v1/initiatives/$modernization/events"
+        val fields = mapOf(
+            "id" to id, "type" to "CALL", "occurredAt" to "2026-11-23T10:00:00Z",
+            "team" to "Продажи", "subject" to "Проверка сохранения KIT",
+            "outcome" to "Уточнили требования", "nextStep" to "Отправить расчёт",
+            "responsibleManager" to "Елена Иванова", "participantIds" to listOf(marina),
+        )
+        val body = mapper.writeValueAsString(fields)
+        val editorHeaders = csrf("demo-editor", editorPassword) + ("Content-Type" to "application/json")
+        val readerHeaders = csrf("demo-reader", apiPassword) + ("Content-Type" to "application/json")
+        assertThat(request(path, apiPassword, "POST", headers = readerHeaders, body = body).statusCode()).isEqualTo(403)
+        assertThat(request(path, editorPassword, "POST", "demo-editor", body = body).statusCode()).isEqualTo(403)
+        val previousAsOf = read("/api/v1/initiatives/$modernization/graph").path("asOf").asString()
+        try {
+            repeat(2) { assertThat(request(path, editorPassword, "POST", "demo-editor", editorHeaders, body).statusCode()).isEqualTo(201) }
+            val events = read("$path?personId=$marina").path("items").filter { it.path("id").asString() == id }
+            assertThat(events).hasSize(1)
+            assertThat(events[0].path("responsibleManager").asString()).isEqualTo("Елена Иванова")
+            assertThat(events[0].path("author").asString()).isEqualTo("demo-editor")
+            assertThat(request(path, editorPassword, "POST", "demo-editor", editorHeaders,
+                mapper.writeValueAsString(fields + ("subject" to "Другой запрос"))).statusCode()).isEqualTo(409)
+            assertThat(request(path, editorPassword, "POST", "demo-editor", editorHeaders,
+                mapper.writeValueAsString(fields + ("id" to UUID.randomUUID().toString()) + ("participantIds" to listOf(otherCompanyPerson)))).statusCode()).isEqualTo(400)
+        } finally {
+            connect("croc_migrator", migratorPassword).use { connection ->
+                connection.prepareStatement("DELETE FROM insight.touchpoint_participants WHERE touchpoint_id = ?").use { it.setObject(1, UUID.fromString(id)); it.executeUpdate() }
+                connection.prepareStatement("DELETE FROM insight.touchpoints WHERE id = ?").use { it.setObject(1, UUID.fromString(id)); it.executeUpdate() }
+                connection.prepareStatement("UPDATE insight.initiatives SET as_of = ? WHERE id = ?").use {
+                    it.setObject(1, java.time.OffsetDateTime.parse(previousAsOf)); it.setObject(2, UUID.fromString(modernization)); it.executeUpdate()
+                }
+            }
+        }
+    }
+
     private fun csrf(user: String, password: String): Map<String, String> {
         val response = request("/api/v1/csrf", password, "GET", user)
         assertThat(response.statusCode()).isEqualTo(200)

@@ -42,7 +42,7 @@ export function Navigator({ initiativeId, days, asOf }: { initiativeId: string; 
     </div>
     {settings.loading && <p role="status">Проверяем настройки модели…</p>}
     {settings.error && <p role="alert">{settings.error} <button type="button" className="secondary" onClick={() => setAttempt(attempt + 1)}>Повторить</button></p>}
-    {settings.data && !settings.data.enabled && <p>Локальная модель не подключена. Задайте её адрес и имя на бэкенде.</p>}
+    {settings.data && !settings.data.enabled && <p>AI-навигатор пока не подключён. Рекомендации по зафиксированным данным доступны выше.</p>}
     {settings.data?.enabled && <form onSubmit={submit}>
       <label htmlFor="navigator-question">Вопрос о контактах инициативы</label>
       <div className="navigator-input">

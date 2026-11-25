@@ -1,13 +1,30 @@
 openapi: 3.1.0
 info:
   title: КРОК Insight
-  version: 0.4.0
+  version: 0.5.0
   description: API карты ЛПР, истории касаний и охвата участников на синтетических данных.
 servers:
   - url: http://127.0.0.1:8080
 security:
   - demoBasic: []
 paths:
+  /api/v1/capabilities:
+    get:
+      operationId: getCapabilities
+      summary: Режим источника и разрешение добавлять взаимодействия
+      responses:
+        '200':
+          description: Доступные действия текущего пользователя
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [mode, canCreateEvents]
+                properties:
+                  mode: {type: string, enum: [api, demo]}
+                  canCreateEvents: {type: boolean}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /api/v1/companies:
     get:
       operationId: listCompanies
@@ -128,6 +145,39 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
   /api/v1/initiatives/{initiativeId}/events:
+    post:
+      operationId: createTouchpoint
+      summary: Зафиксировать взаимодействие и обновить срез инициативы
+      description: Нужны DEMO_EDITOR, cookie и CSRF-заголовок. Участники должны относиться к инициативе. Один ID с тем же содержимым идемпотентен; другое содержимое с тем же ID возвращает 409. Автор определяется сервером.
+      parameters:
+        - $ref: '#/components/parameters/InitiativeId'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TouchpointChange'
+      responses:
+        '201':
+          description: Событие сохранено; запись и участники добавлены атомарно
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id: {type: string, format: uuid}
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Недостаточно прав или неверный CSRF-токен
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: ID события уже использован для другого запроса
     get:
       operationId: listTouchpoints
       summary: История касаний инициативы или участника
@@ -397,6 +447,8 @@ components:
           format: uuid
         name:
           type: string
+        industry: {type: [string, 'null']}
+        description: {type: [string, 'null']}
     Initiative:
       type: object
       required: [id, companyId, name, asOf]
@@ -464,6 +516,10 @@ components:
         decisionMaker:
           type: boolean
           description: Признак ЛПР в текущей инициативе. ЛПР может быть несколько.
+        influence: {type: [string, 'null'], enum: [HIGH, MEDIUM, LOW, null]}
+        influenceBasis: {type: [string, 'null']}
+        email: {type: [string, 'null']}
+        phone: {type: [string, 'null']}
     Edge:
       type: object
       required: [id, source, target, type, label, confirmed]
@@ -599,6 +655,26 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TouchpointParticipant'
+        responsibleManager: {type: [string, 'null']}
+        author: {type: [string, 'null']}
+    TouchpointChange:
+      type: object
+      required: [id, type, occurredAt, team, subject, responsibleManager, participantIds]
+      properties:
+        id: {type: string, format: uuid}
+        type: {type: string, enum: [MEETING, CALL, EMAIL, NOTE, PROPOSAL]}
+        occurredAt: {type: string, format: date-time, description: Дата не может быть в будущем}
+        team: {type: string, minLength: 1, maxLength: 160}
+        subject: {type: string, minLength: 1, maxLength: 300}
+        responsibleManager: {type: string, minLength: 1, maxLength: 160}
+        outcome: {type: [string, 'null'], maxLength: 2000}
+        nextStep: {type: [string, 'null'], maxLength: 2000}
+        participantIds:
+          type: array
+          minItems: 1
+          maxItems: 50
+          uniqueItems: true
+          items: {type: string, format: uuid}
     TouchpointParticipant:
       type: object
       required: [id, name]

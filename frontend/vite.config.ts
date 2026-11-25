@@ -7,6 +7,10 @@ export default defineConfig(({ mode }) => {
   const target = "http://127.0.0.1:8080";
   const proxy = {
     ...(editorPassword ? {
+      "^/api/v1/(?:capabilities|initiatives/[^/]+/events)(?:\\?|$)": {
+        target,
+        auth: "demo-editor:" + editorPassword,
+      },
       "^/api/v1/initiatives/[^/]+/people/[^/]+/demo-source(?:\\?|$)": {
         target,
         auth: "demo-editor:" + editorPassword,

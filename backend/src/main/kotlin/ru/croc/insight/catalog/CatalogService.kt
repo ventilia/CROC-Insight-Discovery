@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
 
-data class CompanySummary(val id: UUID, val name: String)
+data class CompanySummary(val id: UUID, val name: String, val industry: String?, val description: String?)
 
 data class InitiativeSummary(val id: UUID, val companyId: UUID, val name: String, val asOf: Instant)
 
@@ -18,7 +18,7 @@ class CatalogService(private val jdbc: JdbcClient) {
     fun companies(viewer: String): List<CompanySummary> =
         jdbc.sql(
             """
-            SELECT c.id, c.name
+            SELECT c.id, c.name, c.industry, c.description
             FROM companies c
             JOIN company_viewers v ON v.company_id = c.id
             WHERE v.viewer_key = :viewer
@@ -26,7 +26,7 @@ class CatalogService(private val jdbc: JdbcClient) {
             """.trimIndent(),
         )
             .param("viewer", viewer)
-            .query { row, _ -> CompanySummary(row.getObject("id", UUID::class.java), row.getString("name")) }
+            .query { row, _ -> CompanySummary(row.getObject("id", UUID::class.java), row.getString("name"), row.getString("industry"), row.getString("description")) }
             .list()
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)

@@ -26,6 +26,8 @@ data class Touchpoint(
     val nextStep: String?,
     val sourceLabel: String?,
     val participants: List<TouchpointParticipant> = emptyList(),
+    val responsibleManager: String? = null,
+    val author: String? = null,
 )
 
 data class TouchpointParticipant(val id: UUID, val name: String)
@@ -88,7 +90,8 @@ class TouchpointService(
     ): List<Touchpoint> =
         jdbc.sql(
             """
-            SELECT t.id, t.type, t.occurred_at, t.team, t.subject, t.outcome, t.next_step, t.source_label
+            SELECT t.id, t.type, t.occurred_at, t.team, t.subject, t.outcome, t.next_step, t.source_label,
+                   t.responsible_manager, t.created_by
             FROM touchpoints t
             WHERE t.initiative_id = :initiativeId
               AND $TIMELINE_MATCH
@@ -113,6 +116,8 @@ class TouchpointService(
                     outcome = row.getString("outcome"),
                     nextStep = row.getString("next_step"),
                     sourceLabel = row.getString("source_label"),
+                    responsibleManager = row.getString("responsible_manager"),
+                    author = row.getString("created_by"),
                 )
             }
             .list()

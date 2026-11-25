@@ -1,264 +1,1130 @@
-import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Building2, ChevronDown, Clock3, Copy, Network, Sparkles, X } from "lucide-react";
-import { useRemote, type Company, type Dossier, type EventPage, type Initiative, type Position } from "./api";
-import { PositionEditor, PositionSummary } from "./PositionEditor";
-import { Navigator } from "./Navigator";
+import { useEffect, useState } from "react";
+import {
+  Activity,
+  Bell,
+  Building2,
+  CalendarDays,
+  ChevronRight,
+  CircleHelp,
+  Compass,
+  LayoutDashboard,
+  Menu,
+  Network,
+  Plus,
+  RefreshCw,
+  Search,
+  Sparkles,
+  Users,
+  X,
+  Copy,
+} from "lucide-react";
+import type { Company } from "./api";
 import { InfluenceMap } from "./InfluenceMap";
 import { RelationshipHealth } from "./RelationshipHealth";
+import { Navigator } from "./Navigator";
+import { ContactDrawer } from "./ContactDrawer";
+import { ContactFilters, emptyContactFilters } from "./ContactFilters";
+import { EventForm } from "./EventForm";
+import { HistoryList, HistoryPanel } from "./History";
+import { formatDate, meetingBrief } from "./coverage";
+import { relationshipHealth } from "./health";
 import {
-  formatDate, meetingBrief, selectContacts, summarizeCoverage,
-  type ContactCoverage, type ContactFilter, type Coverage, type Recency,
-} from "./coverage";
+  companyData,
+  contactMatches,
+  history,
+  influenceLabels,
+  portfolioStats,
+  roleTone,
+  snapshot,
+  uniquePeople,
+  useWorkspace,
+  type InitiativeData,
+  type WorkspaceData,
+} from "./workspace";
 
-const filters: { key: ContactFilter; label: string }[] = [
-  { key: "all", label: "Все" },
-  { key: "stale", label: "Давнее касание" },
-  { key: "unknown", label: "Нет записей" },
-  { key: "verification", label: "Проверить ЛПР" },
+const tabs = [
+  { key: "overview", label: "О компании" },
+  { key: "map", label: "Карта связей" },
+  { key: "contacts", label: "Контакты" },
+  { key: "history", label: "История" },
+  { key: "insights", label: "Аналитика" },
 ];
-
-const touchLabels: Record<Recency, string> = {
-  RECENT: "Недавнее касание",
-  STALE: "Давнее касание",
-  UNKNOWN: "Нет записей",
-};
-
-const verificationLabels: Record<Recency, string> = {
-  RECENT: "Проверены",
-  STALE: "Давняя проверка",
-  UNKNOWN: "Нет проверки",
-};
-
+function useRoute() {
+  const [route, setRoute] = useState(() => location.hash.slice(1) || "/");
+  useEffect(() => {
+    const update = () => setRoute(location.hash.slice(1) || "/");
+    window.addEventListener("hashchange", update);
+    return () => window.removeEventListener("hashchange", update);
+  }, []);
+  return route;
+}
 export function App() {
-  const [companyId, setCompany] = useState("");
-  const [initiativeId, setInitiative] = useState("");
-  const [attempt, retry] = useState(0);
-  const companies = useRemote<Company[]>("/companies", attempt);
-  const company = companies.data?.find(({ id }) => id === companyId) ?? companies.data?.[0];
-  const initiatives = useRemote<Initiative[]>(company ? "/companies/" + company.id + "/initiatives" : null, attempt);
-  const initiative = initiatives.data?.find(({ id }) => id === initiativeId) ?? initiatives.data?.[0];
-  const error = companies.error || initiatives.error;
-
+  const route = useRoute(),
+    [path, query = ""] = route.split("?"),
+    parts = path.split("/").filter(Boolean);
+  const [days, setDays] = useState(30),
+    workspace = useWorkspace(days);
+  const [search, setSearch] = useState(""),
+    [mobileNav, setMobileNav] = useState(false),
+    [toast, setToast] = useState("");
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [person, setPerson] = useState<{ iid: string; pid: string } | null>(
+      null,
+    ),
+    [form, setForm] = useState<{ iid: string; pid?: string } | null>(null);
+  const data = workspace.data,
+    companies = data?.companies ?? [];
+  const company = companies.find((company) => company.id === parts[1]);
+  const items = data && company ? companyData(data, company.id) : [];
+  const active =
+    items.find(
+      (item) =>
+        item.initiative.id === new URLSearchParams(query).get("initiative"),
+    ) ?? items[0];
+  const tab = tabs.some((tab) => tab.key === parts[2]) ? parts[2] : "overview";
+  const isClient = parts[0] === "client",
+    isCompanies = parts[0] === "companies";
+  const selected = data?.initiatives.find(
+    (item) => item.initiative.id === person?.iid,
+  );
+  const go = (path: string) => {
+    location.hash = path;
+    setPerson(null);
+    setProfileOpen(false);
+    setSearch("");
+    setMobileNav(false);
+  };
+  const openPerson = (iid: string, pid: string) => {
+    setPerson({ iid, pid });
+    setProfileOpen(true);
+  };
+  const canEdit = data?.capabilities.canCreateEvents ?? false;
+  const quickRoute = (view: string) => {
+    const id = company?.id ?? companies[0]?.id;
+    if (id)
+      go(
+        `/client/${id}/${view}${active ? "?initiative=" + active.initiative.id : ""}`,
+      );
+  };
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(""), 6000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+  const searchPeople =
+    data && search.trim()
+      ? uniquePeople(data.initiatives)
+          .filter((person) =>
+            [person.name, person.jobTitle, person.email].some((value) =>
+              value
+                ?.toLocaleLowerCase("ru")
+                .includes(search.trim().toLocaleLowerCase("ru")),
+            ),
+          )
+          .slice(0, 5)
+      : [];
+  const searchCompanies = search.trim()
+    ? companies.filter((company) =>
+        company.name
+          .toLocaleLowerCase("ru")
+          .includes(search.trim().toLocaleLowerCase("ru")),
+      )
+    : [];
   return (
-    <div className="app">
-      <header className="masthead">
-        <div className="brand"><span className="brand-mark"><Network size={19} /></span> КРОК <span>Insight</span></div>
-        <div className="mast-context"><Building2 size={16} /><span>{company?.name ?? "Клиенты"}</span></div>
-      </header>
-      <main className="workspace">
-        <header className="page-head">
+    <div className="kit-app">
+      {mobileNav && (
+        <button
+          className="nav-scrim"
+          aria-label="Закрыть навигацию"
+          onClick={() => setMobileNav(false)}
+        />
+      )}
+      <aside className={"sidebar" + (mobileNav ? " expanded" : "")}>
+        <a
+          className="kit-brand"
+          href="#/"
+          onClick={() => {
+            setPerson(null);
+            setProfileOpen(false);
+            setMobileNav(false);
+          }}
+        >
+          <span className="kit-symbol">
+            <Network size={23} />
+          </span>
+          <span>
+            KIT<small>KROK insight tool</small>
+          </span>
+        </a>
+        <span className="nav-caption">Рабочее пространство</span>
+        <nav aria-label="Основная навигация">
+          <button
+            className={!isClient && !isCompanies ? "active" : ""}
+            onClick={() => go("/")}
+          >
+            <LayoutDashboard size={19} />
+            Обзор
+          </button>
+          <button
+            className={
+              isCompanies || (isClient && tab === "overview") ? "active" : ""
+            }
+            onClick={() => go("/companies")}
+          >
+            <Building2 size={19} />
+            Клиенты<span>{companies.length}</span>
+          </button>
+          <button
+            className={isClient && tab === "map" ? "active" : ""}
+            onClick={() => quickRoute("map")}
+            disabled={!companies.length}
+          >
+            <Network size={19} />
+            Карта связей
+          </button>
+          <button
+            className={isClient && tab === "history" ? "active" : ""}
+            onClick={() => quickRoute("history")}
+            disabled={!companies.length}
+          >
+            <CalendarDays size={19} />
+            История
+          </button>
+          <button
+            className={isClient && tab === "insights" ? "active" : ""}
+            onClick={() => quickRoute("insights")}
+            disabled={!companies.length}
+          >
+            <Sparkles size={19} />
+            Аналитика
+          </button>
+        </nav>
+        <div className="sidebar-note">
+          <Compass size={20} />
+          <strong>Контекст остаётся с командой</strong>
+          <p>Люди, связи и договорённости в одном пространстве.</p>
+        </div>
+        <div className="sidebar-footer">
+          <span className="team-avatar">К</span>
           <div>
-            <h1>Карта отношений с клиентом</h1>
-            <p>Участники решения, связи и зоны внимания по выбранной инициативе.</p>
+            <strong>Команда КРОК</strong>
+            <small>
+              {data?.capabilities.mode === "demo"
+                ? "Демонстрационный режим"
+                : "Корпоративные отношения"}
+            </small>
           </div>
-          <div className="scope">
-            <label><span id="company-label">Компания</span><span className="select"><select aria-labelledby="company-label" value={company?.id ?? ""} disabled={!company}
-              onChange={(event) => { setCompany(event.target.value); setInitiative(""); }}>
-              {companies.data?.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select><ChevronDown size={15} /></span></label>
-            <label><span id="initiative-label">Инициатива</span><span className="select"><select aria-labelledby="initiative-label" value={initiative?.id ?? ""} disabled={!initiative}
-              onChange={(event) => setInitiative(event.target.value)}>
-              {initiatives.data?.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select><ChevronDown size={15} /></span></label>
+        </div>
+      </aside>
+      <div className="main-shell">
+        <header className="topbar">
+          <div className="breadcrumb">
+            <button
+              type="button"
+              className="icon-button mobile-menu"
+              aria-label="Открыть навигацию"
+              onClick={() => setMobileNav(true)}
+            >
+              <Menu size={22} />
+            </button>
+            <span>Рабочее пространство</span>
+            <ChevronRight size={14} />
+            <strong>
+              {isClient
+                ? (company?.name ?? "Клиент")
+                : isCompanies
+                  ? "Клиенты"
+                  : "Обзор"}
+            </strong>
           </div>
+          <div className="global-search">
+            <Search size={18} />
+            <input
+              aria-label="Поиск по платформе"
+              type="search"
+              placeholder="Компания или контакт"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            {search.trim() && (
+              <div className="search-results">
+                {searchCompanies.map((company) => (
+                  <button
+                    key={company.id}
+                    onClick={() => go(`/client/${company.id}/overview`)}
+                  >
+                    <Building2 size={17} />
+                    <span>
+                      {company.name}
+                      <small>Компания</small>
+                    </span>
+                  </button>
+                ))}
+                {searchPeople.map((person) => (
+                  <button
+                    key={person.id}
+                    onClick={() => {
+                      const item = data!.initiatives.find((item) =>
+                        item.graph.nodes.some((p) => p.id === person.id),
+                      )!;
+                      go(
+                        `/client/${item.initiative.companyId}/contacts?initiative=${item.initiative.id}`,
+                      );
+                      openPerson(item.initiative.id, person.id);
+                    }}
+                  >
+                    <Users size={17} />
+                    <span>
+                      {person.name}
+                      <small>{person.jobTitle ?? "Контакт"}</small>
+                    </span>
+                  </button>
+                ))}
+                {!searchCompanies.length && !searchPeople.length && (
+                  <p>Ничего не найдено</p>
+                )}
+              </div>
+            )}
+          </div>
+          <span className="mode-badge">
+            <i />
+            {data?.capabilities.mode === "demo"
+              ? "Демо · локальное сохранение"
+              : "API команды"}
+          </span>
         </header>
-        {error ? <Notice text={error} retry={() => retry(attempt + 1)} /> : initiative
-          ? <Workspace key={initiative.id} initiative={initiative} />
-          : <Notice text={companies.loading || initiatives.loading ? "Загружаем список инициатив…" : "Доступных инициатив пока нет."} />}
-      </main>
+        <main className="main-content" aria-busy={workspace.loading}>
+          {workspace.error && (
+            <div className="error-banner" role="alert">
+              <span>{workspace.error}</span>
+              <button className="secondary" onClick={workspace.refresh}>
+                Повторить загрузку
+              </button>
+            </div>
+          )}
+          {!data ? (
+            <div className="empty-state">
+              <RefreshCw size={28} />
+              <h2>
+                {workspace.loading
+                  ? "Собираем картину отношений…"
+                  : "Данные пока недоступны"}
+              </h2>
+              <p>Компании, контакты и история взаимодействий</p>
+            </div>
+          ) : (
+            <>
+              {workspace.loading && (
+                <div className="updating" role="status">
+                  Обновляем данные…
+                </div>
+              )}
+              {isClient && !company ? (
+                <div className="empty-state">
+                  <Building2 size={32} />
+                  <h2>Компания недоступна</h2>
+                  <button className="primary" onClick={() => go("/companies")}>
+                    К списку клиентов
+                  </button>
+                </div>
+              ) : isClient && company ? (
+                <>
+                  <div className="page-title">
+                    <div>
+                      <span className="eyebrow">Корпоративный клиент</span>
+                      <h1>{company.name}</h1>
+                      <p>
+                        {company.industry ?? "Отрасль пока не указана"} ·
+                        инициатив: {items.length} · срез{" "}
+                        {formatDate(snapshot(items))}
+                      </p>
+                    </div>
+                    <button
+                      className="primary"
+                      disabled={!canEdit || !active}
+                      onClick={() => setForm({ iid: active.initiative.id })}
+                    >
+                      <Plus size={18} />
+                      Взаимодействие
+                    </button>
+                  </div>
+                  {!canEdit && (
+                    <p className="read-only-note">
+                      Доступен просмотр. Для добавления взаимодействий нужен
+                      доступ редактора.
+                    </p>
+                  )}
+                  <nav className="client-tabs" aria-label="Разделы клиента">
+                    {tabs.map((item) => (
+                      <button
+                        key={item.key}
+                        aria-current={tab === item.key ? "page" : undefined}
+                        onClick={() =>
+                          go(
+                            `/client/${company.id}/${item.key}${query ? "?" + query : ""}`,
+                          )
+                        }
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </nav>
+                  {tab === "overview" ? (
+                    <CompanyOverview
+                      company={company}
+                      items={items}
+                      onPerson={openPerson}
+                      onMap={() => go(`/client/${company.id}/map`)}
+                    />
+                  ) : tab === "history" ? (
+                    <HistoryPanel
+                      key={company.id}
+                      entries={history(items)}
+                      onPerson={openPerson}
+                    />
+                  ) : !active ? (
+                    <div className="empty-state">
+                      <h2>В компании пока нет инициатив</h2>
+                      <p>
+                        Карта появится после загрузки инициатив из источника.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="scope-bar">
+                        <label>
+                          Инициатива
+                          <select
+                            value={active.initiative.id}
+                            onChange={(event) =>
+                              go(
+                                `/client/${company.id}/${tab}?initiative=${event.target.value}`,
+                              )
+                            }
+                          >
+                            {items.map((item) => (
+                              <option
+                                key={item.initiative.id}
+                                value={item.initiative.id}
+                              >
+                                {item.initiative.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          Период касаний
+                          <select
+                            value={days}
+                            onChange={(event) =>
+                              setDays(Number(event.target.value))
+                            }
+                          >
+                            {[7, 14, 30, 60, 90].map((days) => (
+                              <option key={days} value={days}>
+                                {days} дней
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <span>
+                          Данные на {formatDate(active.coverage.asOf)}
+                        </span>
+                      </div>
+                      {tab === "map" ? (
+                        <InfluenceMap
+                          key={active.initiative.id}
+                          item={active}
+                          selectedId={
+                            person?.iid === active.initiative.id
+                              ? person.pid
+                              : null
+                          }
+                          onSelect={(id) =>
+                            openPerson(active.initiative.id, id)
+                          }
+                        />
+                      ) : tab === "contacts" ? (
+                        <ContactTable
+                          key={active.initiative.id}
+                          item={active}
+                          onPerson={openPerson}
+                          toast={setToast}
+                        />
+                      ) : (
+                        <Insights
+                          key={active.initiative.id}
+                          item={active}
+                          onContacts={() =>
+                            go(
+                              `/client/${company.id}/contacts?initiative=${active.initiative.id}`,
+                            )
+                          }
+                        />
+                      )}
+                    </>
+                  )}
+                </>
+              ) : isCompanies ? (
+                <>
+                  <div className="page-title">
+                    <div>
+                      <span className="eyebrow">Ваш портфель</span>
+                      <h1>Клиенты</h1>
+                      <p>
+                        Структура, контакты и состояние отношений с каждой
+                        компанией
+                      </p>
+                    </div>
+                    <span className="total-label">
+                      Всего: {companies.length}
+                    </span>
+                  </div>
+                  <CompanyGrid
+                    data={data}
+                    onOpen={(id) => go(`/client/${id}/overview`)}
+                  />
+                </>
+              ) : (
+                <Dashboard data={data} go={go} onPerson={openPerson} />
+              )}
+            </>
+          )}
+        </main>
+        <footer className="app-footer">
+          <span>KIT · KROK insight tool</span>
+          <span>
+            {data?.capabilities.mode === "demo"
+              ? "Синтетические данные. Изменения хранятся на этом компьютере."
+              : "Сведения из доступных вам источников."}
+          </span>
+        </footer>
+      </div>
+      {profileOpen &&
+        person &&
+        selected?.graph.nodes.some((p) => p.id === person.pid) && (
+          <ContactDrawer
+            key={person.iid + person.pid}
+            item={selected}
+            personId={person.pid}
+            close={() => setProfileOpen(false)}
+            onPerson={openPerson}
+            canEdit={canEdit}
+            onEvent={() => setForm({ iid: person.iid, pid: person.pid })}
+          />
+        )}
+      {form && data && (
+        <EventForm
+          items={data.initiatives.filter(
+            (item) =>
+              item.initiative.companyId ===
+              data.initiatives.find((x) => x.initiative.id === form.iid)
+                ?.initiative.companyId,
+          )}
+          initialInitiative={form.iid}
+          initialPerson={form.pid}
+          close={() => setForm(null)}
+          saved={() => {
+            setForm(null);
+            setToast(
+              "Взаимодействие сохранено. История и аналитика обновляются.",
+            );
+            workspace.refresh();
+          }}
+        />
+      )}
+      {toast && (
+        <div className="toast" role="status">
+          {toast}
+          <button
+            className="icon-button"
+            aria-label="Скрыть уведомление"
+            onClick={() => setToast("")}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
-function Workspace({ initiative }: { initiative: Initiative }) {
-  const [days, setDays] = useState(7);
-  const [filter, setFilter] = useState<ContactFilter>("all");
-  const [departmentId, setDepartment] = useState<string | null>(null);
-  const [personId, setPerson] = useState<string | null>(null);
-  const [clipboard, setClipboard] = useState<{ selection: string; message: string }>();
-  const [attempt, retry] = useState(0);
-  const [navigatorOpen, showNavigator] = useState(false);
-  const [view, setView] = useState<"contacts" | "map">("contacts");
-  const opener = useRef<HTMLButtonElement | null>(null);
-  const contactsHeading = useRef<HTMLHeadingElement | null>(null);
-  const result = useRemote<Coverage>("/initiatives/" + initiative.id + "/coverage?days=" + days, attempt);
-  const data = result.data;
-  const contacts = data ? selectContacts(data.contacts, filter, departmentId) : [];
-  const summary = data ? summarizeCoverage(data.contacts) : null;
-  const selected = data?.contacts.find(({ id }) => id === personId);
-  const department = data?.departments.find(({ id }) => id === departmentId);
-  const selection = [data?.asOf, days, filter, departmentId].join("|");
-
-  async function copyBrief() {
-    if (!data) return;
-    try {
-      await navigator.clipboard.writeText(meetingBrief(initiative.name, data.asOf, data.days, contacts));
-      setClipboard({ selection, message: "Список скопирован" });
-    } catch {
-      setClipboard({ selection, message: "Не удалось скопировать список" });
-    }
-  }
-
+function Dashboard({
+  data,
+  go,
+  onPerson,
+}: {
+  data: WorkspaceData;
+  go: (path: string) => void;
+  onPerson: (iid: string, pid: string) => void;
+}) {
+  const stats = portfolioStats(data),
+    riskItems = data.initiatives.flatMap((item) =>
+      relationshipHealth(item.coverage).risks.map((text) => ({ item, text })),
+    );
+  const metrics = [
+    {
+      label: "Компании в портфеле",
+      value: stats.companies,
+      icon: Building2,
+      note: "Доступны вашей команде",
+      tone: "green",
+    },
+    {
+      label: "Контакты в базе",
+      value: stats.contacts,
+      icon: Users,
+      note: "Уникальные сотрудники",
+      tone: "blue",
+    },
+    {
+      label: "Взаимодействия",
+      value: stats.events,
+      icon: Activity,
+      note: "За 30 дней до даты среза",
+      tone: "violet",
+    },
+    {
+      label: "Зоны внимания",
+      value: stats.risks,
+      icon: Bell,
+      note: "Сигналы по инициативам",
+      tone: "amber",
+    },
+  ];
   return (
     <>
-      <div className="toolbar">
-        <span className="snapshot"><Clock3 size={16} /> Срез на {formatDate(data?.asOf ?? initiative.asOf)}</span>
-        <div className="toolbar-actions">
-          <button type="button" className="secondary" aria-expanded={navigatorOpen} onClick={() => showNavigator(!navigatorOpen)}>
-            <Sparkles size={15} /> Навигатор
-          </button>
-          <label className="period"><span id="period-label">Период касаний</span><span className="select"><select aria-labelledby="period-label" value={days}
-            onChange={(event) => { setDays(Number(event.target.value)); setClipboard(undefined); }}>
-            {[7, 14, 30, 60, 90].map((value) => <option key={value} value={value}>{value} дней</option>)}
-          </select><ChevronDown size={15} /></span></label>
+      <div className="page-title">
+        <div>
+          <span className="eyebrow">Отношения в фокусе</span>
+          <h1>Обзор отношений</h1>
+          <p>Что происходит с клиентами и где команде стоит уделить внимание</p>
         </div>
+        <span className="snapshot-label">
+          <CalendarDays size={16} />
+          {formatDate(snapshot(data.initiatives))}
+        </span>
       </div>
-      {result.error && <Notice text={result.error} retry={() => retry(attempt + 1)} />}
-      {result.loading && <Notice text="Рассчитываем охват по истории касаний…" />}
-      {data && summary && (
-        <>
-          <RelationshipHealth data={data} />
-          <section className="summary" aria-label="Охват участников">
-            <div className="summary-primary">
-              <span>Охват за {data.days} дней</span>
-              <div className="coverage-value"><strong>{summary.percent === null ? "—" : summary.percent + "%"}</strong>
-                <small>{summary.recent} из {data.contacts.length} участников</small></div>
-              <div className="meter" role="meter" aria-label="Охват за выбранный период" aria-valuemin={0} aria-valuemax={100}
-                aria-valuenow={summary.percent ?? 0} aria-valuetext={summary.percent === null ? "Нет участников" : undefined}>
-                <span style={{ width: (summary.percent ?? 0) + "%" }} />
-              </div>
+      <section className="metric-grid" aria-label="Показатели портфеля">
+        {metrics.map((metric) => (
+          <div className="metric-card" key={metric.label}>
+            <div>
+              <span>{metric.label}</span>
+              <span className={"metric-icon tone-" + metric.tone}>
+                <metric.icon size={19} />
+              </span>
             </div>
-            {summaryTiles(summary).map(({ value, label, status, key }) => (
-              <button key={key} type="button" className="summary-stat" aria-pressed={filter === key}
-                onClick={() => { setView("contacts"); setFilter(filter === key ? "all" : key); setDepartment(null); setClipboard(undefined); }}>
-                <span><i className={"dot " + status} />{label}<ArrowRight size={14} className="stat-arrow" /></span>
-                <strong>{value}</strong>
+            <strong>{metric.value}</strong>
+            <small>{metric.note}</small>
+          </div>
+        ))}
+      </section>
+      <div className="section-heading outside">
+        <div>
+          <h2>Ваши клиенты</h2>
+          <p>Начните с компании, чтобы увидеть всю структуру отношений</p>
+        </div>
+        <button className="text-button" onClick={() => go("/companies")}>
+          Все клиенты
+          <ChevronRight size={17} />
+        </button>
+      </div>
+      <CompanyGrid data={data} onOpen={(id) => go(`/client/${id}/overview`)} />
+      <div className="dashboard-bottom">
+        <section className="surface">
+          <div className="section-heading">
+            <div>
+              <h2>Требуют внимания</h2>
+              <p>Сигналы из доступной истории</p>
+            </div>
+            <span className="icon-tile tone-amber">
+              <Bell size={18} />
+            </span>
+          </div>
+          <div className="risk-list">
+            {riskItems.slice(0, 4).map(({ item, text }, index) => (
+              <button
+                key={item.initiative.id + index}
+                onClick={() =>
+                  go(
+                    `/client/${item.initiative.companyId}/insights?initiative=${item.initiative.id}`,
+                  )
+                }
+              >
+                <span className="risk-dot" />
+                <div>
+                  <strong>{text}</strong>
+                  <small>
+                    {
+                      data.companies.find(
+                        (company) => company.id === item.initiative.companyId,
+                      )?.name
+                    }{" "}
+                    · {item.initiative.name}
+                  </small>
+                </div>
+                <ChevronRight size={17} />
               </button>
             ))}
-          </section>
-          {navigatorOpen && <Navigator key={data.asOf + ":" + data.days} initiativeId={initiative.id} days={data.days} asOf={data.asOf} />}
-          <nav className="workspace-views" aria-label="Вид инициативы">
-            <button type="button" aria-pressed={view === "contacts"} onClick={() => setView("contacts")}>Потерянные связи</button>
-            <button type="button" aria-pressed={view === "map"} onClick={() => setView("map")}>Карта влияния</button>
-          </nav>
-          <div className="work-area">
-            {view === "map" ? <InfluenceMap initiativeId={initiative.id} selectedId={personId}
-              onSelect={(id, button) => { opener.current = button; setPerson(id); }} />
-              : <section className="surface contacts" aria-labelledby="contacts-heading">
-              <div className="surface-head">
-                <div><h2 id="contacts-heading" ref={contactsHeading} tabIndex={-1}>Участники <span>{contacts.length}</span></h2>
-                  <p>{department ? department.name : "Последние касания и свежесть контактных данных"}</p></div>
-                <button type="button" className="secondary" disabled={!contacts.length} onClick={copyBrief}>
-                  <Copy size={15} /> Список к встрече
-                </button>
-              </div>
-              <div className="filters" aria-label="Фильтры участников">
-                {filters.map(({ key, label }) => <button key={key} type="button" aria-pressed={filter === key}
-                  onClick={() => { setFilter(key); setClipboard(undefined); }}>{label}</button>)}
-                {department && <button type="button" className="department-filter" aria-label={"Снять фильтр " + department.name}
-                  onClick={() => { setDepartment(null); setClipboard(undefined); }}>{department.name}<X size={14} /></button>}
-              </div>
-              <span className="copy-result" role="status">{clipboard?.selection === selection ? clipboard.message : ""}</span>
-              {contacts.length > 0 ? <div className="table-scroll">
-                <table>
-                  <thead><tr><th scope="col">Контакт</th><th scope="col">Последнее касание</th><th scope="col">Данные</th></tr></thead>
-                  <tbody>{contacts.map((person) => (
-                    <tr key={person.id} className={selected?.id === person.id ? "selected" : ""}>
-                      <td><button className="person-button" type="button" aria-expanded={selected?.id === person.id}
-                        aria-controls={selected?.id === person.id ? "person-panel" : undefined}
-                        onClick={(event) => { opener.current = event.currentTarget; setPerson(person.id); }}>
-                        <span className="avatar" aria-hidden="true">{person.name.split(" ").slice(0, 2).map((part) => part[0]).join("")}</span>
-                        <span><span className="person-name">{person.name}{person.decisionMaker && <small>ЛПР</small>}</span>
-                          <span className="person-meta">{person.jobTitle ?? person.department?.name ?? "Должность не указана"}</span>
-                        </span>
-                      </button></td>
-                      <td><Status value={person.touchStatus} label={touchLabels[person.touchStatus]} /><small className="cell-date">{formatDate(person.lastTouchAt)}</small></td>
-                      <td><Status value={person.verificationStatus} label={verificationLabels[person.verificationStatus]} /><small className="cell-date">{formatDate(person.lastVerifiedAt)}</small></td>
-                    </tr>
-                  ))}</tbody>
-                </table>
-              </div> : <Notice text={data.contacts.length ? "По выбранным фильтрам никого нет." : "В инициативе пока нет участников."}
-                retry={data.contacts.length ? () => { setFilter("all"); setDepartment(null); } : undefined} label="Сбросить фильтры" />}
-            </section>}
-            {selected ? <PersonPanel key={selected.id} initiativeId={initiative.id} asOf={data.asOf} person={selected}
-              close={() => {
-                setPerson(null);
-                if (opener.current?.isConnected) opener.current.focus();
-                else contactsHeading.current?.focus();
-              }} />
-              : <aside className="surface department-panel" aria-labelledby="departments-heading">
-                <div className="surface-head"><div><h2 id="departments-heading">Подразделения</h2>
-                  <p>Контакты за выбранный период</p></div></div>
-                <div className="department-list">{data.departments.map((item) => (
-                  <button key={item.id} type="button" aria-pressed={departmentId === item.id}
-                    onClick={() => { setDepartment(departmentId === item.id ? null : item.id); setClipboard(undefined); }}>
-                    <div className="dept-top"><strong>{item.name}</strong><span>{item.recentCount} / {item.participantCount}</span></div>
-                    <div className="meter mini" aria-hidden="true"><span style={{ width: item.recentCount * 100 / item.participantCount + "%" }} /></div>
-                    <small>{touchLabels[item.touchStatus]} · {formatDate(item.lastTouchAt)}</small>
-                  </button>
-                ))}</div>
-                {!data.departments.length && <Notice text="Подразделения пока не указаны." />}
-                <p className="aside-note">Данные ЛПР требуют проверки, если их не проверяли {data.verificationDays} дней или дата проверки не указана.</p>
-              </aside>}
+            {!riskItems.length && (
+              <p className="empty-inline">
+                По текущим правилам зон внимания нет.
+              </p>
+            )}
           </div>
-        </>
-      )}
+        </section>
+        <section className="surface">
+          <div className="section-heading">
+            <div>
+              <h2>Последние взаимодействия</h2>
+              <p>Контекст работы команды</p>
+            </div>
+            <CalendarDays size={19} />
+          </div>
+          <HistoryList
+            entries={history(data.initiatives)}
+            onPerson={onPerson}
+            compact
+          />
+        </section>
+      </div>
     </>
   );
 }
-
-function summaryTiles(summary: ReturnType<typeof summarizeCoverage>) {
-  return [
-    { value: summary.stale, label: "Давние касания", status: "STALE", key: "stale" },
-    { value: summary.unknown, label: "Нет записей", status: "UNKNOWN", key: "unknown" },
-    { value: summary.verification, label: "Проверить ЛПР", status: "VERIFY", key: "verification" },
-  ] as const;
-}
-
-function PersonPanel({ initiativeId, asOf, person, close }: {
-  initiativeId: string; asOf: string; person: ContactCoverage; close: () => void;
+function CompanyGrid({
+  data,
+  onOpen,
+}: {
+  data: WorkspaceData;
+  onOpen: (id: string) => void;
 }) {
-  const heading = useRef<HTMLHeadingElement | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [sourcePosition, setSourcePosition] = useState<Position | null>(null);
-  const path = "/initiatives/" + initiativeId;
-  const dossier = useRemote<Dossier>(path + "/people/" + person.id);
-  const events = useRemote<EventPage>(path + "/events?" + new URLSearchParams({ personId: person.id, limit: "3", through: asOf }));
-  useEffect(() => { heading.current?.focus(); }, []);
-
-  return <aside id="person-panel" className="surface department-panel" aria-labelledby="person-heading"
-    onKeyDown={(event) => { if (event.key === "Escape") close(); }}>
-    <div className="surface-head">
-      <div><h2 id="person-heading" ref={heading} tabIndex={-1}>{person.name}</h2>
-        <p>{dossier.data?.person.role?.label ?? person.jobTitle ?? "Участник инициативы"}</p></div>
-      <button type="button" className="icon-button" aria-label="Закрыть карточку" onClick={close}><X size={19} /></button>
+  return data.companies.length ? (
+    <div className="company-grid">
+      {data.companies.map((company, index) => {
+        const items = companyData(data, company.id),
+          people = uniquePeople(items),
+          departments = new Set(
+            people.map((person) => person.department?.id).filter(Boolean),
+          );
+        const risks = items.reduce(
+          (total, item) =>
+            total + relationshipHealth(item.coverage).risks.length,
+          0,
+        );
+        return (
+          <button
+            className="company-card surface"
+            key={company.id}
+            onClick={() => onOpen(company.id)}
+          >
+            <div className="company-card-top">
+              <span
+                className={
+                  "company-monogram tone-" + (index % 2 ? "blue" : "green")
+                }
+              >
+                {company.name
+                  .split(" ")
+                  .map((word) => word[0])
+                  .slice(0, 2)
+                  .join("")}
+              </span>
+              <span className="pill">Инициатив: {items.length}</span>
+              <ChevronRight size={20} />
+            </div>
+            <h3>{company.name}</h3>
+            <p>{company.industry ?? "Отрасль не указана"}</p>
+            <div className="company-card-stats">
+              <span>
+                <Users size={16} />
+                Контактов: {people.length}
+              </span>
+              <span>
+                <Building2 size={16} />
+                Подразделений: {departments.size}
+              </span>
+            </div>
+            <div className="company-card-footer">
+              <span className={risks ? "attention-text" : ""}>
+                {risks ? `Зон внимания: ${risks}` : "Нет сигналов риска"}
+              </span>
+              <small>Обновлено {formatDate(snapshot(items))}</small>
+            </div>
+          </button>
+        );
+      })}
     </div>
-    <div className="person-panel">
-      <div className="person-facts"><Status value={person.touchStatus} label={touchLabels[person.touchStatus]} /><span>{formatDate(person.lastTouchAt)}</span></div>
-      <h3>Позиция по инициативе</h3>
-      {dossier.error ? <p role="alert">{dossier.error}</p> : dossier.loading ? <p role="status">Загружаем позицию…</p>
-        : <PositionSummary position={sourcePosition ?? dossier.data?.position ?? null} />}
-      <button type="button" className="secondary source-toggle" aria-expanded={editing} onClick={() => setEditing(!editing)}>
-        {editing ? "Свернуть источник" : "Открыть тестовый источник"}
-      </button>
-      {editing && <PositionEditor path={path + "/people/" + person.id + "/demo-source"} onPositionChange={setSourcePosition} />}
-      <h3>Последние касания</h3>
-      {events.error && <p role="alert">{events.error}</p>}
-      {events.loading && <p role="status">Загружаем историю…</p>}
-      {events.data?.items.length === 0 && <p>Для участника пока нет записей.</p>}
-      {!!events.data?.items.length && <ol className="timeline">{events.data.items.map((item) => <li key={item.id}>
-        <time dateTime={item.occurredAt}>{formatDate(item.occurredAt)}</time>
-        <strong>{item.subject}</strong>
-        {(item.nextStep ?? item.outcome) && <p>{item.nextStep ?? item.outcome}</p>}
-      </li>)}</ol>}
+  ) : (
+    <div className="empty-state">
+      <Building2 size={32} />
+      <h2>Клиентов пока нет</h2>
+      <p>Компании появятся после загрузки данных из источника.</p>
     </div>
-  </aside>;
+  );
 }
-
-function Status({ value, label }: { value: Recency; label: string }) {
-  return <span className={"status " + value}><i className={"dot " + value} />{label}</span>;
+function CompanyOverview({
+  company,
+  items,
+  onPerson,
+  onMap,
+}: {
+  company: Company;
+  items: InitiativeData[];
+  onPerson: (iid: string, pid: string) => void;
+  onMap: () => void;
+}) {
+  const people = uniquePeople(items),
+    departments = [
+      ...new Map(
+        people
+          .filter((person) => person.department)
+          .map((person) => [person.department!.id, person.department!]),
+      ).values(),
+    ];
+  const keyPeople = people.filter((person) =>
+    items.some((item) =>
+      item.graph.nodes.some((p) => p.id === person.id && p.decisionMaker),
+    ),
+  );
+  return (
+    <>
+      <section className="company-summary surface">
+        <div>
+          <span className="eyebrow">О клиенте</span>
+          <h2>{company.name}</h2>
+          <p>
+            {company.description ??
+              "Описание компании пока не заполнено в источнике."}
+          </p>
+          <button className="primary" disabled={!items.length} onClick={onMap}>
+            <Network size={17} />
+            Открыть карту связей
+          </button>
+        </div>
+        <div className="company-facts">
+          <div>
+            <strong>{people.length}</strong>
+            <span>сотрудников</span>
+          </div>
+          <div>
+            <strong>{departments.length}</strong>
+            <span>подразделений</span>
+          </div>
+          <div>
+            <strong>{keyPeople.length}</strong>
+            <span>ключевых ЛПР</span>
+          </div>
+          <div>
+            <strong>{history(items).length}</strong>
+            <span>взаимодействий</span>
+          </div>
+        </div>
+      </section>
+      <div className="overview-columns">
+        <section className="surface">
+          <div className="section-heading">
+            <div>
+              <h2>Подразделения</h2>
+              <p>Представлены в доступных инициативах</p>
+            </div>
+            <Building2 size={19} />
+          </div>
+          <div className="department-cards">
+            {departments.map((department) => {
+              const members = people.filter(
+                  (person) => person.department?.id === department.id,
+                ),
+                recent = members.filter((person) =>
+                  items.some((item) =>
+                    item.coverage.contacts.some(
+                      (p) => p.id === person.id && p.touchStatus === "RECENT",
+                    ),
+                  ),
+                );
+              return (
+                <div key={department.id}>
+                  <span className="department-icon">
+                    <Building2 size={19} />
+                  </span>
+                  <div>
+                    <strong>{department.name}</strong>
+                    <small>
+                      Контактов: {members.length} · с недавним касанием:{" "}
+                      {recent.length}
+                    </small>
+                  </div>
+                  <span
+                    className={
+                      "status-tag " + (recent.length ? "RECENT" : "STALE")
+                    }
+                  >
+                    {recent.length ? "Есть контакт" : "Нет недавних касаний"}
+                  </span>
+                </div>
+              );
+            })}
+            {!departments.length && (
+              <p className="empty-inline">Подразделения пока не указаны.</p>
+            )}
+          </div>
+        </section>
+        <section className="surface">
+          <div className="section-heading">
+            <div>
+              <h2>Ключевые участники</h2>
+              <p>Лица, принимающие решения</p>
+            </div>
+            <Users size={19} />
+          </div>
+          <div className="key-people">
+            {keyPeople.map((person) => {
+              const item = items.find((item) =>
+                item.graph.nodes.some(
+                  (p) => p.id === person.id && p.decisionMaker,
+                ),
+              )!;
+              return (
+                <button
+                  key={person.id}
+                  onClick={() => onPerson(item.initiative.id, person.id)}
+                >
+                  <span
+                    className={"avatar tone-" + roleTone(person.role?.code)}
+                  >
+                    {person.name
+                      .split(" ")
+                      .map((word) => word[0])
+                      .join("")}
+                  </span>
+                  <div>
+                    <strong>{person.name}</strong>
+                    <small>{person.jobTitle ?? "Должность не указана"}</small>
+                  </div>
+                  <ChevronRight size={17} />
+                </button>
+              );
+            })}
+            {!keyPeople.length && (
+              <p className="empty-inline">ЛПР пока не определены.</p>
+            )}
+          </div>
+        </section>
+      </div>
+      <section className="surface">
+        <div className="section-heading">
+          <div>
+            <h2>Последние взаимодействия</h2>
+            <p>Общая история компании по всем инициативам</p>
+          </div>
+        </div>
+        <HistoryList entries={history(items)} onPerson={onPerson} compact />
+      </section>
+    </>
+  );
 }
-
-function Notice({ text, retry, label = "Повторить" }: { text: string; retry?: () => void; label?: string }) {
-  return <div className="notice" role="status">{text}{retry && <button type="button" className="secondary" onClick={retry}>{label}</button>}</div>;
+function ContactTable({
+  item,
+  onPerson,
+  toast,
+}: {
+  item: InitiativeData;
+  onPerson: (iid: string, pid: string) => void;
+  toast: (text: string) => void;
+}) {
+  const [filters, setFilters] = useState(emptyContactFilters),
+    visible = item.graph.nodes.filter((person) =>
+      contactMatches(person, item, filters),
+    );
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(
+        meetingBrief(
+          item.initiative.name,
+          item.coverage.asOf,
+          item.coverage.days,
+          item.coverage.contacts.filter((person) =>
+            visible.some((p) => p.id === person.id),
+          ),
+        ),
+      );
+      toast("Список к встрече скопирован");
+    } catch {
+      toast("Не удалось скопировать список");
+    }
+  }
+  return (
+    <section className="surface">
+      <div className="section-heading">
+        <div>
+          <h2>
+            Контакты <span className="count-badge">{visible.length}</span>
+          </h2>
+          <p>Роли, влияние и история общения</p>
+        </div>
+        <button className="secondary" disabled={!visible.length} onClick={copy}>
+          <Copy size={16} />
+          Список к встрече
+        </button>
+      </div>
+      <ContactFilters item={item} value={filters} change={setFilters} />
+      {visible.length ? (
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Сотрудник</th>
+                <th>Роль в решении</th>
+                <th>Влияние</th>
+                <th>Взаимодействия</th>
+                <th>Данные</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((person) => {
+                const coverage = item.coverage.contacts.find(
+                  (p) => p.id === person.id,
+                );
+                return (
+                  <tr key={person.id}>
+                    <td>
+                      <button
+                        className="person-button"
+                        onClick={() => onPerson(item.initiative.id, person.id)}
+                      >
+                        <span
+                          className={
+                            "avatar tone-" + roleTone(person.role?.code)
+                          }
+                        >
+                          {person.name
+                            .split(" ")
+                            .slice(0, 2)
+                            .map((word) => word[0])
+                            .join("")}
+                        </span>
+                        <span>
+                          <strong>{person.name}</strong>
+                          <small>
+                            {person.jobTitle ?? "Должность не указана"}
+                          </small>
+                          <small>
+                            {person.department?.name ?? "Отдел не указан"}
+                          </small>
+                        </span>
+                      </button>
+                    </td>
+                    <td>
+                      <span
+                        className={
+                          "role-badge tone-" + roleTone(person.role?.code)
+                        }
+                      >
+                        {person.role?.label ?? "Не указана"}
+                      </span>
+                    </td>
+                    <td>{influenceLabels[person.influence ?? "UNKNOWN"]}</td>
+                    <td>
+                      <span
+                        className={
+                          "status-tag " + (coverage?.touchStatus ?? "UNKNOWN")
+                        }
+                      >
+                        {
+                          {
+                            RECENT: "Недавнее касание",
+                            STALE: "Давнее касание",
+                            UNKNOWN: "Нет записей",
+                          }[coverage?.touchStatus ?? "UNKNOWN"]
+                        }
+                      </span>
+                      <small className="cell-date">
+                        {formatDate(coverage?.lastTouchAt ?? null)}
+                      </small>
+                    </td>
+                    <td>
+                      <span
+                        className={
+                          "status-tag " +
+                          (coverage?.verificationStatus ?? "UNKNOWN")
+                        }
+                      >
+                        {coverage?.verificationStatus === "RECENT"
+                          ? "Проверены"
+                          : coverage?.verificationStatus === "STALE"
+                            ? "Давняя проверка"
+                            : "Нет проверки"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="empty-state">
+          <Search size={28} />
+          <h3>Контакты не найдены</h3>
+          <p>Попробуйте изменить условия поиска.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+function Insights({
+  item,
+  onContacts,
+}: {
+  item: InitiativeData;
+  onContacts: () => void;
+}) {
+  const health = relationshipHealth(item.coverage);
+  return (
+    <>
+      <RelationshipHealth data={item.coverage} />
+      <section className="surface insights-panel">
+        <div className="section-heading">
+          <div>
+            <h2>Возможности для развития отношений</h2>
+            <p>Рекомендации по фактам выбранной инициативы</p>
+          </div>
+          <span className="icon-tile tone-violet">
+            <Sparkles size={19} />
+          </span>
+        </div>
+        <div className="insight-grid">
+          {health.risks.map((risk, index) => (
+            <article key={risk}>
+              <span className="insight-label">Сигнал по данным</span>
+              <h3>{risk}</h3>
+              <p>
+                {index === 0 && health.active <= 1
+                  ? "Уточните участников решения и запланируйте знакомство с дополнительными ЛПР."
+                  : risk.includes("проверки")
+                    ? "Свяжитесь с ответственным за контакт и подтвердите должность, роль и контактные данные."
+                    : risk.includes("Подразделения")
+                      ? "Обсудите с действующими контактами знакомство с представителями этих подразделений."
+                      : "Сверьте историю с командой и зафиксируйте недостающий контекст в источнике."}
+              </p>
+              <button className="text-button" onClick={onContacts}>
+                Посмотреть контакты
+                <ChevronRight size={16} />
+              </button>
+            </article>
+          ))}
+          {!health.risks.length && (
+            <p className="empty-inline">
+              По текущим правилам зон внимания нет. Продолжайте фиксировать
+              взаимодействия.
+            </p>
+          )}
+        </div>
+      </section>
+      <Navigator
+        initiativeId={item.initiative.id}
+        days={item.coverage.days}
+        asOf={item.coverage.asOf}
+      />
+    </>
+  );
 }

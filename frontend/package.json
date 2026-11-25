@@ -3,12 +3,15 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "engines": {"node": ">=22.12.0"},
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test src/api.test.ts src/coverage.test.ts src/graph.test.ts src/health.test.ts",
-    "preview": "vite preview"
+    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test src/api.test.ts src/coverage.test.ts src/graph.test.ts src/health.test.ts src/workspace.test.ts demo/store.test.mjs",
+    "preview": "vite preview",
+    "demo": "node demo/server.mjs"
   },
   "dependencies": {
     "@fontsource-variable/onest": "5.3.1",

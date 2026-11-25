@@ -47,7 +47,8 @@ class ParticipantService(private val catalog: CatalogService, private val positi
         jdbc.sql(
             """
             SELECT c.id, c.name, c.job_title, d.id AS department_id, d.name AS department_name,
-                   r.code AS role_code, r.label AS role_label, p.decision_maker
+                   r.code AS role_code, r.label AS role_label, p.decision_maker,
+                   p.influence, p.influence_basis, c.email, c.phone
             FROM initiative_participants p
             JOIN contacts c ON c.id = p.contact_id
             LEFT JOIN departments d ON d.id = c.department_id
@@ -68,6 +69,10 @@ class ParticipantService(private val catalog: CatalogService, private val positi
                         ?.let { Department(it, row.getString("department_name")) },
                     role = row.getString("role_code")?.let { ParticipantRole(it, row.getString("role_label")) },
                     decisionMaker = row.getBoolean("decision_maker"),
+                    influence = row.getString("influence"),
+                    influenceBasis = row.getString("influence_basis"),
+                    email = row.getString("email"),
+                    phone = row.getString("phone"),
                 )
             }
 }

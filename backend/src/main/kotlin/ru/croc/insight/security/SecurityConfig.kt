@@ -45,7 +45,9 @@ class SecurityConfig {
                         "/api/v1/initiatives/{initiativeId}/people/{personId}/demo-source",
                         "/api/v1/csrf",
                         "/api/v1/ai/settings",
+                        "/api/v1/capabilities",
                     ).hasRole("DEMO_READER")
+                    .requestMatchers(HttpMethod.POST, "/api/v1/initiatives/{initiativeId}/events").hasRole("DEMO_EDITOR")
                     .requestMatchers(
                         HttpMethod.POST,
                         "/api/v1/initiatives/{initiativeId}/ai/advice",

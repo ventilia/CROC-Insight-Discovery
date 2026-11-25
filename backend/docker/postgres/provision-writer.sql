@@ -11,5 +11,8 @@ GRANT CONNECT ON DATABASE croc_insight TO croc_writer;
 GRANT USAGE ON SCHEMA insight TO croc_writer;
 GRANT SELECT ON insight.initiative_participants, insight.company_viewers TO croc_writer;
 GRANT SELECT, INSERT ON insight.stance_revisions TO croc_writer;
+GRANT SELECT, INSERT ON insight.touchpoints, insight.touchpoint_participants TO croc_writer;
+GRANT SELECT ON insight.initiatives TO croc_writer;
+GRANT UPDATE (as_of) ON insight.initiatives TO croc_writer;
 
 COMMIT;

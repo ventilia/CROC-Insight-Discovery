@@ -5,6 +5,10 @@ export type GraphNode = {
   department: { id: string; name: string } | null;
   role: { code: string; label: string } | null;
   decisionMaker: boolean;
+  influence?: "HIGH" | "MEDIUM" | "LOW" | null;
+  influenceBasis?: string | null;
+  email?: string | null;
+  phone?: string | null;
 };
 export type GraphEdge = { id: string; source: string; target: string; type: string; label: string; confirmed: boolean };
 export type Graph = {
