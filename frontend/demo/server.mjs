@@ -69,6 +69,7 @@ export function startServer({
             mode: "demo",
             canCreateEvents: true,
             canImportContacts: true,
+            canManageWorkspace: true,
           });
         if (path === "/api/v1/ai/settings")
           return json(res, 200, { enabled: false, model: null });
@@ -83,6 +84,8 @@ export function startServer({
         if (parts[0] === "initiatives") {
           const iid = parts[1],
             q = Object.fromEntries(url.searchParams);
+          if (parts.length === 3 && parts[2] === "requests")
+            return json(res, 200, store.requests(iid));
           if (parts.length === 3 && parts[2] === "graph")
             return json(res, 200, store.graph(iid, q));
           if (parts.length === 3 && parts[2] === "coverage")
@@ -132,6 +135,53 @@ export function startServer({
         }
         if (!value || Array.isArray(value) || typeof value !== "object")
           throw new HttpError(400, "Ожидается объект.");
+        if (
+          req.method === "POST" &&
+          parts[0] === "companies" &&
+          parts[2] === "initiatives" &&
+          parts.length === 3
+        )
+          return json(res, 201, store.createProject(parts[1], value));
+        if (parts[0] === "initiatives") {
+          if (
+            req.method === "POST" &&
+            parts[2] === "people" &&
+            parts.length === 3
+          )
+            return json(res, 201, store.saveParticipant(parts[1], null, value));
+          if (
+            req.method === "PATCH" &&
+            parts[2] === "people" &&
+            parts.length === 4
+          )
+            return json(
+              res,
+              200,
+              store.saveParticipant(parts[1], parts[3], value),
+            );
+          if (
+            req.method === "POST" &&
+            parts[2] === "relationships" &&
+            parts.length === 3
+          )
+            return json(res, 201, store.createRelationship(parts[1], value));
+          if (
+            req.method === "POST" &&
+            parts[2] === "requests" &&
+            parts.length === 3
+          )
+            return json(res, 201, store.createRequest(parts[1], value));
+          if (
+            req.method === "PATCH" &&
+            parts[2] === "requests" &&
+            parts.length === 4
+          )
+            return json(
+              res,
+              200,
+              store.updateRequest(parts[1], parts[3], value),
+            );
+        }
         if (
           req.method === "POST" &&
           parts[0] === "initiatives" &&

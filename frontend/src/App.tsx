@@ -17,6 +17,9 @@ import {
   Moon,
 } from "lucide-react";
 import type { Company } from "./api";
+import { ContactPage } from "./ContactPage";
+import { WorkspaceEdit, type WorkspaceAction } from "./WorkspaceEdit";
+import { ProjectIndex, ProjectLinks, Requests } from "./ProjectWorkspace";
 import { CrmImport } from "./CrmImport";
 import { InfluenceMap } from "./InfluenceMap";
 import { RelationshipHealth } from "./RelationshipHealth";
@@ -47,6 +50,8 @@ const tabs = [
   { key: "contacts", label: "Контакты" },
   { key: "history", label: "История" },
   { key: "insights", label: "Аналитика" },
+  { key: "projects", label: "Связи проектов" },
+  { key: "requests", label: "Запросы" },
 ];
 function useRoute() {
   const [route, setRoute] = useState(() => location.hash.slice(1) || "/");
@@ -80,6 +85,8 @@ export function App() {
   const [search, setSearch] = useState(""),
     [mobileNav, setMobileNav] = useState(false),
     [toast, setToast] = useState("");
+  const [contentVersion, setContentVersion] = useState(0);
+  const [editor, setEditor] = useState<WorkspaceAction | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [person, setPerson] = useState<{ iid: string; pid: string } | null>(
@@ -94,8 +101,13 @@ export function App() {
     items.find(
       (item) =>
         item.initiative.id === new URLSearchParams(query).get("initiative"),
-    ) ?? items[0];
-  const tab = tabs.some((tab) => tab.key === parts[2]) ? parts[2] : "overview";
+    ) ?? (new URLSearchParams(query).has("initiative") ? undefined : items[0]);
+  const tab =
+    parts[2] === "person"
+      ? "contacts"
+      : tabs.some((tab) => tab.key === parts[2])
+        ? parts[2]
+        : "overview";
   const isClient = parts[0] === "client",
     isCompanies = parts[0] === "companies";
   const selected = data?.initiatives.find(
@@ -113,6 +125,15 @@ export function App() {
     setProfileOpen(true);
   };
   const canEdit = data?.capabilities.canCreateEvents ?? false;
+  const canManage = data?.capabilities.canManageWorkspace === true;
+  const fullPerson = (iid: string, pid: string) => {
+    const item = data?.initiatives.find((item) => item.initiative.id === iid);
+    if (item)
+      go(
+        `/client/${item.initiative.companyId}/person/${pid}?initiative=${iid}`,
+      );
+  };
+
   const quickRoute = (view: string) => {
     const id = company?.id ?? companies[0]?.id;
     if (id)
@@ -260,6 +281,20 @@ export function App() {
             <ChartColumn size={19} />
             Аналитика
           </button>
+          <button
+            className={isClient && tab === "projects" ? "active" : ""}
+            disabled={!companies.length}
+            onClick={() => quickRoute("projects")}
+          >
+            Связи проектов
+          </button>
+          <button
+            className={isClient && tab === "requests" ? "active" : ""}
+            disabled={!companies.length}
+            onClick={() => quickRoute("requests")}
+          >
+            Запросы
+          </button>
         </nav>
         <button
           type="button"
@@ -393,6 +428,21 @@ export function App() {
                     К списку клиентов
                   </button>
                 </div>
+              ) : isClient && company && parts[2] === "person" && parts[3] ? (
+                <ContactPage
+                  onRefresh={workspace.refresh}
+                  item={active}
+                  personId={parts[3]}
+                  items={items}
+                  dark={theme === "dark"}
+                  canEdit={canEdit}
+                  go={go}
+                  onEvent={() =>
+                    active &&
+                    setForm({ iid: active.initiative.id, pid: parts[3] })
+                  }
+                  onManage={canManage ? setEditor : undefined}
+                />
               ) : isClient && company ? (
                 <>
                   <div className="page-title">
@@ -405,14 +455,27 @@ export function App() {
                         {formatDate(snapshot(items))}
                       </p>
                     </div>
-                    <button
-                      className="primary"
-                      disabled={!canEdit || !active}
-                      onClick={() => setForm({ iid: active.initiative.id })}
-                    >
-                      <Plus size={18} />
-                      Взаимодействие
-                    </button>
+                    <div className="page-actions">
+                      <button
+                        className="secondary"
+                        disabled={!canManage}
+                        onClick={() =>
+                          setEditor({ kind: "project", cid: company.id })
+                        }
+                      >
+                        Новый проект
+                      </button>
+                      <button
+                        className="primary"
+                        disabled={!canEdit || !active}
+                        onClick={() =>
+                          active && setForm({ iid: active.initiative.id })
+                        }
+                      >
+                        <Plus size={18} />
+                        Взаимодействие
+                      </button>
+                    </div>
                   </div>
                   {!canEdit && (
                     <p className="read-only-note">
@@ -436,11 +499,25 @@ export function App() {
                     ))}
                   </nav>
                   {tab === "overview" ? (
-                    <CompanyOverview
-                      company={company}
+                    <>
+                      <CompanyOverview
+                        company={company}
+                        items={items}
+                        onPerson={openPerson}
+                        onMap={() => go(`/client/${company.id}/map`)}
+                      />
+                      <ProjectIndex items={items} go={go} />
+                    </>
+                  ) : tab === "projects" ? (
+                    <ProjectLinks
+                      key={company.id + items.length}
                       items={items}
-                      onPerson={openPerson}
-                      onMap={() => go(`/client/${company.id}/map`)}
+                      go={go}
+                      onPerson={fullPerson}
+                      canManage={canManage}
+                      onCreate={() =>
+                        setEditor({ kind: "project", cid: company.id })
+                      }
                     />
                   ) : tab === "history" ? (
                     <HistoryPanel
@@ -495,10 +572,62 @@ export function App() {
                           Данные на {formatDate(active.coverage.asOf)}
                         </span>
                       </div>
-                      {tab === "map" ? (
-                        <InfluenceMap
-                          key={active.initiative.id}
+                      <div className="workspace-actions">
+                        <button
+                          className="secondary"
+                          disabled={!canManage}
+                          onClick={() =>
+                            setEditor({
+                              kind: "person",
+                              iid: active.initiative.id,
+                            })
+                          }
+                        >
+                          Новый участник
+                        </button>
+                        <button
+                          className="secondary"
+                          disabled={!canManage}
+                          onClick={() =>
+                            setEditor({
+                              kind: "request",
+                              iid: active.initiative.id,
+                            })
+                          }
+                        >
+                          Запросить информацию
+                        </button>
+                      </div>
+                      {tab === "requests" ? (
+                        <Requests
+                          key={active.initiative.id + contentVersion}
                           item={active}
+                          canManage={canManage}
+                          onPerson={fullPerson}
+                          onCreate={() =>
+                            setEditor({
+                              kind: "request",
+                              iid: active.initiative.id,
+                            })
+                          }
+                        />
+                      ) : tab === "map" ? (
+                        <InfluenceMap
+                          key={active.initiative.id + query}
+                          item={active}
+                          initialFocus={new URLSearchParams(query).get("focus")}
+                          onlyIds={new URLSearchParams(query)
+                            .get("shared")
+                            ?.split(",")}
+                          onAddRelationship={
+                            canManage
+                              ? () =>
+                                  setEditor({
+                                    kind: "relationship",
+                                    iid: active.initiative.id,
+                                  })
+                              : undefined
+                          }
                           darkTheme={theme === "dark"}
                           selectedId={
                             person?.iid === active.initiative.id
@@ -566,6 +695,15 @@ export function App() {
           <ContactDrawer
             key={person.iid + person.pid}
             item={selected}
+            onRefresh={workspace.refresh}
+            workspaceItems={data?.initiatives ?? []}
+            onFull={() => fullPerson(person.iid, person.pid)}
+            onMap={() =>
+              go(
+                `/client/${selected.initiative.companyId}/map?initiative=${person.iid}&focus=${person.pid}`,
+              )
+            }
+            onManage={canManage ? setEditor : undefined}
             personId={person.pid}
             close={() => setProfileOpen(false)}
             onPerson={openPerson}
@@ -573,6 +711,34 @@ export function App() {
             onEvent={() => setForm({ iid: person.iid, pid: person.pid })}
           />
         )}
+      {editor && canManage && (
+        <WorkspaceEdit
+          key={JSON.stringify(editor)}
+          action={editor}
+          item={data?.initiatives.find((i) => i.initiative.id === editor.iid)}
+          close={() => setEditor(null)}
+          saved={(id) => {
+            const action = editor;
+            setEditor(null);
+            setContentVersion((v) => v + 1);
+            setToast("Изменения сохранены");
+            workspace.refresh();
+            const item = data?.initiatives.find(
+              (i) => i.initiative.id === action.iid,
+            );
+            if (action.kind === "project")
+              go(`/client/${action.cid}/map?initiative=${id}`);
+            else if (action.kind === "person" && item)
+              go(
+                `/client/${item.initiative.companyId}/person/${id}?initiative=${item.initiative.id}`,
+              );
+            else if (action.kind === "request" && item)
+              go(
+                `/client/${item.initiative.companyId}/requests?initiative=${item.initiative.id}`,
+              );
+          }}
+        />
+      )}
       {importOpen && data && (
         <CrmImport
           data={data}
@@ -969,6 +1135,12 @@ function ContactTable({
     visible = item.graph.nodes.filter((person) =>
       contactMatches(person, item, filters),
     );
+  const [page, setPage] = useState(0);
+  useEffect(() => setPage(0), [filters]);
+  const currentPage = Math.min(
+    page,
+    Math.max(0, Math.ceil(visible.length / 12) - 1),
+  );
   async function copy() {
     try {
       await navigator.clipboard.writeText(
@@ -1014,73 +1186,77 @@ function ContactTable({
               </tr>
             </thead>
             <tbody>
-              {visible.map((person) => {
-                const coverage = item.coverage.contacts.find(
-                  (p) => p.id === person.id,
-                );
-                return (
-                  <tr key={person.id}>
-                    <td>
-                      <button
-                        className="person-button"
-                        onClick={() => onPerson(item.initiative.id, person.id)}
-                      >
-                        <span>
-                          <strong>{person.name}</strong>
-                          <small>
-                            {person.jobTitle ?? "Должность не указана"}
-                          </small>
-                          <small>
-                            {person.department?.name ?? "Отдел не указан"}
-                          </small>
+              {visible
+                .slice(currentPage * 12, currentPage * 12 + 12)
+                .map((person) => {
+                  const coverage = item.coverage.contacts.find(
+                    (p) => p.id === person.id,
+                  );
+                  return (
+                    <tr key={person.id}>
+                      <td>
+                        <button
+                          className="person-button"
+                          onClick={() =>
+                            onPerson(item.initiative.id, person.id)
+                          }
+                        >
+                          <span>
+                            <strong>{person.name}</strong>
+                            <small>
+                              {person.jobTitle ?? "Должность не указана"}
+                            </small>
+                            <small>
+                              {person.department?.name ?? "Отдел не указан"}
+                            </small>
+                          </span>
+                        </button>
+                      </td>
+                      <td>
+                        <span
+                          className={
+                            "role-badge tone-" + roleTone(person.role?.code)
+                          }
+                        >
+                          {person.role?.label ?? "Не указана"}
                         </span>
-                      </button>
-                    </td>
-                    <td>
-                      <span
-                        className={
-                          "role-badge tone-" + roleTone(person.role?.code)
-                        }
-                      >
-                        {person.role?.label ?? "Не указана"}
-                      </span>
-                    </td>
-                    <td>{influenceLabels[person.influence ?? "UNKNOWN"]}</td>
-                    <td>
-                      <span
-                        className={
-                          "status-tag " + (coverage?.touchStatus ?? "UNKNOWN")
-                        }
-                      >
-                        {
+                      </td>
+                      <td>{influenceLabels[person.influence ?? "UNKNOWN"]}</td>
+                      <td>
+                        <span
+                          className={
+                            "status-tag " + (coverage?.touchStatus ?? "UNKNOWN")
+                          }
+                        >
                           {
-                            RECENT: "Недавний контакт",
-                            STALE: "Давно не общались",
-                            UNKNOWN: "Нет записей",
-                          }[coverage?.touchStatus ?? "UNKNOWN"]
-                        }
-                      </span>
-                      <small className="cell-date">
-                        {formatDate(coverage?.lastTouchAt ?? null)}
-                      </small>
-                    </td>
-                    <td>
-                      <span
-                        className={
-                          "status-tag " +
-                          (coverage?.verificationStatus ?? "UNKNOWN")
-                        }
-                      >
-                        {coverage?.verificationStatus === "RECENT"
-                          ? "Проверены"
-                          : coverage?.verificationStatus === "STALE"
-                            ? "Давняя проверка"
-                            : "Нет проверки"}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
+                            {
+                              RECENT: "Недавний контакт",
+                              STALE: "Давно не общались",
+                              UNKNOWN: "Нет записей",
+                            }[coverage?.touchStatus ?? "UNKNOWN"]
+                          }
+                        </span>
+                        <small className="cell-date">
+                          {formatDate(coverage?.lastTouchAt ?? null)}
+                        </small>
+                      </td>
+                      <td>
+                        <span
+                          className={
+                            "status-tag " +
+                            (coverage?.verificationStatus ?? "UNKNOWN")
+                          }
+                        >
+                          {coverage?.verificationStatus === "RECENT"
+                            ? "Проверены"
+                            : coverage?.verificationStatus === "STALE"
+                              ? "Давняя проверка"
+                              : "Нет проверки"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>
@@ -1089,6 +1265,28 @@ function ContactTable({
           <Search size={28} />
           <h3>Контакты не найдены</h3>
           <p>Попробуйте изменить условия поиска.</p>
+        </div>
+      )}
+      {visible.length > 12 && (
+        <div className="table-pagination">
+          <button
+            className="secondary"
+            disabled={currentPage === 0}
+            onClick={() => setPage(currentPage - 1)}
+          >
+            Назад
+          </button>
+          <span>
+            Страница {currentPage + 1} из {Math.ceil(visible.length / 12)} ·
+            всего {visible.length}
+          </span>
+          <button
+            className="secondary"
+            disabled={(currentPage + 1) * 12 >= visible.length}
+            onClick={() => setPage(currentPage + 1)}
+          >
+            Далее
+          </button>
         </div>
       )}
     </section>

@@ -20,7 +20,12 @@ export type InitiativeData = {
 export type WorkspaceData = {
   companies: Company[];
   initiatives: InitiativeData[];
-  capabilities: { mode: string; canCreateEvents: boolean; canImportContacts?: boolean };
+  capabilities: {
+    mode: string;
+    canCreateEvents: boolean;
+    canImportContacts?: boolean;
+    canManageWorkspace?: boolean;
+  };
 };
 export type HistoryEntry = Touchpoint & {
   initiativeId: string;
@@ -183,6 +188,8 @@ export function contactMatches(
     interaction: string;
     manager: string;
     job: string;
+    stance?: string;
+    decisionMaker?: string;
   },
 ) {
   const coverage = item.coverage.contacts.find((p) => p.id === person.id);
@@ -193,8 +200,14 @@ export function contactMatches(
           ?.toLocaleLowerCase("ru")
           .includes(filters.search.trim().toLocaleLowerCase("ru")),
       )) &&
+    (!filters.stance || (person.stance ?? "UNKNOWN") === filters.stance) &&
+    (!filters.decisionMaker ||
+      person.decisionMaker === (filters.decisionMaker === "yes")) &&
     (!filters.role || person.role?.code === filters.role) &&
-    (!filters.department || person.department?.id === filters.department) &&
+    (!filters.department ||
+      (filters.department === "UNASSIGNED"
+        ? !person.department
+        : person.department?.id === filters.department)) &&
     (!filters.influence ||
       (person.influence ?? "UNKNOWN") === filters.influence) &&
     (!filters.job || person.jobTitle === filters.job) &&

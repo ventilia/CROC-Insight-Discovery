@@ -7,6 +7,8 @@ export const emptyContactFilters = {
   interaction: "",
   manager: "",
   job: "",
+  stance: "",
+  decisionMaker: "",
 };
 export type ContactFilterValues = typeof emptyContactFilters;
 export function ContactFilters({
@@ -84,11 +86,41 @@ export function ContactFilters({
               value.interaction,
               value.manager,
               value.job,
+              value.stance,
+              value.decisionMaker,
             ].filter(Boolean).length
               ? " · включены"
               : ""}
           </summary>
           <div className="filter-grid extra-filters">
+            <label>
+              Участие в решении
+              <select
+                value={value.decisionMaker}
+                onChange={(e) => set("decisionMaker", e.target.value)}
+              >
+                <option value="">Все участники</option>
+                <option value="yes">Только ЛПР</option>
+                <option value="no">Без ЛПР</option>
+              </select>
+            </label>
+            {item.graph.nodes.some((p) => "stance" in p) && (
+              <label>
+                Отношение к предложению
+                <select
+                  value={value.stance}
+                  onChange={(e) => set("stance", e.target.value)}
+                >
+                  <option value="">Любое отношение</option>
+                  <option value="SUPPORTS">Поддерживает</option>
+                  <option value="NEUTRAL">Нейтральное</option>
+                  <option value="DOUBTS">Сомневается</option>
+                  <option value="OPPOSES">Возражает</option>
+                  <option value="UNKNOWN">Не зафиксировано</option>
+                </select>
+              </label>
+            )}
+
             <label>
               Влияние
               <select

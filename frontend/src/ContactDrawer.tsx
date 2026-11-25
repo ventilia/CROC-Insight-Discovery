@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import type { WorkspaceAction } from "./WorkspaceEdit";
 import { useRemote, type Dossier, type Position } from "./api";
 import { PositionEditor, PositionSummary } from "./PositionEditor";
 import { HistoryList } from "./History";
@@ -26,6 +27,12 @@ export function ContactDrawer({
   close,
   onEvent,
   canEdit,
+  presentation = "drawer",
+  workspaceItems = [item],
+  onFull,
+  onMap,
+  onManage,
+  onRefresh,
 }: {
   item: InitiativeData;
   personId: string;
@@ -33,6 +40,12 @@ export function ContactDrawer({
   close: () => void;
   onEvent: () => void;
   canEdit: boolean;
+  presentation?: "drawer" | "page";
+  workspaceItems?: InitiativeData[];
+  onFull?: () => void;
+  onRefresh?: () => void;
+  onMap?: () => void;
+  onManage?: (action: WorkspaceAction) => void;
 }) {
   const [attempt, retry] = useState(0),
     [editing, setEditing] = useState(false),
@@ -72,9 +85,11 @@ export function ContactDrawer({
   }
   return (
     <aside
-      className="contact-drawer"
-      role="dialog"
-      aria-modal="false"
+      className={
+        "contact-drawer" + (presentation === "page" ? " full-profile" : "")
+      }
+      role={presentation === "drawer" ? "dialog" : undefined}
+      aria-modal={presentation === "drawer" ? false : undefined}
       aria-labelledby="contact-drawer-title"
       onKeyDown={(event) => {
         if (event.key === "Escape") close();
@@ -108,6 +123,45 @@ export function ContactDrawer({
           </div>
         </div>
         <div className="profile-actions">
+          {onFull && (
+            <button className="secondary" onClick={onFull}>
+              Открыть карточку
+            </button>
+          )}
+          {onMap && (
+            <button className="secondary" onClick={onMap}>
+              Окружение на карте
+            </button>
+          )}
+          {onManage && (
+            <>
+              <button
+                className="secondary"
+                onClick={() =>
+                  onManage({
+                    kind: "edit",
+                    iid: item.initiative.id,
+                    pid: personId,
+                  })
+                }
+              >
+                Уточнить запись
+              </button>
+              <button
+                className="secondary"
+                onClick={() =>
+                  onManage({
+                    kind: "request",
+                    iid: item.initiative.id,
+                    pid: personId,
+                  })
+                }
+              >
+                Запросить информацию
+              </button>
+            </>
+          )}
+
           <button type="button" className="secondary" onClick={copy}>
             <Copy size={14} />
             Копировать
@@ -175,6 +229,21 @@ export function ContactDrawer({
           ))}
         </nav>
         <div id="profile-bio" hidden={section !== "bio"}>
+          <section className="profile-section profile-context-facts">
+            <h3>Роль в проекте</h3>
+            <strong>{person.role?.label ?? "Не указана"}</strong>
+            {person.mandate && <p>Область решений: {person.mandate}</p>}
+            <p>Ответственный КРОК: {item.initiative.owner ?? "Не назначен"}</p>
+            <p>
+              Входящих связей:{" "}
+              {linked.filter((e) => e.target === personId).length} · исходящих:{" "}
+              {linked.filter((e) => e.source === personId).length}
+            </p>
+            <h3>Что важно участнику</h3>
+            <p>{person.interest ?? "Требует уточнения"}</p>
+            <small>Источник: {person.sourceLabel ?? "Не указан"}</small>
+          </section>
+
           <section className="profile-section">
             <h3>Контактная информация</h3>
             <p className="contact-line">
@@ -231,11 +300,30 @@ export function ContactDrawer({
               <PositionEditor
                 path={path + "/demo-source"}
                 onPositionChange={setPosition}
+                onSaved={onRefresh}
               />
             )}
           </section>
         </div>
         <div id="profile-connections" hidden={section !== "connections"}>
+          {onManage && (
+            <div className="profile-actions">
+              <button
+                className="secondary"
+                disabled={item.graph.nodes.length < 2}
+                onClick={() =>
+                  onManage({
+                    kind: "relationship",
+                    iid: item.initiative.id,
+                    pid: personId,
+                  })
+                }
+              >
+                Добавить связь
+              </button>
+            </div>
+          )}
+
           <section className="profile-section">
             <h3>
               <Link2 size={17} />
@@ -263,6 +351,9 @@ export function ContactDrawer({
                           {edge.confirmed ? "Подтверждена" : "Требует проверки"}
                         </span>
                         <p>{edge.label}</p>
+                        <small>
+                          Основание: {edge.sourceLabel ?? "Не указано"}
+                        </small>
                       </button>
                     )
                   );
@@ -297,6 +388,74 @@ export function ContactDrawer({
             <HistoryList entries={events} onPerson={onPerson} />
           </section>
         </div>
+        {events[0] && (
+          <section className="profile-section">
+            <h3>Последнее взаимодействие</h3>
+            <strong>{events[0].subject}</strong>
+            <p>{events[0].outcome ?? "Результат не указан"}</p>
+            <small>
+              {new Date(events[0].occurredAt).toLocaleDateString("ru-RU")} ·{" "}
+              {events[0].responsibleManager ??
+                events[0].author ??
+                "Ответственный не указан"}
+            </small>
+            <button
+              className="text-button"
+              onClick={() => setSection("history")}
+            >
+              Открыть историю
+            </button>
+          </section>
+        )}
+        {events.some((e) => e.nextStep) && (
+          <section className="profile-section">
+            <h3>Зафиксированные шаги</h3>
+            <ul className="profile-next-steps">
+              {events
+                .filter((e) => e.nextStep)
+                .slice(0, 5)
+                .map((e) => (
+                  <li key={e.id}>
+                    {e.nextStep}
+                    <small>
+                      {e.responsibleManager ?? "Ответственный не указан"} ·{" "}
+                      {new Date(e.occurredAt).toLocaleDateString("ru-RU")}
+                    </small>
+                  </li>
+                ))}
+            </ul>
+          </section>
+        )}
+        <section className="profile-section">
+          <h3>Участие в других проектах</h3>
+          {workspaceItems
+            .filter(
+              (other) =>
+                other.initiative.id !== item.initiative.id &&
+                other.initiative.companyId === item.initiative.companyId &&
+                other.graph.nodes.some((p) => p.id === personId),
+            )
+            .map((other) => (
+              <div key={other.initiative.id}>
+                <button
+                  className="text-button"
+                  onClick={() => onPerson(other.initiative.id, personId)}
+                >
+                  {other.initiative.name}
+                </button>
+                <p>
+                  {other.graph.nodes.find((p) => p.id === personId)?.role
+                    ?.label ?? "Роль не указана"}
+                </p>
+              </div>
+            ))}
+          {!workspaceItems.some(
+            (other) =>
+              other.initiative.id !== item.initiative.id &&
+              other.initiative.companyId === item.initiative.companyId &&
+              other.graph.nodes.some((p) => p.id === personId),
+          ) && <p>Другие проекты не указаны.</p>}
+        </section>
       </div>
     </aside>
   );

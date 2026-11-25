@@ -387,3 +387,211 @@ html[data-theme="dark"] .graph-link-legend .link-active {
 html[data-theme="dark"] .graph-link-legend .link-confirmed {
   border-color: #506a57;
 }
+
+.page-actions,
+.workspace-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.workspace-actions {
+  margin: 0 0 15px;
+}
+.edit-context {
+  font-size: 12px;
+  color: var(--ink-muted);
+  margin-top: 8px;
+}
+.checkbox-field {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+.checkbox-field input {
+  width: 15px;
+  height: 15px;
+  padding: 0;
+}
+.project-panel {
+  margin-bottom: 22px;
+}
+.project-index {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0 24px 24px;
+  gap: 16px;
+}
+.project-index article {
+  padding: 18px;
+  border: 1px solid var(--line);
+  background: var(--soft);
+  min-width: 0;
+}
+.project-index article p {
+  font-size: 12px;
+  color: var(--ink-muted);
+  margin: 10px 0;
+}
+.project-index dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 13px;
+  margin: 17px 0;
+}
+.project-index dt {
+  font-size: 11px;
+  color: var(--ink-muted);
+  margin-bottom: 5px;
+}
+.project-index dd {
+  margin: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.project-bridge {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 0 24px;
+}
+.project-bridge article {
+  border: 1px solid var(--line);
+  background: var(--soft);
+  padding: 18px;
+  min-width: 0;
+}
+.project-bridge p {
+  font-size: 12px;
+  color: var(--ink-muted);
+  margin: 10px 0;
+}
+.project-bridge select {
+  width: 100%;
+  font-size: 13px;
+}
+.table-detail {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-muted);
+  margin-top: 6px;
+}
+.request-list {
+  margin: 0;
+  padding: 0 24px 24px;
+  list-style: none;
+}
+.request-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: start;
+  padding: 18px 0;
+  border-top: 1px solid var(--line);
+}
+.request-list h3 {
+  font-size: 14px;
+  margin: 10px 0 6px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.request-list p {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+.request-list .secondary {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+.contact-page-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.4fr);
+  align-items: start;
+  gap: 22px;
+}
+.contact-drawer.full-profile {
+  position: static;
+  inset: auto;
+  width: 100%;
+  max-width: none;
+  border: 1px solid var(--line);
+  box-shadow: none;
+  z-index: auto;
+}
+.full-profile .drawer-scroll {
+  overflow: visible;
+}
+.contact-page-network {
+  min-width: 0;
+}
+.contact-page-network .graph-workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+.contact-page-network .graph-directory {
+  display: none;
+}
+.contact-page-network .force-stage {
+  height: 470px;
+}
+.full-profile .profile-tabs {
+  position: static;
+}
+.profile-context-facts h3:not(:first-child) {
+  margin-top: 20px;
+}
+.profile-next-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.profile-next-steps li + li {
+  margin-top: 13px;
+}
+.profile-next-steps small,
+.linked-people small {
+  display: block;
+  color: var(--ink-muted);
+  font-size: 11px;
+  margin-top: 5px;
+}
+@media (max-width: 1100px) {
+  .contact-page-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 720px) {
+  .project-index,
+  .project-bridge {
+    grid-template-columns: 1fr;
+    padding-inline: 20px;
+  }
+  .request-list li {
+    flex-direction: column;
+  }
+  .project-index dl {
+    grid-template-columns: 1fr;
+  }
+  .page-actions .primary,
+  .page-actions .secondary {
+    font-size: 12px;
+  }
+}
+.table-pagination {
+  display: flex;
+  justify-content: end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 15px 24px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+.departments-view .graph-workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+.departments-view .graph-directory {
+  display: none;
+}

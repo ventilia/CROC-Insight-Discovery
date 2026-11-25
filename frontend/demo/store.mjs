@@ -1,3 +1,4 @@
+import { workspaceStore } from "./workspace-store.mjs";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -110,7 +111,7 @@ export function createStore(filename) {
     })();
   const people = (id) =>
     all(
-      `SELECT c.*, p.role_code, p.decision_maker, p.influence, p.influence_basis FROM contacts c JOIN initiative_participants p ON p.contact_id=c.id WHERE p.initiative_id=? ORDER BY c.id`,
+      `SELECT c.*, p.role_code, p.decision_maker, p.influence, p.influence_basis, p.mandate, p.interest, p.source_label, (SELECT stance FROM stance_revisions WHERE initiative_id=p.initiative_id AND contact_id=c.id ORDER BY version DESC LIMIT 1) AS stance FROM contacts c JOIN initiative_participants p ON p.contact_id=c.id WHERE p.initiative_id=? ORDER BY c.id`,
       id,
     ).map((row) => ({
       id: row.id,
@@ -130,6 +131,11 @@ export function createStore(filename) {
       influenceBasis: row.influence_basis,
       email: row.email,
       phone: row.phone,
+      stance: row.stance,
+      mandate: row.mandate,
+      interest: row.interest,
+      sourceLabel: row.source_label,
+      editVersion: row.edit_version,
     }));
   const position = (iid, pid) =>
     get(
@@ -432,7 +438,17 @@ export function createStore(filename) {
       throw error;
     }
   }
+  const workspace = workspaceStore({
+    db,
+    all,
+    get,
+    run,
+    initiative,
+    member,
+    HttpError,
+  });
   return {
+    ...workspace,
     close: () => db.close(),
     companies: () =>
       all("SELECT id,name,industry,description FROM companies ORDER BY id"),
@@ -441,7 +457,7 @@ export function createStore(filename) {
       if (!get("SELECT id FROM companies WHERE id=?", cid))
         throw new HttpError(404, "Компания недоступна.");
       return all(
-        "SELECT id,company_id AS companyId,name,as_of AS asOf FROM initiatives WHERE company_id=? ORDER BY id",
+        "SELECT id,company_id AS companyId,name,as_of AS asOf,stage,owner,due,next_step AS nextStep FROM initiatives WHERE company_id=? ORDER BY id",
         cid,
       );
     },
@@ -463,7 +479,7 @@ export function createStore(filename) {
         asOf: i.as_of,
         nodes,
         edges: all(
-          "SELECT id,source_contact_id AS source,target_contact_id AS target,type,label,confirmed FROM relationships WHERE initiative_id=? ORDER BY id",
+          "SELECT id,source_contact_id AS source,target_contact_id AS target,type,label,confirmed,source_label AS sourceLabel FROM relationships WHERE initiative_id=? ORDER BY id",
           iid,
         )
           .filter((e) => ids.has(e.source) && ids.has(e.target))

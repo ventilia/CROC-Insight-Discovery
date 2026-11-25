@@ -46,6 +46,8 @@ export function endpointId(value: string | SceneNode) {
   return typeof value === "string" ? value : value.id;
 }
 export function influenceRadius(node: GraphNode) {
+  if (node.groupSize != null)
+    return Math.min(38, 14 + Math.sqrt(node.groupSize) * 3);
   return { HIGH: 12, MEDIUM: 9, LOW: 7 }[node.influence ?? "LOW"] ?? 7;
 }
 export const roleColors: Record<string, string> = {

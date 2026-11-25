@@ -20,6 +20,7 @@ import {
   type PositionCache,
   type SceneControls,
 } from "./forceGraph";
+import { departmentGraph } from "./departmentGraph";
 import ForceScene2D from "./ForceScene2D";
 const emptyFilters: MapFilters = {
   role: "",
@@ -34,16 +35,29 @@ export function InfluenceMap({
   selectedId,
   onSelect,
   darkTheme = false,
+  initialFocus = null,
+  onlyIds,
+  onAddRelationship,
 }: {
   item: InitiativeData;
   selectedId: string | null;
   onSelect: (id: string) => void;
   darkTheme?: boolean;
+  initialFocus?: string | null;
+  onlyIds?: string[];
+  onAddRelationship?: () => void;
 }) {
-  const [filters, setFilters] = useState(emptyFilters),
+  const [filters, setFilters] = useState({
+      ...emptyFilters,
+      focus: initialFocus,
+    }),
     [smart, setSmart] = useState(emptyContactFilters);
   const dark = darkTheme;
   const [colorMode, setColorMode] = useState<ColorMode>("role");
+  const [view, setView] = useState<"people" | "departments">("people");
+  const [sharedOnly, setSharedOnly] = useState(true);
+  const [edgeType, setEdgeType] = useState("");
+  const [leaders, setLeaders] = useState(false);
   const [showFilters, setShowFilters] = useState(false),
     [labels, setLabels] = useState(true);
   const [paused, setPaused] = useState(
@@ -59,17 +73,23 @@ export function InfluenceMap({
   const graph = item.graph;
   const visible = useMemo(() => {
     const selection = selectGraph(graph, filters);
-    const nodes = selection.nodes.filter((person) =>
-      contactMatches(person, item, smart),
+    const nodes = selection.nodes.filter(
+      (person) =>
+        contactMatches(person, item, smart) &&
+        (!leaders || person.decisionMaker) &&
+        (!sharedOnly || !onlyIds?.length || onlyIds.includes(person.id)),
     );
     const ids = new Set(nodes.map((person) => person.id));
     return {
       nodes,
       edges: selection.edges.filter(
-        (edge) => ids.has(edge.source) && ids.has(edge.target),
+        (edge) =>
+          ids.has(edge.source) &&
+          ids.has(edge.target) &&
+          (!edgeType || edge.type === edgeType),
       ),
     };
-  }, [graph, filters, smart, item]);
+  }, [graph, filters, smart, item, edgeType, leaders, onlyIds, sharedOnly]);
   const departments = useMemo(
     () => graph.filters.departments.map((department) => department.id).sort(),
     [graph],
@@ -102,20 +122,40 @@ export function InfluenceMap({
     setHovered(null);
     onSelect(id);
   }
+  const grouped = useMemo(
+    () => departmentGraph(visible.nodes, visible.edges),
+    [visible],
+  );
+  const legendMode = view === "departments" ? "department" : colorMode;
   const sceneProps = {
-    ...visible,
+    ...(view === "departments" ? grouped : visible),
     ...size,
     dark,
     labels,
     paused,
-    selectedId,
-    hoveredId,
-    color,
+    selectedId: view === "departments" ? null : selectedId,
+    hoveredId:
+      view === "departments" && !hoveredId?.startsWith("department:")
+        ? null
+        : hoveredId,
+    color:
+      view === "departments"
+        ? (node: (typeof graph.nodes)[number]) =>
+            nodeColor(node, "department", departments)
+        : color,
     controls,
     positions: positions2D.current,
     onSelect: (id: string) => {
       stage.current?.focus({ preventScroll: true });
-      select(id);
+      if (view === "departments") {
+        const group = grouped.nodes.find((g) => g.id === id);
+        setSmart({
+          ...emptyContactFilters,
+          department: group?.department?.id ?? "UNASSIGNED",
+        });
+        setView("people");
+        setHovered(null);
+      } else select(id);
     },
     onLink: (id: string) => {
       setEdge(id);
@@ -126,7 +166,9 @@ export function InfluenceMap({
   return (
     <section
       className={
-        "surface influence-map force-map" + (dark ? " graph-dark" : "")
+        "surface influence-map force-map" +
+        (dark ? " graph-dark" : "") +
+        (view === "departments" ? " departments-view" : "")
       }
       aria-labelledby="map-heading"
     >
@@ -138,6 +180,16 @@ export function InfluenceMap({
           <p>Перемещайте узлы. Нажмите на сотрудника, чтобы открыть профиль.</p>
         </div>
         <div className="graph-head-actions">
+          {onAddRelationship && (
+            <button
+              className="secondary"
+              onClick={onAddRelationship}
+              disabled={graph.nodes.length < 2}
+            >
+              Добавить связь
+            </button>
+          )}
+
           <button
             className="secondary"
             type="button"
@@ -178,17 +230,76 @@ export function InfluenceMap({
         />
       )}
       <div className="graph-toolbar">
-        <label className="graph-color-control">
-          Цвет узлов
-          <select
-            aria-label="Цвет узлов"
-            value={colorMode}
-            onChange={(event) => setColorMode(event.target.value as ColorMode)}
+        <div className="graph-mode" role="group" aria-label="Масштаб карты">
+          <button
+            aria-pressed={view === "people"}
+            onClick={() => {
+              setView("people");
+              setHovered(null);
+            }}
           >
-            <option value="role">По роли</option>
-            <option value="department">По отделу</option>
+            Люди
+          </button>
+          <button
+            aria-pressed={view === "departments"}
+            onClick={() => {
+              setView("departments");
+              setHovered(null);
+            }}
+          >
+            Отделы
+          </button>
+        </div>
+
+        {onlyIds?.length && sharedOnly ? (
+          <button className="text-button" onClick={() => setSharedOnly(false)}>
+            Общие участники · {onlyIds.length} ×
+          </button>
+        ) : null}
+
+        <button
+          className="secondary"
+          aria-pressed={leaders}
+          onClick={() => setLeaders(!leaders)}
+        >
+          Только ЛПР
+        </button>
+        <label className="graph-color-control">
+          Тип связи
+          <select
+            value={edgeType}
+            onChange={(e) => setEdgeType(e.target.value)}
+          >
+            <option value="">Все типы</option>
+            {[...new Set(graph.edges.map((e) => e.type))].map((type) => (
+              <option key={type} value={type}>
+                {(
+                  {
+                    APPROVAL: "Согласование",
+                    COORDINATION: "Координация",
+                    EXPERTISE: "Экспертиза",
+                  } as Record<string, string>
+                )[type] ?? type}
+              </option>
+            ))}
           </select>
         </label>
+
+        {view === "people" && (
+          <label className="graph-color-control">
+            Цвет узлов
+            <select
+              aria-label="Цвет узлов"
+              value={colorMode}
+              onChange={(event) =>
+                setColorMode(event.target.value as ColorMode)
+              }
+            >
+              <option value="role">По роли</option>
+              <option value="department">По отделу</option>
+            </select>
+          </label>
+        )}
         {focus && (
           <label className="graph-depth-control">
             Окружение
@@ -235,7 +346,7 @@ export function InfluenceMap({
             aria-label="Интерактивный граф сотрудников"
             aria-describedby="graph-instructions"
           >
-            <ForceScene2D {...sceneProps} />
+            <ForceScene2D key={view} {...sceneProps} />
             <div className="graph-stage-controls">
               <button
                 className="icon-button"
@@ -294,6 +405,9 @@ export function InfluenceMap({
                   {names.get(selectedEdge.target)}
                 </strong>
                 <p>{selectedEdge.label}</p>
+                <small>
+                  Основание: {selectedEdge.sourceLabel ?? "Не указано"}
+                </small>
                 <span>
                   {selectedEdge.confirmed
                     ? "Подтверждённая связь"
@@ -365,7 +479,7 @@ export function InfluenceMap({
       )}
       <div className="graph-footer">
         <div className="graph-legend">
-          {(colorMode === "role"
+          {(legendMode === "role"
             ? graph.filters.roles.map((role) => ({
                 id: role.code,
                 name: role.label,
@@ -389,11 +503,11 @@ export function InfluenceMap({
               key={group.id}
               type="button"
               aria-pressed={
-                (colorMode === "role" ? smart.role : smart.department) ===
+                (legendMode === "role" ? smart.role : smart.department) ===
                 group.id
               }
               onClick={() => {
-                const key = colorMode === "role" ? "role" : "department";
+                const key = legendMode === "role" ? "role" : "department";
                 setSmart({
                   ...smart,
                   [key]: smart[key] === group.id ? "" : group.id,
@@ -441,7 +555,10 @@ export function InfluenceMap({
       </div>
       <p className="graph-instructions" id="graph-instructions">
         Перетаскивайте узлы и фон. Колесо — масштаб. Наведите на человека, чтобы
-        увидеть его ближайшие связи и их описание. Размер узла — влияние.
+        увидеть его ближайшие связи и их описание.{" "}
+        {view === "people"
+          ? "Размер узла — влияние."
+          : "Размер отдела — число участников. Нажмите на отдел, чтобы открыть людей."}
       </p>
       <details
         className="graph-connections"

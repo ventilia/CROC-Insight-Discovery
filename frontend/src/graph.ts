@@ -9,6 +9,12 @@ export type GraphNode = {
   influenceBasis?: string | null;
   email?: string | null;
   phone?: string | null;
+  mandate?: string | null;
+  interest?: string | null;
+  sourceLabel?: string | null;
+  editVersion?: number;
+  groupSize?: number;
+  stance?: "SUPPORTS" | "NEUTRAL" | "DOUBTS" | "OPPOSES" | null;
 };
 export type GraphEdge = {
   id: string;
@@ -17,6 +23,7 @@ export type GraphEdge = {
   type: string;
   label: string;
   confirmed: boolean;
+  sourceLabel?: string | null;
 };
 export type Graph = {
   companyId: string;
