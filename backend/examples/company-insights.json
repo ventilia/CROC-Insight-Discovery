@@ -1,0 +1,87 @@
+{
+  "companyId": "10000000-0000-4000-8000-000000000001",
+  "companyName": "Северная линия",
+  "days": 30,
+  "verificationDays": 90,
+  "registeredContactCount": 4,
+  "activeInteractionCount": 4,
+  "earliestAsOf": "2026-11-24T09:00:00Z",
+  "latestAsOf": "2026-11-24T09:00:00Z",
+  "initiatives": [
+    {
+      "initiativeId": "20000000-0000-4000-8000-000000000001",
+      "initiativeName": "Модернизация инфраструктуры",
+      "asOf": "2026-11-24T09:00:00Z",
+      "activeInteractionCount": 3
+    },
+    {
+      "initiativeId": "20000000-0000-4000-8000-000000000002",
+      "initiativeName": "Пилот защиты данных",
+      "asOf": "2026-11-24T09:00:00Z",
+      "activeInteractionCount": 1
+    }
+  ],
+  "riskCount": 5,
+  "risks": [
+    {
+      "code": "STALE_CONTACT_VERIFICATION",
+      "evidenceStatus": "STALE",
+      "companyId": "10000000-0000-4000-8000-000000000001",
+      "companyName": "Северная линия",
+      "initiativeId": "20000000-0000-4000-8000-000000000001",
+      "initiativeName": "Модернизация инфраструктуры",
+      "asOf": "2026-11-24T09:00:00Z",
+      "subjectId": "40000000-0000-4000-8000-000000000001",
+      "subjectName": "Марина Орлова",
+      "lastObservedAt": "2026-08-01T09:00:00Z"
+    },
+    {
+      "code": "STALE_CONTACT_VERIFICATION",
+      "evidenceStatus": "STALE",
+      "companyId": "10000000-0000-4000-8000-000000000001",
+      "companyName": "Северная линия",
+      "initiativeId": "20000000-0000-4000-8000-000000000002",
+      "initiativeName": "Пилот защиты данных",
+      "asOf": "2026-11-24T09:00:00Z",
+      "subjectId": "40000000-0000-4000-8000-000000000001",
+      "subjectName": "Марина Орлова",
+      "lastObservedAt": "2026-08-01T09:00:00Z"
+    },
+    {
+      "code": "UNKNOWN_CONTACT_VERIFICATION",
+      "evidenceStatus": "NO_EVIDENCE",
+      "companyId": "10000000-0000-4000-8000-000000000001",
+      "companyName": "Северная линия",
+      "initiativeId": "20000000-0000-4000-8000-000000000001",
+      "initiativeName": "Модернизация инфраструктуры",
+      "asOf": "2026-11-24T09:00:00Z",
+      "subjectId": "40000000-0000-4000-8000-000000000003",
+      "subjectName": "Дарья Белова",
+      "lastObservedAt": null
+    },
+    {
+      "code": "UNKNOWN_CONTACT_VERIFICATION",
+      "evidenceStatus": "NO_EVIDENCE",
+      "companyId": "10000000-0000-4000-8000-000000000001",
+      "companyName": "Северная линия",
+      "initiativeId": "20000000-0000-4000-8000-000000000001",
+      "initiativeName": "Модернизация инфраструктуры",
+      "asOf": "2026-11-24T09:00:00Z",
+      "subjectId": "40000000-0000-4000-8000-000000000005",
+      "subjectName": "Никита Сорокин",
+      "lastObservedAt": null
+    },
+    {
+      "code": "UNKNOWN_CONTACT_VERIFICATION",
+      "evidenceStatus": "NO_EVIDENCE",
+      "companyId": "10000000-0000-4000-8000-000000000001",
+      "companyName": "Северная линия",
+      "initiativeId": "20000000-0000-4000-8000-000000000002",
+      "initiativeName": "Пилот защиты данных",
+      "asOf": "2026-11-24T09:00:00Z",
+      "subjectId": "40000000-0000-4000-8000-000000000003",
+      "subjectName": "Дарья Белова",
+      "lastObservedAt": null
+    }
+  ]
+}

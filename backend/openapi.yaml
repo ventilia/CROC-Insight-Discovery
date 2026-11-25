@@ -1,13 +1,220 @@
 openapi: 3.1.0
 info:
   title: КРОК Insight
-  version: 0.5.0
+  version: 0.6.0
   description: API карты ЛПР, истории касаний и охвата участников на синтетических данных.
 servers:
   - url: http://127.0.0.1:8080
 security:
   - demoBasic: []
 paths:
+  /api/v1/dashboard:
+    get:
+      operationId: getDashboard
+      summary: Сводка видимых компаний и рисков
+      parameters:
+        - $ref: '#/components/parameters/KitDays'
+      responses:
+        '200':
+          description: Сводка видимых компаний и рисков
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+              examples:
+                demo:
+                  externalValue: ./examples/dashboard.json
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/capabilities:
+    get:
+      operationId: getCapabilities
+      summary: Режим API и наличие права записывать взаимодействия
+      responses:
+        '200':
+          description: Режим API и наличие права записывать взаимодействия
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Capabilities'
+              examples:
+                demo:
+                  externalValue: ./examples/capabilities-reader.json
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/companies/{companyId}:
+    get:
+      operationId: getCompany
+      summary: Карточка корпоративного клиента
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+      responses:
+        '200':
+          description: Карточка корпоративного клиента
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyProfile'
+              examples:
+                demo:
+                  externalValue: ./examples/company-profile.json
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/companies/{companyId}/contacts:
+    get:
+      operationId: listCompanyContacts
+      summary: Страница контактов компании с фильтрами
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+        - $ref: '#/components/parameters/ContactSearch'
+        - $ref: '#/components/parameters/ContactDepartment'
+        - $ref: '#/components/parameters/ContactJobTitle'
+        - $ref: '#/components/parameters/ContactRole'
+        - $ref: '#/components/parameters/ContactInfluence'
+        - $ref: '#/components/parameters/ContactInteraction'
+        - $ref: '#/components/parameters/ContactManager'
+        - $ref: '#/components/parameters/KitDays'
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+        - name: offset
+          in: query
+          schema: {type: integer, minimum: 0, default: 0}
+      responses:
+        '200':
+          description: Страница контактов компании с фильтрами
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyContactPage'
+              examples:
+                demo:
+                  externalValue: ./examples/company-contacts.json
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/companies/{companyId}/contacts/{contactId}:
+    get:
+      operationId: getCompanyContact
+      summary: Профиль сотрудника, роли в инициативах и связанные контакты
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+        - $ref: '#/components/parameters/CompanyContactId'
+      responses:
+        '200':
+          description: Профиль сотрудника, роли в инициативах и связанные контакты
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyContactProfile'
+              examples:
+                demo:
+                  externalValue: ./examples/company-contact.json
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/companies/{companyId}/graph:
+    get:
+      operationId: getCompanyGraph
+      summary: Граф компании со связями по инициативам
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+        - $ref: '#/components/parameters/ContactSearch'
+        - $ref: '#/components/parameters/ContactDepartment'
+        - $ref: '#/components/parameters/ContactJobTitle'
+        - $ref: '#/components/parameters/ContactRole'
+        - $ref: '#/components/parameters/ContactInfluence'
+        - $ref: '#/components/parameters/ContactInteraction'
+        - $ref: '#/components/parameters/ContactManager'
+        - $ref: '#/components/parameters/KitDays'
+      responses:
+        '200':
+          description: Граф компании со связями по инициативам
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyGraph'
+              examples:
+                demo:
+                  externalValue: ./examples/company-graph.json
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/companies/{companyId}/events:
+    get:
+      operationId: listCompanyEvents
+      summary: Хронология компании или контакта с курсорной пагинацией
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+        - name: personId
+          in: query
+          schema: {type: string, format: uuid}
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 50, default: 20}
+        - name: cursor
+          in: query
+          schema: {type: string, format: uuid}
+        - name: through
+          in: query
+          schema: {type: string, format: date-time}
+        - $ref: '#/components/parameters/ContactManager'
+      responses:
+        '200':
+          description: Хронология компании или контакта с курсорной пагинацией
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TouchpointPage'
+              examples:
+                demo:
+                  externalValue: ./examples/company-events.json
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/companies/{companyId}/insights:
+    get:
+      operationId: getCompanyInsights
+      summary: Серверные факты о рисках по инициативам компании
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+        - $ref: '#/components/parameters/KitDays'
+      responses:
+        '200':
+          description: Серверные факты о рисках по инициативам компании
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyInsights'
+              examples:
+                demo:
+                  externalValue: ./examples/company-insights.json
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/companies:
     get:
       operationId: listCompanies
@@ -178,6 +385,37 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createTouchpoint
+      summary: Зафиксировать взаимодействие и его участников
+      description: Повтор с тем же ID и данными возвращает тот же результат. Изменённый запрос с тем же ID даёт 409.
+      parameters:
+        - $ref: '#/components/parameters/InitiativeId'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TouchpointChange'}
+      responses:
+        '201':
+          description: Взаимодействие записано
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id: {type: string, format: uuid}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403':
+          description: Требуются права редактора и CSRF-токен
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409':
+          description: ID уже использован для другой записи
+        '503':
+          description: Запись взаимодействий недоступна
   /api/v1/initiatives/{initiativeId}/coverage:
     get:
       operationId: getInitiativeCoverage
@@ -378,8 +616,92 @@ paths:
           description: Локальная модель не настроена
         '504':
           description: Локальная модель превысила время ожидания
+  /api/v1/companies/{companyId}/ai/advice:
+    post:
+      operationId: requestCompanyLocalAdvice
+      summary: Получить рекомендацию локальной модели по рискам компании
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [days, question]
+              properties:
+                days: {type: integer, minimum: 1, maximum: 365}
+                question: {type: string, minLength: 1, maxLength: 400}
+      responses:
+        '200':
+          description: Текст рекомендации с датой последнего среза
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [model, answer, asOf]
+                properties:
+                  model: {type: string}
+                  answer: {type: string}
+                  asOf: {type: [string, 'null'], format: date-time}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403':
+          description: Отсутствует действительный CSRF-токен
+        '404': {$ref: '#/components/responses/NotFound'}
+        '429':
+          description: Локальная модель занята
+        '502':
+          description: Некорректный ответ локальной модели
+        '503':
+          description: Локальная модель не настроена
+        '504':
+          description: Локальная модель превысила время ожидания
 components:
   parameters:
+    CompanyId:
+      name: companyId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    CompanyContactId:
+      name: contactId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    KitDays:
+      name: days
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 365, default: 30}
+    ContactSearch:
+      name: q
+      in: query
+      schema: {type: string, maxLength: 120}
+    ContactDepartment:
+      name: departmentId
+      in: query
+      schema: {type: string, format: uuid}
+    ContactJobTitle:
+      name: jobTitle
+      in: query
+      schema: {type: string, maxLength: 160}
+    ContactRole:
+      name: roleCode
+      in: query
+      schema: {type: string, pattern: '^[A-Z][A-Z0-9_]{0,31}$'}
+    ContactInfluence:
+      name: influence
+      in: query
+      schema: {type: string, enum: [HIGH, MEDIUM, LOW, UNKNOWN]}
+    ContactInteraction:
+      name: interaction
+      in: query
+      schema: {type: string, enum: [RECENT, STALE, UNKNOWN]}
+    ContactManager:
+      name: responsibleManager
+      in: query
+      schema: {type: string, maxLength: 160}
     CsrfHeader:
       name: X-XSRF-TOKEN
       in: header
@@ -413,6 +735,166 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    TouchpointChange:
+      type: object
+      required: [id, type, occurredAt, team, subject, responsibleManager, participantIds]
+      properties:
+        id: {type: string, format: uuid}
+        type: {type: string, enum: [MEETING, CALL, EMAIL, NOTE, PROPOSAL]}
+        occurredAt: {type: string, format: date-time}
+        team: {type: string, minLength: 1, maxLength: 160}
+        subject: {type: string, minLength: 1, maxLength: 300}
+        responsibleManager: {type: string, minLength: 1, maxLength: 160}
+        participantIds: {type: array, minItems: 1, maxItems: 50, uniqueItems: true, items: {type: string, format: uuid}}
+        outcome: {type: [string, 'null'], maxLength: 2000}
+        nextStep: {type: [string, 'null'], maxLength: 2000}
+        comment: {type: [string, 'null'], maxLength: 2000}
+    Capabilities:
+      type: object
+      required: [mode, canCreateEvents]
+      properties:
+        mode: {type: string}
+        canCreateEvents: {type: boolean}
+    Dashboard:
+      type: object
+      required: [days, verificationDays, accessibleCompanyCount, registeredContactCount, activeInteractionCount, earliestAsOf, latestAsOf, riskCount, risks]
+      properties:
+        days: {type: integer, minimum: 1, maximum: 365}
+        verificationDays: {type: integer, minimum: 0}
+        accessibleCompanyCount: {type: integer, minimum: 0}
+        registeredContactCount: {type: integer, minimum: 0}
+        activeInteractionCount: {type: integer, minimum: 0}
+        earliestAsOf: {type: [string, 'null'], format: date-time}
+        latestAsOf: {type: [string, 'null'], format: date-time}
+        riskCount: {type: integer, minimum: 0}
+        risks: {type: array, maxItems: 8, items: {$ref: '#/components/schemas/RiskFact'}}
+    CompanyInsights:
+      type: object
+      required: [companyId, companyName, days, verificationDays, registeredContactCount, activeInteractionCount, earliestAsOf, latestAsOf, initiatives, riskCount, risks]
+      properties:
+        companyId: {type: string, format: uuid}
+        companyName: {type: string}
+        days: {type: integer, minimum: 1, maximum: 365}
+        verificationDays: {type: integer, minimum: 0}
+        registeredContactCount: {type: integer, minimum: 0}
+        activeInteractionCount: {type: integer, minimum: 0}
+        earliestAsOf: {type: [string, 'null'], format: date-time}
+        latestAsOf: {type: [string, 'null'], format: date-time}
+        initiatives: {type: array, items: {$ref: '#/components/schemas/InitiativeInsights'}}
+        riskCount: {type: integer, minimum: 0}
+        risks: {type: array, items: {$ref: '#/components/schemas/RiskFact'}}
+    InitiativeInsights:
+      type: object
+      required: [initiativeId, initiativeName, asOf, activeInteractionCount]
+      properties:
+        initiativeId: {type: string, format: uuid}
+        initiativeName: {type: string}
+        asOf: {type: string, format: date-time}
+        activeInteractionCount: {type: integer, minimum: 0}
+    RiskFact:
+      type: object
+      required: [code, evidenceStatus, companyId, companyName, initiativeId, initiativeName, asOf, subjectId, subjectName, lastObservedAt]
+      properties:
+        code: {type: string, enum: [UNCONTACTED_DEPARTMENT, UNCONTACTED_DECISION_MAKER, SINGLE_ENGAGED_DECISION_MAKER, STALE_CONTACT_VERIFICATION, UNKNOWN_CONTACT_VERIFICATION]}
+        evidenceStatus: {type: string, enum: [NO_EVIDENCE, STALE, RECORDED]}
+        companyId: {type: string, format: uuid}
+        companyName: {type: string}
+        initiativeId: {type: string, format: uuid}
+        initiativeName: {type: string}
+        asOf: {type: string, format: date-time}
+        subjectId: {type: string, format: uuid}
+        subjectName: {type: string}
+        lastObservedAt: {type: [string, 'null'], format: date-time}
+    CompanyProfile:
+      type: object
+      required: [id, name, industry, description, departments, initiatives, contactCount, keyContacts]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        industry: {type: [string, 'null']}
+        description: {type: [string, 'null']}
+        departments: {type: array, items: {$ref: '#/components/schemas/Department'}}
+        initiatives: {type: array, items: {$ref: '#/components/schemas/Initiative'}}
+        contactCount: {type: integer, minimum: 0}
+        keyContacts: {type: array, items: {$ref: '#/components/schemas/CompanyContact'}}
+    CompanyContactPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/CompanyContact'}}
+        total: {type: integer, minimum: 0}
+        limit: {type: integer, minimum: 0}
+        offset: {type: integer, minimum: 0}
+    CompanyContact:
+      type: object
+      required: [id, name, jobTitle, department, roles, influence, decisionMaker, lastInteractionAt, interaction, responsibleManager]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        jobTitle: {type: [string, 'null']}
+        department: {anyOf: [{$ref: '#/components/schemas/Department'}, {type: 'null'}]}
+        roles: {type: array, items: {$ref: '#/components/schemas/Role'}}
+        influence: {type: string, enum: [HIGH, MEDIUM, LOW, UNKNOWN]}
+        decisionMaker: {type: boolean}
+        lastInteractionAt: {type: [string, 'null'], format: date-time}
+        interaction: {$ref: '#/components/schemas/Recency'}
+        responsibleManager: {type: [string, 'null']}
+    CompanyContactProfile:
+      allOf:
+        - $ref: '#/components/schemas/CompanyContact'
+        - type: object
+          required: [companyId, email, phone, assignments, connections]
+          properties:
+            companyId: {type: string, format: uuid}
+            email: {type: [string, 'null']}
+            phone: {type: [string, 'null']}
+            assignments: {type: array, items: {$ref: '#/components/schemas/ContactAssignment'}}
+            connections: {type: array, items: {$ref: '#/components/schemas/ContactConnection'}}
+    ContactAssignment:
+      type: object
+      required: [initiativeId, initiativeName, asOf, role, decisionMaker, influence, influenceBasis]
+      properties:
+        initiativeId: {type: string, format: uuid}
+        initiativeName: {type: string}
+        asOf: {type: string, format: date-time}
+        role: {anyOf: [{$ref: '#/components/schemas/Role'}, {type: 'null'}]}
+        decisionMaker: {type: boolean}
+        influence: {type: string, enum: [HIGH, MEDIUM, LOW, UNKNOWN]}
+        influenceBasis: {type: [string, 'null']}
+    ContactConnection:
+      type: object
+      required: [id, contactId, name, initiativeId, initiativeName, direction, type, label, confirmed]
+      properties:
+        id: {type: string, format: uuid}
+        contactId: {type: string, format: uuid}
+        name: {type: string}
+        initiativeId: {type: string, format: uuid}
+        initiativeName: {type: string}
+        direction: {type: string, enum: [INCOMING, OUTGOING]}
+        type: {type: string}
+        label: {type: string}
+        confirmed: {type: boolean}
+    CompanyGraph:
+      type: object
+      required: [companyId, nodes, edges, filters, matchingPeople]
+      properties:
+        companyId: {type: string, format: uuid}
+        nodes: {type: array, items: {$ref: '#/components/schemas/CompanyContact'}}
+        edges: {type: array, items: {$ref: '#/components/schemas/CompanyEdge'}}
+        filters: {$ref: '#/components/schemas/Filters'}
+        matchingPeople: {type: integer, minimum: 0}
+    CompanyEdge:
+      type: object
+      required: [id, initiativeId, initiativeName, source, target, type, label, confirmed]
+      properties:
+        id: {type: string, format: uuid}
+        initiativeId: {type: string, format: uuid}
+        initiativeName: {type: string}
+        source: {type: string, format: uuid}
+        target: {type: string, format: uuid}
+        type: {type: string}
+        label: {type: string}
+        confirmed: {type: boolean}
     Company:
       type: object
       required: [id, name]
@@ -422,6 +904,8 @@ components:
           format: uuid
         name:
           type: string
+        industry: {type: [string, 'null']}
+        description: {type: [string, 'null']}
     Initiative:
       type: object
       required: [id, companyId, name, asOf]
@@ -470,6 +954,10 @@ components:
       type: object
       required: [id, name, jobTitle, department, role, decisionMaker]
       properties:
+        influence: {type: [string, 'null'], enum: [HIGH, MEDIUM, LOW, null]}
+        influenceBasis: {type: [string, 'null']}
+        email: {type: [string, 'null']}
+        phone: {type: [string, 'null']}
         id:
           type: string
           format: uuid
@@ -601,6 +1089,12 @@ components:
       type: object
       required: [id, type, occurredAt, team, subject, outcome, nextStep, sourceLabel, participants]
       properties:
+        responsibleManager: {type: [string, 'null']}
+        author: {type: [string, 'null']}
+        comment: {type: [string, 'null']}
+        createdAt: {type: [string, 'null'], format: date-time}
+        initiativeId: {type: [string, 'null'], format: uuid}
+        initiativeName: {type: [string, 'null']}
         id:
           type: string
           format: uuid

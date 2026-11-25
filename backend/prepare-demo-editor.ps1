@@ -19,7 +19,7 @@ try {
         $env:CROC_DB_WRITER_PASSWORD = $secrets['CROC_DB_WRITER_PASSWORD']
         Get-Content -Raw -LiteralPath 'docker/postgres/provision-writer.sql' |
             docker compose exec -T -e CROC_DB_WRITER_PASSWORD postgres psql -X -q -v ON_ERROR_STOP=1 -U postgres -d croc_insight
-        if ($LASTEXITCODE -ne 0) { throw 'Не удалось настроить роль. Проверьте, что бэкенд успел применить миграцию V4.' }
+        if ($LASTEXITCODE -ne 0) { throw 'Не удалось настроить роль. Проверьте, что бэкенд успел применить миграции Flyway.' }
     } finally {
         $env:CROC_DB_WRITER_PASSWORD = $previous
     }

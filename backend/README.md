@@ -53,6 +53,12 @@ Get-Content -Raw -LiteralPath 'docker/postgres/load-demo-dataset.sql' |
 
 ## Для фронтенда
 
+Для панели достаточно запросить `GET /api/v1/dashboard?days=30` и `GET /api/v1/companies`. Сводка считает уникальные зарегистрированные контакты и события только доступных компаний. Недавние взаимодействия считаются по окну каждой инициативы. Сводка показывает до восьми сигналов и отдельно возвращает их полное количество.
+
+Карточка клиента доступна по `GET /api/v1/companies/{companyId}`. Для отдельных вкладок используй `/contacts`, `/contacts/{contactId}`, `/graph`, `/events` и `/insights` под тем же префиксом. В графе одна карточка на сотрудника, а связи и оценки в профиле сохраняют ID инициативы. Контакты фильтруются по поиску, подразделению, должности, роли, влиянию, истории и ответственному менеджеру. Для контактов используются `limit` и `offset`, для истории — `limit` и `cursor`. Сохраняй `personId`, `responsibleManager` и `through` между страницами истории.
+
+Для записи встречи или звонка проверь `GET /api/v1/capabilities` под той же учёткой, которая отправляет запись. Если `canCreateEvents=true`, получи CSRF через `GET /api/v1/csrf` и отправь `POST /api/v1/initiatives/{initiativeId}/events`. Клиент задаёт UUID и повторно использует его при сетевом повторе. Запись включает участников, комментарий, итог, следующий шаг и ответственного менеджера. Автор берётся из учётной записи. При конфликте ID сервер возвращает `409`, при попытке привязать чужого участника — `400`.
+
 Бери [OpenAPI](openapi.yaml) и [готовые ответы для моков](examples/). Начни со списка компаний, запроси инициативы выбранной компании, затем отдай граф по ID инициативы.
 
 | Запрос | Пример |
@@ -78,13 +84,15 @@ Get-Content -Raw -LiteralPath 'docker/postgres/load-demo-dataset.sql' |
 
 ## Правка в тестовом источнике
 
-После первого запуска с миграцией V4 выполни `.\prepare-demo-editor.ps1` в PowerShell 7. Скрипт подготовит роль PostgreSQL с правом добавлять версии, создаст при необходимости локальные пароли редактора и сохранит их в `.env`. Затем перезапусти Spring Boot и Vite. На Linux или macOS можно задать `CROC_DEMO_EDITOR_PASSWORD` и `CROC_DB_WRITER_PASSWORD` в `.env`, экспортировать только `CROC_DB_WRITER_PASSWORD` в терминал и выполнить `docker compose exec -T -e CROC_DB_WRITER_PASSWORD postgres psql -X -v ON_ERROR_STOP=1 -U postgres -d croc_insight < docker/postgres/provision-writer.sql`.
+После запуска с миграциями V5 и V6 выполни `.\prepare-demo-editor.ps1` в PowerShell 7. Скрипт выдаёт роли PostgreSQL права на добавление версий и взаимодействий, создаёт при необходимости локальные пароли редактора и сохраняет их в `.env`. При обновлении с предыдущей ветки запусти скрипт повторно для уже созданной роли. Затем перезапусти Spring Boot и Vite. На Linux или macOS можно задать `CROC_DEMO_EDITOR_PASSWORD` и `CROC_DB_WRITER_PASSWORD` в `.env`, экспортировать только `CROC_DB_WRITER_PASSWORD` в терминал и выполнить `docker compose exec -T -e CROC_DB_WRITER_PASSWORD postgres psql -X -v ON_ERROR_STOP=1 -U postgres -d croc_insight < docker/postgres/provision-writer.sql`.
 
 В карточке участника открой тестовый источник. Он отдаёт позицию, основание и номер версии. При сохранении отправь текущую версию в `expectedVersion` и CSRF-токен вместе с cookie. Сервер определит автора и добавит новую версию. Если запись изменилась, получишь `409` и сможешь перечитать её. В существующей карточке доступна последняя позиция. [Пример источника](examples/position-source.json)
 
 Для подключения корпоративной CRM потребуется отдельный адаптер.
 
 ## Локальный навигатор
+
+Факты по компании доступны через `GET /api/v1/companies/{companyId}/insights`. Чтобы локальная модель объяснила риски и предложила действия, вызывай `POST /api/v1/companies/{companyId}/ai/advice` с `days`, `question` и CSRF. Для вопроса о конкретной инициативе используй `POST /api/v1/initiatives/{initiativeId}/ai/advice`. Статус настройки читай из `GET /api/v1/ai/settings`. Навигатор работает с локальной моделью и обходится без ключа внешнего провайдера.
 
 Запусти совместимый с OpenAI Chat Completions сервер на той же машине, где работает Spring Boot. В локальный `.env` добавь адрес его API и точное имя загруженной локальной модели. Для Ollama это может выглядеть так:
 

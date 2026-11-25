@@ -39,9 +39,13 @@ CROSS JOIN (VALUES
     (4, 'Новая инициатива · без касаний')
 ) AS i(scenario, name);
 
-INSERT INTO companies (id, name)
-SELECT id, name FROM fixture_companies
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO companies (id, name, industry, description)
+SELECT id, name, (ARRAY['Логистика', 'Технологии', 'Промышленность', 'Услуги'])[(number - 1) % 4 + 1],
+    'Вымышленная компания для проверки сценариев карты и истории KIT'
+FROM fixture_companies
+ON CONFLICT (id) DO UPDATE SET industry = COALESCE(companies.industry, excluded.industry),
+    description = COALESCE(companies.description, excluded.description)
+WHERE companies.industry IS NULL OR companies.description IS NULL;
 
 INSERT INTO company_viewers (viewer_key, company_id)
 SELECT viewer_key, c.id
@@ -55,7 +59,7 @@ FROM fixture_companies c
 CROSS JOIN (VALUES (1, 'ИТ'), (2, 'Финансы'), (3, 'ИБ'), (4, 'Закупки'), (5, 'Операции'), (6, 'Развитие')) AS d(number, name)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO contacts (id, company_id, department_id, name, job_title, verified_at)
+INSERT INTO contacts (id, company_id, department_id, name, job_title, verified_at, email, phone)
 SELECT pg_temp.demo_id(4, c.number * 100 + n.number), c.id,
        CASE WHEN n.number % 13 <> 0 THEN pg_temp.demo_id(3, c.number * 100 + (n.number - 1) % 6 + 1) END,
        format('%s %s', names.first_names[(n.number - 1) % 8 + 1], names.last_names[(n.number - 1) / 8 + 1]),
@@ -65,14 +69,17 @@ SELECT pg_temp.demo_id(4, c.number * 100 + n.number), c.id,
        END,
        CASE WHEN n.number % 7 <> 0 THEN timestamptz '2026-11-24 09:00:00+00' -
            make_interval(days => CASE WHEN n.number % 3 = 0 THEN 110 + n.number % 20 ELSE 4 + n.number % 60 END)
-       END
+       END,
+       CASE WHEN n.number % 8 <> 0 THEN format('contact-%s-%s@kit.example', c.number, n.number) END,
+       CASE WHEN n.number % 6 = 0 THEN format('доб. %s', 1000 + n.number) END
 FROM fixture_companies c
 CROSS JOIN generate_series(1, 64) AS n(number)
 CROSS JOIN (VALUES (
     ARRAY['Алексей','Денис','Илья','Кирилл','Максим','Олег','Павел','Роман'],
     ARRAY['Астахов','Берестов','Веденеев','Горелов','Дроздов','Лавров','Мельников','Рябинин']
 )) AS names(first_names, last_names)
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET email = COALESCE(contacts.email, excluded.email), phone = COALESCE(contacts.phone, excluded.phone)
+WHERE (contacts.email IS NULL AND excluded.email IS NOT NULL) OR (contacts.phone IS NULL AND excluded.phone IS NOT NULL);
 
 INSERT INTO initiatives (id, company_id, name, as_of)
 SELECT id, company_id, name, as_of FROM fixture_initiatives
@@ -88,9 +95,16 @@ SELECT i.id AS initiative_id, i.number AS initiative_number, i.company_id, n.slo
        (n.slot - 1) % 5 IN (0, 1) AND n.slot % 9 <> 0 AS decision_maker
 FROM fixture_initiatives i CROSS JOIN LATERAL generate_series(1, i.size) AS n(slot);
 
-INSERT INTO initiative_participants (initiative_id, contact_id, company_id, role_code, decision_maker)
-SELECT initiative_id, contact_id, company_id, role_code, decision_maker FROM fixture_members
-ON CONFLICT DO NOTHING;
+INSERT INTO initiative_participants (initiative_id, contact_id, company_id, role_code, decision_maker, influence, influence_basis)
+SELECT initiative_id, contact_id, company_id, role_code, decision_maker,
+       CASE WHEN decision_maker THEN 'HIGH'
+            WHEN role_code IS NOT NULL THEN CASE WHEN slot % 3 = 0 THEN 'LOW' ELSE 'MEDIUM' END END,
+       CASE WHEN role_code IS NOT NULL THEN 'Оценка в синтетическом сценарии KIT' END
+FROM fixture_members
+ON CONFLICT (initiative_id, contact_id) DO UPDATE
+SET influence = COALESCE(initiative_participants.influence, excluded.influence),
+    influence_basis = COALESCE(initiative_participants.influence_basis, excluded.influence_basis)
+WHERE initiative_participants.influence IS NULL AND excluded.influence IS NOT NULL;
 
 INSERT INTO relationships (id, initiative_id, source_contact_id, target_contact_id, type, label, confirmed)
 SELECT pg_temp.demo_id(5, i.number * 1000 + a.slot * 10 + e.variant), i.id, a.contact_id, b.contact_id,
@@ -118,16 +132,21 @@ FROM fixture_initiatives i
 CROSS JOIN generate_series(1, 360) AS event(number)
 WHERE i.scenario <> 4;
 
-INSERT INTO touchpoints (id, initiative_id, type, occurred_at, team, subject, outcome, next_step, source_label)
+INSERT INTO touchpoints (id, initiative_id, type, occurred_at, team, subject, outcome, next_step, source_label, responsible_manager, comment)
 SELECT id, initiative_id, (ARRAY['MEETING', 'CALL', 'EMAIL', 'NOTE'])[(number - 1) % 4 + 1], occurred_at,
        (ARRAY['Проектный офис', 'Пресейл', 'Архитектура', 'Сервис'])[(number - 1) % 4 + 1],
        format('%s · %s', (ARRAY['Уточнение требований', 'Обсуждение пилота', 'Согласование объёма', 'Проверка решения',
                                  'Рабочая встреча', 'Сверка рисков'])[(number - 1) % 6 + 1], number),
        CASE WHEN number % 4 <> 0 THEN 'Собрали комментарии по синтетическому сценарию' END,
        CASE WHEN number % 5 <> 0 THEN 'Уточнить условия на следующей встрече' END,
-       'Синтетический набор КРОК Insight'
+       'Синтетический набор КРОК Insight',
+       CASE WHEN number % 9 <> 0 THEN (ARRAY['Анна Смирнова', 'Игорь Ковалёв', 'Вера Романова'])[(number - 1) % 3 + 1] END,
+       CASE WHEN number % 5 = 0 THEN 'Запланировать проверку на следующей встрече' END
 FROM fixture_events
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET responsible_manager = COALESCE(touchpoints.responsible_manager, excluded.responsible_manager),
+    comment = COALESCE(touchpoints.comment, excluded.comment)
+WHERE (touchpoints.responsible_manager IS NULL AND excluded.responsible_manager IS NOT NULL)
+    OR (touchpoints.comment IS NULL AND excluded.comment IS NOT NULL);
 
 INSERT INTO touchpoint_participants (initiative_id, touchpoint_id, contact_id)
 SELECT e.initiative_id, e.id, m.contact_id

@@ -15,6 +15,7 @@ import java.time.Duration
 import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -38,6 +39,45 @@ import tools.jackson.databind.json.JsonMapper
 class ReadApiTest(@LocalServerPort private val port: Int) {
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()
     private val mapper = JsonMapper.builder().build()
+
+    @Test
+    fun `editor records an interaction with comments and safely retries the same request`() {
+        val initiative = "20000000-0000-4000-8000-000000000098"
+        val company = "10000000-0000-4000-8000-000000000098"
+        val person = "40000000-0000-4000-8000-000000000098"
+        val path = "/api/v1/initiatives/$initiative/events"
+        val id = UUID.randomUUID().toString()
+        val body = mapper.writeValueAsString(mapOf(
+            "id" to id, "type" to "MEETING", "occurredAt" to "2026-11-23T10:00:00Z",
+            "team" to "Проектный офис", "subject" to "Согласование пилота",
+            "comment" to "Нужна техническая встреча", "outcome" to "Согласовали пилот",
+            "responsibleManager" to "Анна Смирнова", "participantIds" to listOf(person),
+        ))
+        assertThat(get("/api/v1/capabilities").statusCode()).isEqualTo(200)
+        assertThat(json(get("/api/v1/capabilities")).path("canCreateEvents").asBoolean()).isFalse()
+        preparedWriter
+        val editorHeaders = csrf("demo-editor", editorPassword) + ("Content-Type" to "application/json")
+        val readerHeaders = csrf("demo-reader", apiPassword) + ("Content-Type" to "application/json")
+        fun save(text: String = body) = request(path, editorPassword, "POST", "demo-editor", editorHeaders, text)
+        assertThat(request(path, apiPassword, "POST", "demo-reader", readerHeaders, body).statusCode()).isEqualTo(403)
+        assertThat(request(path, editorPassword, "POST", "demo-editor", body = body).statusCode()).isEqualTo(403)
+        assertThat(save(body.replace(person, otherCompanyPerson)).statusCode()).isEqualTo(400)
+        assertThat(save().statusCode()).isEqualTo(201)
+        assertThat(save().statusCode()).isEqualTo(201)
+        assertThat(save(body.replace("Согласовали пилот", "Другое решение")).statusCode()).isEqualTo(409)
+        assertThat(get("/api/v1/companies/$company/events").statusCode()).isEqualTo(404)
+        val events = request("/api/v1/companies/$company/events?personId=$person", editorPassword, "GET", "demo-editor")
+        assertThat(events.statusCode()).isEqualTo(200)
+        val items = json(events).path("items")
+        assertThat(items.size()).isEqualTo(1)
+        assertThat(items[0].path("id").asString()).isEqualTo(id)
+        assertThat(items[0].path("initiativeId").asString()).isEqualTo(initiative)
+        assertThat(items[0].path("responsibleManager").asString()).isEqualTo("Анна Смирнова")
+        assertThat(items[0].path("comment").asString()).isEqualTo("Нужна техническая встреча")
+        assertThat(items[0].path("author").asString()).isEqualTo("demo-editor")
+        val catalog = request("/api/v1/companies/$company/initiatives", editorPassword, "GET", "demo-editor")
+        assertThat(json(catalog)[0].path("asOf").asString()).isEqualTo("2026-11-24T09:00:00Z")
+    }
 
     @Test
     fun `relationship health returns a scored snapshot with factor counts`() {
@@ -379,7 +419,7 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
         assertThat(modelRequest.get()).isSameAs(beforeForbidden)
         val response = request("/api/v1/initiatives/$modernization/ai/advice", apiPassword, "POST",
             headers = headers, body = input)
-        assertThat(response.statusCode()).isEqualTo(200)
+        assertThat(response.statusCode()).describedAs("Local model response: %s", response.body()).isEqualTo(200)
         assertThat(json(response).path("answer").asString()).isEqualTo("Проверьте основание у Марины.")
         assertThat(json(response).path("asOf")).isEqualTo(read("/api/v1/initiatives/$modernization/coverage?days=7").path("asOf"))
         val received = modelRequest.get()
@@ -398,6 +438,22 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
         assertThat(advise("Длинный тестовый ответ").statusCode()).isEqualTo(502)
         assertThat(advise("Медленный тестовый ответ").statusCode()).isEqualTo(504)
         assertThat(advise("Короткий тестовый ответ").statusCode()).isEqualTo(200)
+    }
+
+    @Test
+    fun `company AI receives structured risk facts only for the authorized company`() {
+        val headers = csrf("demo-reader", apiPassword) + ("Content-Type" to "application/json")
+        val input = """{"days":7,"question":"Какие подразделения стоит проверить?"}"""
+        val before = modelRequest.get()
+        val hidden = request("/api/v1/companies/$privateCompany/ai/advice", apiPassword, "POST", headers = headers, body = input)
+        assertThat(hidden.statusCode()).isEqualTo(404)
+        assertThat(modelRequest.get()).isSameAs(before)
+        val response = request("/api/v1/companies/$northernLine/ai/advice", apiPassword, "POST", headers = headers, body = input)
+        assertThat(response.statusCode()).isEqualTo(200)
+        assertThat(json(response).path("model").asString()).isEqualTo("fixture-local")
+        assertThat(modelRequest.get().path("messages").path(1).path("content").asString())
+            .contains("Какие подразделения стоит проверить?", "Северная линия", "UNCONTACTED_DEPARTMENT", "STALE_CONTACT_VERIFICATION")
+            .doesNotContain("Закрытая компания", "Меридиан")
     }
 
     private fun csrf(user: String, password: String): Map<String, String> {
@@ -484,8 +540,10 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
         private val editorPassword = UUID.randomUUID().toString()
         private val writerPassword = UUID.randomUUID().toString()
         private val modelRequest = AtomicReference<JsonNode>()
+        private val modelThreads = Executors.newVirtualThreadPerTaskExecutor()
         private val localModel by lazy {
             HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
+                executor = modelThreads
                 createContext("/v1/chat/completions") { exchange ->
                     exchange.use {
                         val request = JsonMapper.builder().build().readTree(exchange.requestBody)
@@ -516,7 +574,10 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
 
         @JvmStatic
         @AfterAll
-        fun closeModel() = localModel.stop(0)
+        fun closeModel() {
+            localModel.stop(0)
+            modelThreads.shutdownNow()
+        }
 
         private val preparedWriter by lazy {
             val result = postgres.execInContainer(
@@ -556,7 +617,7 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
             registry.add("croc.demo.writer-password") { writerPassword }
             registry.add("croc.ai.base-url") { "http://127.0.0.1:${localModel.address.port}/v1" }
             registry.add("croc.ai.model") { "fixture-local" }
-            registry.add("croc.ai.request-timeout-ms") { 1_500 }
+            registry.add("croc.ai.request-timeout-ms") { 3_000 }
         }
     }
 }

@@ -37,6 +37,14 @@ class SecurityConfig {
                     .requestMatchers(
                         HttpMethod.GET,
                         "/api/v1/companies",
+                        "/api/v1/dashboard",
+                        "/api/v1/capabilities",
+                        "/api/v1/companies/{companyId}",
+                        "/api/v1/companies/{companyId}/contacts",
+                        "/api/v1/companies/{companyId}/contacts/{contactId}",
+                        "/api/v1/companies/{companyId}/graph",
+                        "/api/v1/companies/{companyId}/events",
+                        "/api/v1/companies/{companyId}/insights",
                         "/api/v1/companies/{companyId}/initiatives",
                         "/api/v1/initiatives/{initiativeId}/graph",
                         "/api/v1/initiatives/{initiativeId}/people/{personId}",
@@ -50,7 +58,10 @@ class SecurityConfig {
                     .requestMatchers(
                         HttpMethod.POST,
                         "/api/v1/initiatives/{initiativeId}/ai/advice",
+                        "/api/v1/companies/{companyId}/ai/advice",
                     ).hasRole("DEMO_READER")
+                    .requestMatchers(HttpMethod.POST, "/api/v1/initiatives/{initiativeId}/events")
+                    .hasRole("DEMO_EDITOR")
                     .requestMatchers(
                         HttpMethod.PATCH,
                         "/api/v1/initiatives/{initiativeId}/people/{personId}/demo-source",

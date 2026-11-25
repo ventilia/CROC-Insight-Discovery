@@ -1,0 +1,16 @@
+INSERT INTO companies (id, name)
+VALUES ('10000000-0000-4000-8000-000000000098', 'Компания для проверки записи KIT');
+
+INSERT INTO company_viewers (viewer_key, company_id)
+VALUES ('demo-editor', '10000000-0000-4000-8000-000000000098');
+
+INSERT INTO initiatives (id, company_id, name, as_of)
+VALUES ('20000000-0000-4000-8000-000000000098', '10000000-0000-4000-8000-000000000098',
+    'Проверка записи', '2026-11-24T09:00:00Z');
+
+INSERT INTO contacts (id, company_id, name)
+VALUES ('40000000-0000-4000-8000-000000000098', '10000000-0000-4000-8000-000000000098', 'Тестовый участник');
+
+INSERT INTO initiative_participants (initiative_id, company_id, contact_id)
+VALUES ('20000000-0000-4000-8000-000000000098', '10000000-0000-4000-8000-000000000098',
+    '40000000-0000-4000-8000-000000000098');

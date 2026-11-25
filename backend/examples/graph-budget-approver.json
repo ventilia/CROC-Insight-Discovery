@@ -15,7 +15,11 @@
         "code": "BUDGET_APPROVER",
         "label": "Утверждает бюджет"
       },
-      "decisionMaker": true
+      "decisionMaker": true,
+      "influence": "HIGH",
+      "influenceBasis": "Оценка в базовом демонстрационном сценарии",
+      "email": "m.orlova@severnaya.example",
+      "phone": "доб. 1201"
     }
   ],
   "edges": [],

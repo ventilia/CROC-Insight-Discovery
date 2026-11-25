@@ -15,7 +15,11 @@
         "code": "BUDGET_APPROVER",
         "label": "Утверждает бюджет"
       },
-      "decisionMaker": true
+      "decisionMaker": true,
+      "influence": "HIGH",
+      "influenceBasis": "Оценка в базовом демонстрационном сценарии",
+      "email": "m.orlova@severnaya.example",
+      "phone": "доб. 1201"
     },
     {
       "id": "40000000-0000-4000-8000-000000000002",
@@ -29,7 +33,11 @@
         "code": "PROJECT_SPONSOR",
         "label": "Инициатор"
       },
-      "decisionMaker": true
+      "decisionMaker": true,
+      "influence": "HIGH",
+      "influenceBasis": "Оценка в базовом демонстрационном сценарии",
+      "email": "a.volkov@severnaya.example",
+      "phone": null
     },
     {
       "id": "40000000-0000-4000-8000-000000000003",
@@ -43,7 +51,11 @@
         "code": "TECHNICAL_EXPERT",
         "label": "Технический эксперт"
       },
-      "decisionMaker": false
+      "decisionMaker": false,
+      "influence": "MEDIUM",
+      "influenceBasis": "Оценка в базовом демонстрационном сценарии",
+      "email": "d.belova@severnaya.example",
+      "phone": null
     },
     {
       "id": "40000000-0000-4000-8000-000000000005",
@@ -51,7 +63,11 @@
       "jobTitle": null,
       "department": null,
       "role": null,
-      "decisionMaker": false
+      "decisionMaker": false,
+      "influence": null,
+      "influenceBasis": null,
+      "email": null,
+      "phone": null
     }
   ],
   "edges": [

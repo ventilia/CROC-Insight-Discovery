@@ -86,6 +86,21 @@ class InsightReadController(
         through?.let(::parseThrough),
     ) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
 
+    @GetMapping("/companies/{companyId}/events")
+    fun companyEvents(
+        @PathVariable @Pattern(regexp = UUID_PATTERN) companyId: String,
+        @RequestParam(required = false) @Pattern(regexp = UUID_PATTERN) personId: String?,
+        @RequestParam(required = false) @Pattern(regexp = "^(?:[1-9]|[1-4][0-9]|50)$") limit: String?,
+        @RequestParam(required = false) @Pattern(regexp = UUID_PATTERN) cursor: String?,
+        @RequestParam(required = false) @Size(max = 40) @Pattern(regexp = "[0-9]{4}-.+") through: String?,
+        @RequestParam(required = false) @Size(max = 160) responsibleManager: String?,
+        principal: Principal,
+    ): TouchpointPage = touchpoints.companyHistory(
+        principal.name, UUID.fromString(companyId), personId?.let(UUID::fromString),
+        limit?.toInt() ?: 20, cursor?.let(UUID::fromString), through?.let(::parseThrough),
+        responsibleManager?.trim()?.takeIf(String::isNotEmpty),
+    ) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
+
     private fun parseThrough(value: String): Instant = try {
         Instant.parse(value)
     } catch (_: DateTimeParseException) {

@@ -31,4 +31,11 @@ class NavigatorController(private val navigator: LocalNavigator) {
         @Valid @RequestBody input: NavigatorQuestion,
         principal: Principal,
     ): NavigatorAnswer = navigator.advise(principal.name, UUID.fromString(initiativeId), input.days, input.question)
+
+    @PostMapping("/api/v1/companies/{companyId}/ai/advice")
+    fun companyAdvice(
+        @PathVariable @Pattern(regexp = UUID_PATTERN) companyId: String,
+        @Valid @RequestBody input: NavigatorQuestion,
+        principal: Principal,
+    ): NavigatorAnswer = navigator.adviseCompany(principal.name, UUID.fromString(companyId), input.days, input.question)
 }

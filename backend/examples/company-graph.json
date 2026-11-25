@@ -1,0 +1,152 @@
+{
+  "companyId": "10000000-0000-4000-8000-000000000001",
+  "nodes": [
+    {
+      "id": "40000000-0000-4000-8000-000000000002",
+      "name": "Александр Волков",
+      "jobTitle": "ИТ-директор",
+      "department": {
+        "id": "30000000-0000-4000-8000-000000000002",
+        "name": "ИТ"
+      },
+      "roles": [
+        {
+          "code": "PROJECT_SPONSOR",
+          "label": "Инициатор"
+        }
+      ],
+      "influence": "HIGH",
+      "decisionMaker": true,
+      "lastInteractionAt": "2026-11-18T10:00:00Z",
+      "interaction": "RECENT",
+      "responsibleManager": "Анна Смирнова"
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000003",
+      "name": "Дарья Белова",
+      "jobTitle": "Руководитель ИБ",
+      "department": {
+        "id": "30000000-0000-4000-8000-000000000003",
+        "name": "ИБ"
+      },
+      "roles": [
+        {
+          "code": "PROJECT_SPONSOR",
+          "label": "Инициатор"
+        },
+        {
+          "code": "TECHNICAL_EXPERT",
+          "label": "Технический эксперт"
+        }
+      ],
+      "influence": "HIGH",
+      "decisionMaker": true,
+      "lastInteractionAt": "2026-11-20T12:00:00Z",
+      "interaction": "RECENT",
+      "responsibleManager": "Игорь Ковалёв"
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000001",
+      "name": "Марина Орлова",
+      "jobTitle": "Финансовый директор",
+      "department": {
+        "id": "30000000-0000-4000-8000-000000000001",
+        "name": "Финансы"
+      },
+      "roles": [
+        {
+          "code": "CONSULTANT",
+          "label": "Консультирует"
+        },
+        {
+          "code": "BUDGET_APPROVER",
+          "label": "Утверждает бюджет"
+        }
+      ],
+      "influence": "HIGH",
+      "decisionMaker": true,
+      "lastInteractionAt": "2026-11-20T12:00:00Z",
+      "interaction": "RECENT",
+      "responsibleManager": "Игорь Ковалёв"
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000005",
+      "name": "Никита Сорокин",
+      "jobTitle": null,
+      "department": null,
+      "roles": [],
+      "influence": "UNKNOWN",
+      "decisionMaker": false,
+      "lastInteractionAt": null,
+      "interaction": "UNKNOWN",
+      "responsibleManager": null
+    }
+  ],
+  "edges": [
+    {
+      "id": "50000000-0000-4000-8000-000000000001",
+      "initiativeId": "20000000-0000-4000-8000-000000000001",
+      "initiativeName": "Модернизация инфраструктуры",
+      "source": "40000000-0000-4000-8000-000000000002",
+      "target": "40000000-0000-4000-8000-000000000001",
+      "type": "APPROVAL",
+      "label": "Передаёт расчёт затрат на согласование",
+      "confirmed": true
+    },
+    {
+      "id": "50000000-0000-4000-8000-000000000002",
+      "initiativeId": "20000000-0000-4000-8000-000000000001",
+      "initiativeName": "Модернизация инфраструктуры",
+      "source": "40000000-0000-4000-8000-000000000003",
+      "target": "40000000-0000-4000-8000-000000000002",
+      "type": "EXPERTISE",
+      "label": "Проверяет требования к безопасности пилота",
+      "confirmed": false
+    },
+    {
+      "id": "50000000-0000-4000-8000-000000000003",
+      "initiativeId": "20000000-0000-4000-8000-000000000002",
+      "initiativeName": "Пилот защиты данных",
+      "source": "40000000-0000-4000-8000-000000000003",
+      "target": "40000000-0000-4000-8000-000000000001",
+      "type": "COORDINATION",
+      "label": "Уточняет финансовые ограничения пилота",
+      "confirmed": true
+    }
+  ],
+  "filters": {
+    "departments": [
+      {
+        "id": "30000000-0000-4000-8000-000000000003",
+        "name": "ИБ"
+      },
+      {
+        "id": "30000000-0000-4000-8000-000000000002",
+        "name": "ИТ"
+      },
+      {
+        "id": "30000000-0000-4000-8000-000000000001",
+        "name": "Финансы"
+      }
+    ],
+    "roles": [
+      {
+        "code": "PROJECT_SPONSOR",
+        "label": "Инициатор"
+      },
+      {
+        "code": "CONSULTANT",
+        "label": "Консультирует"
+      },
+      {
+        "code": "TECHNICAL_EXPERT",
+        "label": "Технический эксперт"
+      },
+      {
+        "code": "BUDGET_APPROVER",
+        "label": "Утверждает бюджет"
+      }
+    ]
+  },
+  "matchingPeople": 4
+}

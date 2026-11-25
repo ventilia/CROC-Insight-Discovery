@@ -1,0 +1,77 @@
+{
+  "companyId": "10000000-0000-4000-8000-000000000001",
+  "id": "40000000-0000-4000-8000-000000000001",
+  "name": "Марина Орлова",
+  "jobTitle": "Финансовый директор",
+  "department": {
+    "id": "30000000-0000-4000-8000-000000000001",
+    "name": "Финансы"
+  },
+  "roles": [
+    {
+      "code": "CONSULTANT",
+      "label": "Консультирует"
+    },
+    {
+      "code": "BUDGET_APPROVER",
+      "label": "Утверждает бюджет"
+    }
+  ],
+  "influence": "HIGH",
+  "decisionMaker": true,
+  "lastInteractionAt": "2026-11-20T12:00:00Z",
+  "interaction": "RECENT",
+  "responsibleManager": "Игорь Ковалёв",
+  "email": "m.orlova@severnaya.example",
+  "phone": "доб. 1201",
+  "assignments": [
+    {
+      "initiativeId": "20000000-0000-4000-8000-000000000001",
+      "initiativeName": "Модернизация инфраструктуры",
+      "asOf": "2026-11-24T09:00:00Z",
+      "role": {
+        "code": "BUDGET_APPROVER",
+        "label": "Утверждает бюджет"
+      },
+      "decisionMaker": true,
+      "influence": "HIGH",
+      "influenceBasis": "Оценка в базовом демонстрационном сценарии"
+    },
+    {
+      "initiativeId": "20000000-0000-4000-8000-000000000002",
+      "initiativeName": "Пилот защиты данных",
+      "asOf": "2026-11-24T09:00:00Z",
+      "role": {
+        "code": "CONSULTANT",
+        "label": "Консультирует"
+      },
+      "decisionMaker": false,
+      "influence": "MEDIUM",
+      "influenceBasis": "Оценка в базовом демонстрационном сценарии"
+    }
+  ],
+  "connections": [
+    {
+      "id": "50000000-0000-4000-8000-000000000001",
+      "contactId": "40000000-0000-4000-8000-000000000002",
+      "name": "Александр Волков",
+      "initiativeId": "20000000-0000-4000-8000-000000000001",
+      "initiativeName": "Модернизация инфраструктуры",
+      "direction": "INCOMING",
+      "type": "APPROVAL",
+      "label": "Передаёт расчёт затрат на согласование",
+      "confirmed": true
+    },
+    {
+      "id": "50000000-0000-4000-8000-000000000003",
+      "contactId": "40000000-0000-4000-8000-000000000003",
+      "name": "Дарья Белова",
+      "initiativeId": "20000000-0000-4000-8000-000000000002",
+      "initiativeName": "Пилот защиты данных",
+      "direction": "INCOMING",
+      "type": "COORDINATION",
+      "label": "Уточняет финансовые ограничения пилота",
+      "confirmed": true
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "days": 30,
+  "verificationDays": 90,
+  "accessibleCompanyCount": 2,
+  "registeredContactCount": 5,
+  "activeInteractionCount": 4,
+  "earliestAsOf": "2026-11-24T09:00:00Z",
+  "latestAsOf": "2026-11-24T09:00:00Z",
+  "riskCount": 8,
+  "risks": [
+    {
+      "code": "UNCONTACTED_DECISION_MAKER",
+      "evidenceStatus": "NO_EVIDENCE",
+      "companyId": "10000000-0000-4000-8000-000000000002",
+      "companyName": "Меридиан",
+      "initiativeId": "20000000-0000-4000-8000-000000000003",
+      "initiativeName": "Обновление закупочных процессов",
+      "asOf": "2026-11-24T09:00:00Z",
+      "subjectId": "40000000-0000-4000-8000-000000000004",
+      "subjectName": "Илья Нестеров",
+      "lastObservedAt": null
+    },
+    {
+      "code": "UNCONTACTED_DEPARTMENT",
+      "evidenceStatus": "NO_EVIDENCE",
+      "companyId": "10000000-0000-4000-8000-000000000002",
+      "companyName": "Меридиан",
+      "initiativeId": "20000000-0000-4000-8000-000000000003",
+      "initiativeName": "Обновление закупочных процессов",
+      "asOf": "2026-11-24T09:00:00Z",
+      "subjectId": "30000000-0000-4000-8000-000000000004",
+      "subjectName": "Закупки",
+      "lastObservedAt": null
+    },
+    {
+      "code": "STALE_CONTACT_VERIFICATION",
+      "evidenceStatus": "STALE",
+      "companyId": "10000000-0000-4000-8000-000000000001",
+      "companyName": "Северная линия",
+      "initiativeId": "20000000-0000-4000-8000-000000000001",
+      "initiativeName": "Модернизация инфраструктуры",
+      "asOf": "2026-11-24T09:00:00Z",
+      "subjectId": "40000000-0000-4000-8000-000000000001",
+      "subjectName": "Марина Орлова",
+      "lastObservedAt": "2026-08-01T09:00:00Z"
+    },
+    {
+      "code": "STALE_CONTACT_VERIFICATION",
+      "evidenceStatus": "STALE",
+      "companyId": "10000000-0000-4000-8000-000000000001",
+      "companyName": "Северная линия",
+      "initiativeId": "20000000-0000-4000-8000-000000000002",
+      "initiativeName": "Пилот защиты данных",
+      "asOf": "2026-11-24T09:00:00Z",
+      "subjectId": "40000000-0000-4000-8000-000000000001",
+      "subjectName": "Марина Орлова",
+      "lastObservedAt": "2026-08-01T09:00:00Z"
+    },
+    {
+      "code": "UNKNOWN_CONTACT_VERIFICATION",
+      "evidenceStatus": "NO_EVIDENCE",
+      "companyId": "10000000-0000-4000-8000-000000000001",
+      "companyName": "Северная линия",
+      "initiativeId": "20000000-0000-4000-8000-000000000001",
+      "initiativeName": "Модернизация инфраструктуры",
+      "asOf": "2026-11-24T09:00:00Z",
+      "subjectId": "40000000-0000-4000-8000-000000000003",
+      "subjectName": "Дарья Белова",
+      "lastObservedAt": null
+    },
+    {
+      "code": "UNKNOWN_CONTACT_VERIFICATION",
+      "evidenceStatus": "NO_EVIDENCE",
+      "companyId": "10000000-0000-4000-8000-000000000001",
+      "companyName": "Северная линия",
+      "initiativeId": "20000000-0000-4000-8000-000000000001",
+      "initiativeName": "Модернизация инфраструктуры",
+      "asOf": "2026-11-24T09:00:00Z",
+      "subjectId": "40000000-0000-4000-8000-000000000005",
+      "subjectName": "Никита Сорокин",
+      "lastObservedAt": null
+    },
+    {
+      "code": "UNKNOWN_CONTACT_VERIFICATION",
+      "evidenceStatus": "NO_EVIDENCE",
+      "companyId": "10000000-0000-4000-8000-000000000001",
+      "companyName": "Северная линия",
+      "initiativeId": "20000000-0000-4000-8000-000000000002",
+      "initiativeName": "Пилот защиты данных",
+      "asOf": "2026-11-24T09:00:00Z",
+      "subjectId": "40000000-0000-4000-8000-000000000003",
+      "subjectName": "Дарья Белова",
+      "lastObservedAt": null
+    },
+    {
+      "code": "UNKNOWN_CONTACT_VERIFICATION",
+      "evidenceStatus": "NO_EVIDENCE",
+      "companyId": "10000000-0000-4000-8000-000000000002",
+      "companyName": "Меридиан",
+      "initiativeId": "20000000-0000-4000-8000-000000000003",
+      "initiativeName": "Обновление закупочных процессов",
+      "asOf": "2026-11-24T09:00:00Z",
+      "subjectId": "40000000-0000-4000-8000-000000000004",
+      "subjectName": "Илья Нестеров",
+      "lastObservedAt": null
+    }
+  ]
+}
