@@ -32,6 +32,8 @@ npm run demo
 
 [Инструкция фронтенда и сценарий демонстрации](frontend/README.md) · [Бэкенд](backend/README.md) · [Контракт API](backend/openapi.yaml)
 
+[Отдельный прототип карты связей](frontend/insight-preview/README.md)
+
 ## Проверки
 
 Из `frontend/`: `npm test` и `npm run build`. Из `backend/`: `./gradlew test` (JDK 21, Docker для Testcontainers). Локальному HTTP-тесту фронтенда нужно разрешить открытие loopback-порта.

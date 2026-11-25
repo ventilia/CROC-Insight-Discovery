@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101512">
+  <title>КРОК Insight — Карта связей</title>
+  <script src="./theme.js"></script>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><strong>КРОК</strong><span>Insight</span></div>
+    <div class="header-actions">
+      <span id="source-badge" class="source-label">Загрузка</span>
+      <button id="theme-toggle" class="button theme-toggle" type="button">Светлая тема</button>
+    </div>
+  </header>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Навигация по проекту">
+      <div class="workspace-select">
+        <label for="company">Компания</label>
+        <select id="company" disabled></select>
+        <label for="initiative">Инициатива</label>
+        <select id="initiative" disabled></select>
+      </div>
+      <nav id="navigation" aria-label="Разделы инициативы"></nav>
+    </aside>
+    <main id="workspace" aria-busy="true">
+      <div class="heading">
+        <div><p id="breadcrumb" class="breadcrumb">Рабочее пространство</p><h1 id="initiative-title">Карта связей</h1></div>
+        <div class="actions">
+          <button id="refresh" class="button" type="button" disabled>Обновить данные</button>
+          <button id="add" class="button primary" type="button" disabled>Добавить</button>
+        </div>
+      </div>
+      <div id="notice" class="notice" role="status" hidden></div>
+      <div id="workspace-content"></div>
+    </main>
+  </div>
+  <dialog id="modal" aria-labelledby="modal-title">
+    <form id="modal-form">
+      <div class="modal-header"><h2 id="modal-title"></h2><button type="button" class="icon-button" data-action="close-modal" aria-label="Закрыть">×</button></div>
+      <p class="modal-note">Запись хранится в этом браузере.</p>
+      <div id="modal-fields" class="modal-fields"></div>
+      <p id="modal-error" class="field-error" role="alert" hidden></p>
+      <div class="modal-actions"><button type="button" class="button" data-action="close-modal">Отмена</button><button class="button primary" type="submit">Сохранить</button></div>
+    </form>
+  </dialog>
+</body>
+</html>
