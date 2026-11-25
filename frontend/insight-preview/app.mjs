@@ -22,13 +22,15 @@ const nav = [
 const icons = {
   search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/>',
   zoom: '<path d="M9 4H4v5m11-5h5v5M4 15v5h5m11-5v5h-5"/>',
+  expand: '<path d="M14 4h6v6m0-6-7 7m-3 9H4v-6m0 6 7-7"/>',
+  collapse: '<path d="M20 4l-7 7m0-6v6h6M4 20l7-7m0 6v-6H5"/>',
   refresh: '<path d="M20 4v5h-5M4 20v-5h5M4.8 9a8 8 0 0 1 12.5-3L20 9M4 15l2.7 3A8 8 0 0 0 19.2 15"/>',
 };
 const icon = (name) => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]}</svg>`;
 
 const state = {
   api: null, companies: [], initiatives: [], companyId: '', initiativeId: '', base: null, graph: null,
-  filters: emptyFilters(), selected: '', view: 'graph', dossier: 'overview', focus: 0,
+  filters: emptyFilters(), selected: '', view: 'graph', dossier: 'overview', focus: 0, graphExpanded: false,
   busy: false, error: '', filterError: '', toast: '', projectData: null, projectError: '', advice: [],
   viewport: { scale: 1, x: 0, y: 0 }, records: blankRecords(), modal: '',
 };
@@ -233,6 +235,7 @@ function toolbar(extra = '') {
 function render() {
   updatePickers();
   renderNav();
+  $('.shell').classList.toggle('graph-expanded', !state.busy && Boolean(state.base) && state.view === 'graph' && state.graphExpanded);
   const content = $('#workspace-content');
   $('#notice').hidden = true;
   if (state.busy) { content.innerHTML = '<div class="empty" role="status">Загружаем инициативу…</div>'; return; }
@@ -244,10 +247,11 @@ function render() {
       <section class="graph-board" aria-label="Карта связей">
         ${toolbar('<button type="button" class="button graph-add" data-action="link" aria-label="Добавить связь">＋ Связь</button>')}
         <div class="graph-stage"><svg id="network" role="group" aria-label="Интерактивный граф участников" preserveAspectRatio="xMidYMid meet"></svg><div id="graph-empty" class="graph-empty" role="status" hidden></div></div>
-        <div class="board-footer"><div class="graph-key"><span id="result-count" class="result-count" role="status"></span><div id="legend" class="legend"></div></div><div class="graph-navigation"><button type="button" class="button" data-action="focus" hidden></button><div class="zoom-controls" aria-label="Масштаб графа"><button type="button" data-action="zoom-out" aria-label="Уменьшить">−</button><button type="button" data-action="zoom-in" aria-label="Увеличить">+</button><button type="button" data-action="zoom-reset" aria-label="Показать весь граф">${icon('zoom')}</button></div></div></div>
+        <div class="board-footer"><div class="graph-key"><span id="result-count" class="result-count" role="status"></span><div id="legend" class="legend"></div></div><div class="graph-navigation"><button type="button" class="button" data-action="focus" hidden></button><div class="zoom-controls" aria-label="Масштаб графа"><button type="button" data-action="zoom-out" aria-label="Уменьшить">−</button><button type="button" data-action="zoom-in" aria-label="Увеличить">+</button><button type="button" data-action="zoom-reset" aria-label="Показать весь граф">${icon('zoom')}</button><button type="button" data-action="expand-graph"></button></div></div></div>
       </section><aside id="rail" class="rail" aria-label="Сводка проекта"></aside>
     </div>`;
     attachPan($('#network'), state.viewport);
+    setExpandedGraph(state.graphExpanded);
   }
   updateContent();
 }
@@ -294,7 +298,7 @@ function graphContent(graph) {
   const svg = $('#network');
   const selected = personById(state.selected);
   const preserveKeyboard = svg.contains(document.activeElement) ? document.activeElement.dataset.personId : '';
-  drawGraph(svg, allNodes(), graph.nodes, graph.edges, state.selected, selectPerson, state.viewport);
+  drawGraph(svg, { graphNodes: allNodes(), graphEdges: allEdges(), ...graph, selectedId: state.selected, select: selectPerson, viewport: state.viewport });
   if (preserveKeyboard) svg.querySelector(`[data-person-id="${CSS.escape(preserveKeyboard)}"]`)?.focus({ preventScroll: true });
   const empty = $('#graph-empty');
   empty.hidden = Boolean(graph.nodes.length);
@@ -307,6 +311,17 @@ function graphContent(graph) {
   const names = [...new Set(graph.nodes.map(departmentName))];
   $('#legend').innerHTML = `${names.map((name) => `<span><i class="legend-dot ${departmentTone(name)}"></i>${esc(name)}</span>`).join('')}<span><i class="legend-ring"></i>ЛПР</span><span><i class="legend-dash"></i>Связь на проверке</span>`;
   $('#rail').innerHTML = selected ? dossier(selected) : summary();
+}
+
+function setExpandedGraph(expanded) {
+  state.graphExpanded = expanded;
+  const button = $('[data-action="expand-graph"]');
+  $('.shell').classList.toggle('graph-expanded', expanded && Boolean(button));
+  if (!button) return;
+  const label = expanded ? 'Свернуть граф' : 'Развернуть граф';
+  button.setAttribute('aria-label', label);
+  button.title = label;
+  button.innerHTML = icon(expanded ? 'collapse' : 'expand');
 }
 
 function peopleContent(graph) {
@@ -580,6 +595,10 @@ document.addEventListener('click', (event) => {
   }
   if (action === 'focus') { state.focus = (state.focus + 1) % 3; updateContent(); }
   if (action === 'recommend') recommendations();
+  if (action === 'expand-graph') {
+    setExpandedGraph(!state.graphExpanded);
+    button.scrollIntoView({ block: 'nearest' });
+  }
   if (action.startsWith('zoom-')) {
     if (action === 'zoom-reset') Object.assign(state.viewport, { scale: 1, x: 0, y: 0 });
     else state.viewport.scale = Math.max(.6, Math.min(3, state.viewport.scale * (action === 'zoom-in' ? 1.2 : 1 / 1.2)));
@@ -587,6 +606,10 @@ document.addEventListener('click', (event) => {
   }
 });
 document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && state.view === 'graph' && state.graphExpanded && !$('#modal').open && !$('.filter[open]')) {
+    setExpandedGraph(false);
+    $('[data-action="expand-graph"]')?.focus({ preventScroll: true });
+  }
   if (event.key === '/' && !$('#modal').open && !event.target.matches('input, textarea, select')) {
     const search = $('#search');
     if (search) { event.preventDefault(); search.focus(); }

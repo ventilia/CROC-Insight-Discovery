@@ -1,9 +1,12 @@
+import { forceSimulation, forceLink, forceManyBody, forceCollide, forceX, forceY } from './vendor/d3-force-3d.mjs';
+
 const ns = 'http://www.w3.org/2000/svg';
 const width = 850;
 const height = 540;
 const scheme = ['forest', 'blue', 'purple', 'ochre', 'rose', 'slate'];
 const relationClasses = { APPROVAL: 'approval', COORDINATION: 'coordination', EXPERTISE: 'expertise' };
 const departmentClasses = new Map(['Финансы', 'ИТ', 'ИБ', 'Закупки', 'Бизнес', 'Отдел не указан'].map((name, index) => [name, scheme[index]]));
+let lastLayout;
 
 export const departmentName = (node) => node.department?.name ?? 'Отдел не указан';
 export const departmentTone = (name) => departmentClasses.get(name) ?? 'slate';
@@ -15,32 +18,49 @@ function element(tag, attributes = {}, text) {
   return node;
 }
 
-function positions(nodes) {
-  const points = new Map();
-  if (nodes.length <= 8) {
-    nodes.forEach((node, index) => {
-      const angle = index * 2 * Math.PI / nodes.length - Math.PI / 2;
-      points.set(node.id, nodes.length === 1 ? [425, 260] : [425 + Math.cos(angle) * 225, 260 + Math.sin(angle) * 157]);
-    });
-    return points;
-  }
-  const groups = Map.groupBy(nodes, departmentName);
-  const groupCount = groups.size;
-  [...groups.values()].forEach((people, index) => {
-    const angle = (index - 1.7) * 2 * Math.PI / groupCount;
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
-    const [head, ...others] = [...people].sort((a, b) => Number(b.decisionMaker) - Number(a.decisionMaker));
-    const cx = 425 + cos * (groupCount > 1 ? 162 : 0);
-    const cy = 257 + sin * (groupCount > 1 ? 100 : 0);
-    points.set(head.id, [cx, cy]);
-    others.forEach((node, i) => {
-      const spread = groupCount === 1 ? 2 * Math.PI : 1.36;
-      const orbit = angle + (i / Math.max(1, others.length - 1) - .5) * spread;
-      const radius = (groupCount === 1 ? 120 : 116) + 43 * (i % 2);
-      points.set(node.id, [cx + Math.cos(orbit) * radius, cy + Math.sin(orbit) * radius * .84]);
+function positions(nodes, edges) {
+  if (!nodes.length) return new Map();
+  const key = JSON.stringify([
+    nodes.map((node) => [node.id, departmentName(node), node.decisionMaker]),
+    edges.map((edge) => [edge.source, edge.target]),
+  ]);
+  if (lastLayout?.key === key) return lastLayout.points;
+
+  // Give departments separate starting areas. The links and collision force place people within them.
+  const groups = [...Map.groupBy(nodes, departmentName).values()];
+  const layoutNodes = groups.flatMap((group, index) => {
+    const angle = -Math.PI / 2 + index * 2 * Math.PI / groups.length;
+    const anchorX = groups.length > 1 ? Math.cos(angle) * 170 : 0;
+    const anchorY = groups.length > 1 ? Math.sin(angle) * 105 : 0;
+    return group.map((node, position) => {
+      const startAngle = position * 2.4 + angle;
+      const radius = 28 * Math.sqrt(position);
+      return { id: node.id, department: index, decisionMaker: node.decisionMaker, anchorX, anchorY,
+        x: anchorX + Math.cos(startAngle) * radius, y: anchorY + Math.sin(startAngle) * radius };
     });
   });
+  const ids = new Set(layoutNodes.map((node) => node.id));
+  const links = edges.filter(({ source, target }) => ids.has(source) && ids.has(target) && source !== target)
+    .map(({ source, target }) => ({ source, target }));
+  const isWithinDepartment = (link) => link.source.department === link.target.department;
+  forceSimulation(layoutNodes, 2).stop()
+    .force('link', forceLink(links).id((node) => node.id)
+      .distance((link) => isWithinDepartment(link) ? 88 : 185)
+      .strength((link) => isWithinDepartment(link) ? .5 : .14))
+    .force('charge', forceManyBody().strength((node) => node.decisionMaker ? -300 : -165))
+    .force('collision', forceCollide((node) => node.decisionMaker ? 44 : 29).iterations(2))
+    .force('x', forceX((node) => node.anchorX).strength(.17))
+    .force('y', forceY((node) => node.anchorY).strength(.21))
+    .tick(150);
+
+  const xs = layoutNodes.map((node) => node.x);
+  const ys = layoutNodes.map((node) => node.y);
+  const left = Math.min(...xs), right = Math.max(...xs);
+  const top = Math.min(...ys), bottom = Math.max(...ys);
+  const centerX = (left + right) / 2, centerY = (top + bottom) / 2;
+  const scale = Math.min(2, (width - 154) / Math.max(1, right - left), (height - 128) / Math.max(1, bottom - top));
+  const points = new Map(layoutNodes.map(({ id, x, y }) => [id, [width / 2 + (x - centerX) * scale, height / 2 + (y - centerY) * scale]]));
+  lastLayout = { key, points };
   return points;
 }
 
@@ -52,8 +72,8 @@ function trimmedLine([x1, y1], [x2, y2], start, end) {
   return { x1: x1 + dx * start, y1: y1 + dy * start, x2: x2 - dx * end, y2: y2 - dy * end };
 }
 
-export function drawGraph(svg, allNodes, nodes, edges, selectedId, select, viewport) {
-  const coords = positions(allNodes);
+export function drawGraph(svg, { graphNodes, graphEdges, nodes, edges, selectedId, select, viewport }) {
+  const coords = positions(graphNodes, graphEdges);
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const defs = element('defs');
   for (const type of [...Object.values(relationClasses), 'other']) {
@@ -65,7 +85,7 @@ export function drawGraph(svg, allNodes, nodes, edges, selectedId, select, viewp
   const lines = element('g', { 'aria-hidden': 'true' });
   const people = element('g');
   const showFullLabels = nodes.length <= 8;
-  const radius = (node) => node.decisionMaker ? 17 : showFullLabels || node.id === selectedId ? 12 : 7;
+  const radius = (node) => node.decisionMaker ? 18 : showFullLabels || node.id === selectedId ? 13 : 9;
 
   for (const edge of edges) {
     const source = byId.get(edge.source);
