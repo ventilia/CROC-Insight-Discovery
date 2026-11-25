@@ -25,7 +25,7 @@ import ru.croc.insight.map.GraphService
 import ru.croc.insight.map.ParticipantService
 import ru.croc.insight.map.PersonDossier
 
-private const val UUID_PATTERN = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+internal const val UUID_PATTERN = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 
 @RestController
 @RequestMapping("/api/v1")

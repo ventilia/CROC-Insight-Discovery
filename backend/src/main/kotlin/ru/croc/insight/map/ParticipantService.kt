@@ -7,21 +7,24 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
 import ru.croc.insight.catalog.CatalogService
+import ru.croc.insight.source.PositionRevision
+import ru.croc.insight.source.PositionService
 
 data class PersonDossier(
     val companyId: UUID,
     val initiativeId: UUID,
     val asOf: Instant,
     val person: GraphNode,
+    val position: PositionRevision?,
 )
 
 @Service
-class ParticipantService(private val catalog: CatalogService, private val jdbc: JdbcClient) {
+class ParticipantService(private val catalog: CatalogService, private val positions: PositionService, private val jdbc: JdbcClient) {
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     fun findDossier(viewer: String, initiativeId: UUID, personId: UUID): PersonDossier? {
         val initiative = catalog.findInitiative(viewer, initiativeId) ?: return null
         val person = queryParticipants(initiative.id, personId).optional().orElse(null) ?: return null
-        return PersonDossier(initiative.companyId, initiative.id, initiative.asOf, person)
+        return PersonDossier(initiative.companyId, initiative.id, initiative.asOf, person, positions.current(initiativeId, personId))
     }
 
     internal fun list(initiativeId: UUID): List<GraphNode> = queryParticipants(initiativeId, null).list()

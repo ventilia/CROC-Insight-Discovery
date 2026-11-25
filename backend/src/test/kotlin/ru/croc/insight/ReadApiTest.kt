@@ -1,5 +1,8 @@
 package ru.croc.insight
 
+import com.sun.net.httpserver.HttpServer
+import java.io.IOException
+import java.net.InetSocketAddress
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -11,8 +14,11 @@ import java.sql.SQLException
 import java.time.Duration
 import java.util.Base64
 import java.util.UUID
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.atomic.AtomicReference
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.assertThrows
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
@@ -272,6 +278,128 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
         assertThat(get("$path&through=").statusCode()).isEqualTo(400)
     }
 
+    @Test
+    fun `editor saves an auditable position and stale versions cannot overwrite it`() {
+        val path = "/api/v1/initiatives/$modernization/people/$marina/demo-source"
+        val initial = read(path)
+        assertThat(initial.path("canEdit").asBoolean()).isFalse()
+        assertThat(initial.path("version").asInt()).isEqualTo(1)
+        assertThat(initial.path("position").path("stance").asString()).isEqualTo("DOUBTS")
+        val writer = request(path, editorPassword, "GET", "demo-editor")
+        assertThat(json(writer).path("canEdit").asBoolean()).isTrue()
+        val csrf = csrf("demo-editor", editorPassword)
+        preparedWriter
+        val saved = patch(path, editorPassword, "demo-editor", csrf, 1, "Подтверждение на встрече")
+        assertThat(saved.statusCode()).isEqualTo(200)
+        assertThat(json(saved).path("version").asInt()).isEqualTo(2)
+        assertThat(json(saved).path("position").path("author").asString()).isEqualTo("demo-editor")
+        assertThat(patch(path, editorPassword, "demo-editor", csrf, 1, "Перезапись").statusCode()).isEqualTo(409)
+        val dossier = read("/api/v1/initiatives/$modernization/people/$marina")
+        assertThat(dossier.path("position").path("basis").asString()).isEqualTo("Подтверждение на встрече")
+        connect("croc_writer", writerPassword).use { connection ->
+            connection.createStatement().use { statement ->
+                val denied = assertThrows<SQLException> {
+                    statement.executeUpdate("DELETE FROM insight.stance_revisions WHERE false")
+                }
+                assertThat(denied.sqlState).isEqualTo("42501")
+            }
+        }
+    }
+
+    @Test
+    fun `position writes require editor permission csrf and an accessible participation`() {
+        val path = "/api/v1/initiatives/$modernization/people/$itDirector/demo-source"
+        val editorToken = csrf("demo-editor", editorPassword)
+        val readerToken = csrf("demo-reader", apiPassword)
+        assertThat(patch(path, apiPassword, "demo-reader", readerToken, 0, "Тест").statusCode()).isEqualTo(403)
+        assertThat(patch(path, editorPassword, "demo-editor", emptyMap(), 0, "Тест").statusCode()).isEqualTo(403)
+        assertThat(patch(path, editorPassword, "demo-editor", editorToken, 0, " ").statusCode()).isEqualTo(400)
+        assertThat(patch("/api/v1/initiatives/$privateInitiative/people/$marina/demo-source",
+            editorPassword, "demo-editor", editorToken, 0, "Тест").statusCode()).isEqualTo(404)
+        assertThat(read(path).path("version").asInt()).isZero()
+    }
+
+    @Test
+    fun `json writes reject coerced versions and numeric stances`() {
+        val path = "/api/v1/initiatives/$modernization/people/$itDirector/demo-source"
+        val headers = csrf("demo-editor", editorPassword) + ("Content-Type" to "application/json")
+        val invalidChanges = listOf(
+            """{"stance":"SUPPORTS","basis":"Основание","expectedVersion":0.5}""",
+            """{"stance":"SUPPORTS","basis":"Основание","expectedVersion":"0"}""",
+            """{"stance":0,"basis":"Основание","expectedVersion":0}""",
+        )
+        invalidChanges.forEach { body ->
+            assertThat(request(path, editorPassword, "PATCH", "demo-editor", headers, body).statusCode()).isEqualTo(400)
+        }
+        assertThat(read(path).path("version").asInt()).isZero()
+    }
+
+    @Test
+    fun `when two editors save the same version only one revision is written`() {
+        val path = "/api/v1/initiatives/$dataProtection/people/$marina/demo-source"
+        val token = csrf("demo-editor", editorPassword)
+        preparedWriter
+        val results = listOf("Первое основание", "Второе основание").map { basis ->
+            CompletableFuture.supplyAsync {
+                patch(path, editorPassword, "demo-editor", token, 0, basis).statusCode()
+            }
+        }
+        assertThat(results.map { it.join() }).containsExactlyInAnyOrder(200, 409)
+        assertThat(read(path).path("version").asInt()).isEqualTo(1)
+    }
+
+    @Test
+    fun `configured local navigator sends authorized facts to the selected model`() {
+        val config = read("/api/v1/ai/settings")
+        assertThat(config.path("enabled").asBoolean()).isTrue()
+        assertThat(config.path("model").asString()).isEqualTo("fixture-local")
+        assertThat(config.has("url")).isFalse()
+        val headers = csrf("demo-reader", apiPassword) + ("Content-Type" to "application/json")
+        val input = """{"days":7,"question":"Кого стоит проверить?"}"""
+        val beforeForbidden = modelRequest.get()
+        val forbidden = request("/api/v1/initiatives/$privateInitiative/ai/advice", apiPassword, "POST",
+            headers = headers, body = input)
+        assertThat(forbidden.statusCode()).isEqualTo(404)
+        assertThat(modelRequest.get()).isSameAs(beforeForbidden)
+        val response = request("/api/v1/initiatives/$modernization/ai/advice", apiPassword, "POST",
+            headers = headers, body = input)
+        assertThat(response.statusCode()).isEqualTo(200)
+        assertThat(json(response).path("answer").asString()).isEqualTo("Проверьте основание у Марины.")
+        assertThat(json(response).path("asOf")).isEqualTo(read("/api/v1/initiatives/$modernization/coverage?days=7").path("asOf"))
+        val received = modelRequest.get()
+        assertThat(received.path("model").asString()).isEqualTo("fixture-local")
+        assertThat(received.path("messages").get(1).path("content").asString())
+            .contains("Кого стоит проверить?", "Дарья Белова").doesNotContain("Закрытая компания")
+    }
+
+    @Test
+    fun `local navigator rejects oversized responses and times out while receiving partial responses`() {
+        val path = "/api/v1/initiatives/$modernization/ai/advice"
+        val headers = csrf("demo-reader", apiPassword) + ("Content-Type" to "application/json")
+        fun advise(question: String) = request(path, apiPassword, "POST", headers = headers,
+            body = mapper.writeValueAsString(mapOf("days" to 7, "question" to question)))
+
+        assertThat(advise("Длинный тестовый ответ").statusCode()).isEqualTo(502)
+        assertThat(advise("Медленный тестовый ответ").statusCode()).isEqualTo(504)
+        assertThat(advise("Короткий тестовый ответ").statusCode()).isEqualTo(200)
+    }
+
+    private fun csrf(user: String, password: String): Map<String, String> {
+        val response = request("/api/v1/csrf", password, "GET", user)
+        assertThat(response.statusCode()).isEqualTo(200)
+        return mapOf(
+            "Cookie" to response.headers().firstValue("Set-Cookie").orElseThrow().substringBefore(";"),
+            json(response).path("headerName").asString() to json(response).path("token").asString(),
+        )
+    }
+
+    private fun patch(
+        path: String, password: String, user: String, headers: Map<String, String>, version: Int, basis: String,
+    ): HttpResponse<String> = request(
+        path, password, "PATCH", user, headers + ("Content-Type" to "application/json"),
+        mapper.writeValueAsString(mapOf("stance" to "SUPPORTS", "basis" to basis, "expectedVersion" to version)),
+    )
+
     private fun assertRejectedByForeignKey(sql: String) {
         connect("croc_migrator", migratorPassword).use { connection ->
             connection.autoCommit = false
@@ -292,12 +420,20 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
         return json(response)
     }
 
-    private fun request(path: String, password: String?, method: String): HttpResponse<String> {
+    private fun request(
+        path: String,
+        password: String?,
+        method: String,
+        user: String = "demo-reader",
+        headers: Map<String, String> = emptyMap(),
+        body: String? = null,
+    ): HttpResponse<String> {
         val request = HttpRequest.newBuilder(URI("http://127.0.0.1:$port$path"))
             .timeout(Duration.ofSeconds(10))
-            .method(method, HttpRequest.BodyPublishers.noBody())
+            .method(method, body?.let { HttpRequest.BodyPublishers.ofString(it) } ?: HttpRequest.BodyPublishers.noBody())
+        headers.forEach { (name, value) -> request.header(name, value) }
         if (password != null) {
-            val credentials = Base64.getEncoder().encodeToString("demo-reader:$password".toByteArray())
+            val credentials = Base64.getEncoder().encodeToString("$user:$password".toByteArray())
             request.header("Authorization", "Basic $credentials")
         }
         return client.send(request.build(), HttpResponse.BodyHandlers.ofString())
@@ -329,6 +465,50 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
         private val migratorPassword = UUID.randomUUID().toString()
         private val readerPassword = UUID.randomUUID().toString()
         private val apiPassword = UUID.randomUUID().toString()
+        private val editorPassword = UUID.randomUUID().toString()
+        private val writerPassword = UUID.randomUUID().toString()
+        private val modelRequest = AtomicReference<JsonNode>()
+        private val localModel by lazy {
+            HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
+                createContext("/v1/chat/completions") { exchange ->
+                    exchange.use {
+                        val request = JsonMapper.builder().build().readTree(exchange.requestBody)
+                        modelRequest.set(request)
+                        val question = request.path("messages").path(1).path("content").asString()
+                        val response = if (question.contains("Длинный тестовый ответ")) ByteArray(65_537) { 32 }
+                            else """{"choices":[{"message":{"content":"Проверьте основание у Марины."}}]}""".toByteArray()
+                        exchange.responseHeaders.set("Content-Type", "application/json")
+                        exchange.sendResponseHeaders(200, response.size.toLong())
+                        try {
+                            if (question.contains("Медленный тестовый ответ")) {
+                                repeat(response.size) { index ->
+                                    exchange.responseBody.write(response[index].toInt())
+                                    exchange.responseBody.flush()
+                                    Thread.sleep(70)
+                                }
+                            } else {
+                                exchange.responseBody.write(response)
+                            }
+                        } catch (_: IOException) {
+                            // клиент прекращает чтение после достижения лимита
+                        }
+                    }
+                }
+                start()
+            }
+        }
+
+        @JvmStatic
+        @AfterAll
+        fun closeModel() = localModel.stop(0)
+
+        private val preparedWriter by lazy {
+            val result = postgres.execInContainer(
+                "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "croc_insight",
+                "-f", "/tmp/croc-writer.sql",
+            )
+            check(result.exitCode == 0) { "Writer role setup failed" }
+        }
 
         @Container
         @JvmField
@@ -338,9 +518,14 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
             .withPassword(UUID.randomUUID().toString())
             .withEnv("CROC_DB_MIGRATOR_PASSWORD", migratorPassword)
             .withEnv("CROC_DB_READER_PASSWORD", readerPassword)
+            .withEnv("CROC_DB_WRITER_PASSWORD", writerPassword)
             .withCopyToContainer(
                 MountableFile.forHostPath(Path.of("docker/postgres/bootstrap.sql").toAbsolutePath()),
                 "/docker-entrypoint-initdb.d/01-bootstrap.sql",
+            )
+            .withCopyToContainer(
+                MountableFile.forHostPath(Path.of("docker/postgres/provision-writer.sql").toAbsolutePath()),
+                "/tmp/croc-writer.sql",
             )
 
         @JvmStatic
@@ -351,6 +536,11 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
             registry.add("spring.flyway.password") { migratorPassword }
             registry.add("spring.flyway.locations") { "classpath:db/migration,classpath:db/demo,classpath:db/test" }
             registry.add("croc.demo.api-password") { apiPassword }
+            registry.add("croc.demo.editor-password") { editorPassword }
+            registry.add("croc.demo.writer-password") { writerPassword }
+            registry.add("croc.ai.base-url") { "http://127.0.0.1:${localModel.address.port}/v1" }
+            registry.add("croc.ai.model") { "fixture-local" }
+            registry.add("croc.ai.request-timeout-ms") { 1_500 }
         }
     }
 }

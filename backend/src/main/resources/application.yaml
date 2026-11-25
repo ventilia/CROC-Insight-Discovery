@@ -6,6 +6,14 @@ spring:
     name: croc-insight
   config:
     import: optional:file:./.env[.properties]
+  jackson:
+    deserialization:
+      accept-float-as-int: false
+    datatype:
+      enum:
+        fail-on-numbers-for-enums: true
+    mapper:
+      allow-coercion-of-scalars: false
   datasource:
     url: ${CROC_DB_URL:jdbc:postgresql://127.0.0.1:${CROC_DB_PORT:54329}/croc_insight}
     username: croc_reader

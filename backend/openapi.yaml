@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: КРОК Insight
-  version: 0.3.0
+  version: 0.4.0
   description: API карты ЛПР, истории касаний и охвата участников на синтетических данных.
 servers:
   - url: http://127.0.0.1:8080
@@ -208,8 +208,158 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/initiatives/{initiativeId}/people/{personId}/demo-source:
+    parameters:
+      - $ref: '#/components/parameters/InitiativeId'
+      - name: personId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      operationId: getDemoSource
+      summary: Текущая версия позиции и разрешение на правку
+      responses:
+        '200':
+          description: Данные тестового источника
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionSource'
+              examples:
+                marina:
+                  externalValue: ./examples/position-source.json
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateDemoSource
+      summary: Сохранить новую версию позиции
+      description: Требуются учётная запись деморедактора и cookie вместе с CSRF-заголовком из GET /api/v1/csrf.
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedVersion, stance, basis]
+              properties:
+                expectedVersion: {type: integer, minimum: 0, maximum: 2147483646}
+                stance:
+                  $ref: '#/components/schemas/Stance'
+                basis: {type: string, minLength: 1, maxLength: 1200}
+      responses:
+        '200':
+          description: Сохранённая версия
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionSource'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Отсутствует право на изменение или CSRF-токен
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Ожидаемая версия устарела. Перечитайте источник перед повторной правкой.
+        '503':
+          description: База тестового источника недоступна
+  /api/v1/csrf:
+    get:
+      operationId: getCsrfToken
+      summary: Получить CSRF-токен и cookie для изменения данных
+      responses:
+        '200':
+          description: Токен для заголовка запроса
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [headerName, token]
+                properties:
+                  headerName: {type: string}
+                  token: {type: string}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/ai/settings:
+    get:
+      operationId: getLocalModelSettings
+      summary: Настройки локальной модели
+      responses:
+        '200':
+          description: Наличие серверных настроек и имя модели
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [enabled, model]
+                properties:
+                  enabled: {type: boolean}
+                  model: {type: [string, 'null']}
+              examples:
+                disabled:
+                  externalValue: ./examples/local-model-disabled.json
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/initiatives/{initiativeId}/ai/advice:
+    post:
+      operationId: requestLocalAdvice
+      summary: Запросить совет у локальной модели по доступной инициативе
+      parameters:
+        - $ref: '#/components/parameters/InitiativeId'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [days, question]
+              properties:
+                days: {type: integer, minimum: 1, maximum: 365}
+                question: {type: string, minLength: 1, maxLength: 400}
+      responses:
+        '200':
+          description: Текстовая подсказка
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [model, answer, asOf]
+                properties:
+                  model: {type: string}
+                  answer: {type: string}
+                  asOf: {type: string, format: date-time}
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Отсутствует действительный CSRF-токен
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          description: Модель занята
+        '502':
+          description: Локальная модель не ответила корректно
+        '503':
+          description: Локальная модель не настроена
+        '504':
+          description: Локальная модель превысила время ожидания
 components:
   parameters:
+    CsrfHeader:
+      name: X-XSRF-TOKEN
+      in: header
+      required: true
+      schema: {type: string}
     InitiativeId:
       name: initiativeId
       in: path
@@ -221,10 +371,10 @@ components:
     demoBasic:
       type: http
       scheme: basic
-      description: Локальный профиль demo. Пользователь demo-reader, пароль из CROC_DEMO_API_PASSWORD.
+      description: Локальный профиль demo. Для чтения используется demo-reader. Для изменения позиции требуется demo-editor.
   responses:
     BadRequest:
-      description: Ошибка идентификатора, фильтра или параметра пагинации
+      description: Неверный идентификатор, параметр или тело запроса
       content:
         application/problem+json:
           schema:
@@ -367,7 +517,7 @@ components:
             $ref: '#/components/schemas/Role'
     PersonDossier:
       type: object
-      required: [companyId, initiativeId, asOf, person]
+      required: [companyId, initiativeId, asOf, person, position]
       properties:
         companyId:
           type: string
@@ -380,6 +530,36 @@ components:
           format: date-time
         person:
           $ref: '#/components/schemas/Node'
+        position:
+          oneOf:
+            - $ref: '#/components/schemas/PositionRevision'
+            - type: 'null'
+    Stance:
+      type: string
+      enum: [SUPPORTS, NEUTRAL, DOUBTS, OPPOSES]
+    PositionRevision:
+      type: object
+      required: [version, stance, basis, author, changedAt]
+      properties:
+        version: {type: integer, minimum: 1}
+        stance:
+          $ref: '#/components/schemas/Stance'
+        basis: {type: string}
+        author: {type: string}
+        changedAt: {type: string, format: date-time}
+    PositionSource:
+      type: object
+      required: [version, position, canEdit]
+      properties:
+        version:
+          type: integer
+          minimum: 0
+          description: Ноль означает, что в источнике пока нет позиции.
+        position:
+          oneOf:
+            - $ref: '#/components/schemas/PositionRevision'
+            - type: 'null'
+        canEdit: {type: boolean}
     TouchpointPage:
       type: object
       required: [items, nextCursor]

@@ -5,3 +5,9 @@ spring:
 croc:
   demo:
     api-password: ${CROC_DEMO_API_PASSWORD}
+    editor-password: ${CROC_DEMO_EDITOR_PASSWORD:}
+    writer-password: ${CROC_DB_WRITER_PASSWORD:}
+  ai:
+    base-url: ${CROC_LOCAL_AI_BASE_URL:}
+    model: ${CROC_LOCAL_AI_MODEL:}
+    request-timeout-ms: ${CROC_LOCAL_AI_TIMEOUT_MS:45000}
