@@ -43,10 +43,26 @@ export type CompanyFacts = {
 
 export type CompanyInsights = {
   companyId: string;
+  days: number;
+  verificationDays: number;
   latestAsOf: string | null;
   activeInteractionCount: number;
   riskCount: number;
   risks: RiskFact[];
+  lostConnections: LostConnection[];
+};
+
+export type LostConnection = {
+  category: "CONTACT" | "DEPARTMENT" | "VERIFICATION";
+  evidenceStatus: "NO_EVIDENCE" | "STALE";
+  initiativeId: string;
+  initiativeName: string;
+  asOf: string;
+  subjectId: string;
+  subjectName: string;
+  lastInteractionAt: string | null;
+  lastVerifiedAt: string | null;
+  decisionMaker: boolean;
 };
 
 export type ContactSummary = {

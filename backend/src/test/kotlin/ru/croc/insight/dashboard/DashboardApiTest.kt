@@ -75,6 +75,28 @@ class DashboardApiTest(@LocalServerPort private val port: Int) {
     }
 
     @Test
+    fun `lost connections identify overdue and unknown project evidence at the snapshot`() {
+        val company = read("/api/v1/companies/$northernLine/insights?days=8")
+        val signals = company.path("lostConnections")
+        val stale = signals.signal("CONTACT", modernization, securityLead)
+        assertThat(stale.path("evidenceStatus").asString()).isEqualTo("STALE")
+        assertThat(stale.path("lastInteractionAt").asString()).isEqualTo("2026-11-12T08:30:00Z")
+        assertThat(stale.path("asOf").asString()).isEqualTo("2026-11-24T09:00:00Z")
+        val unknown = signals.signal("CONTACT", dataProtection, itDirector)
+        assertThat(unknown.path("evidenceStatus").asString()).isEqualTo("NO_EVIDENCE")
+        assertThat(unknown.path("lastInteractionAt").isNull).isTrue()
+        assertThat(signals.signal("DEPARTMENT", modernization, securityDepartment).path("lastInteractionAt").asString())
+            .isEqualTo("2026-11-12T08:30:00Z")
+        val verification = signals.signal("VERIFICATION", modernization, financeLead)
+        assertThat(verification.path("lastVerifiedAt").asString()).isEqualTo("2026-08-01T09:00:00Z")
+        assertThat(verification.path("lastInteractionAt").asString()).isEqualTo("2026-11-18T10:00:00Z")
+        assertThat(signals.any {
+            it.path("category").asString() == "CONTACT" && it.path("subjectId").asString() == financeLead &&
+                it.path("initiativeId").asString() == modernization
+        }).isFalse()
+    }
+
+    @Test
     fun `a company without initiatives has no snapshot or activity evidence`() {
         val company = read("/api/v1/companies/$emptyCompany/insights")
         assertThat(company.path("registeredContactCount").asLong()).isZero()
@@ -83,6 +105,8 @@ class DashboardApiTest(@LocalServerPort private val port: Int) {
         assertThat(company.path("latestAsOf").isNull).isTrue()
         assertThat(company.path("initiatives").size()).isZero()
         assertThat(company.path("risks").size()).isZero()
+        assertThat(company.path("lostConnections").isArray).isTrue()
+        assertThat(company.path("lostConnections").size()).isZero()
     }
 
     @Test
@@ -98,6 +122,11 @@ class DashboardApiTest(@LocalServerPort private val port: Int) {
 
     private fun JsonNode.fact(code: String, initiative: String, subject: String): JsonNode = single {
         it.path("code").asString() == code && it.path("initiativeId").asString() == initiative &&
+            it.path("subjectId").asString() == subject
+    }
+
+    private fun JsonNode.signal(category: String, initiative: String, subject: String): JsonNode = single {
+        it.path("category").asString() == category && it.path("initiativeId").asString() == initiative &&
             it.path("subjectId").asString() == subject
     }
 

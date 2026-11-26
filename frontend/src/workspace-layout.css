@@ -465,4 +465,8 @@ html[data-theme="dark"] .client-insights .insight-grid article {
 .persisted-panel > summary h2 { margin: 0; font-size: 18px; }
 .persisted-panel:not([open]) > summary svg { transform: rotate(-90deg); }
 .persisted-panel > .surface { border: 0; margin: 0; }
+.persisted-panel > .company-card { width: 100%; }
+.search-contact-result { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.search-results .search-map-action { width: auto; white-space: nowrap; color: var(--accent-strong, inherit); padding-inline: 8px; }
+.overview-key-person { display: flex; align-items: center; gap: 10px; }
 .directory-project-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }

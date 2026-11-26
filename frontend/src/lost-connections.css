@@ -1,0 +1,81 @@
+.lost-connections {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+}
+
+.lost-connections > .secondary {
+  justify-self: start;
+}
+
+.lost-connections-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lost-connections-filters .secondary,
+.lost-connections-list .secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.lost-connections-filters .secondary[aria-pressed="true"] {
+  color: var(--accent-dark);
+  border-color: var(--accent-dark);
+}
+
+.lost-connections-filters span {
+  margin-left: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lost-connections-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.lost-connections-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.lost-connections-subject,
+.lost-connections-evidence {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+
+.lost-connections-subject .text-button {
+  text-align: left;
+}
+
+.lost-connections-subject small {
+  margin-left: 8px;
+  color: var(--accent-dark);
+}
+
+.lost-connections-evidence span {
+  color: var(--ink-muted);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 640px) {
+  .lost-connections {
+    padding: 16px;
+  }
+
+  .lost-connections-list li {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+    gap: 10px;
+  }
+}

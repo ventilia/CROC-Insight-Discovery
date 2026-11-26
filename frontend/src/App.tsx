@@ -23,6 +23,7 @@ import { useDebounced, useRemote, type Company, type Initiative } from "./api";
 import { CompanyDirectory, DirectoryContact } from "./CompanyDirectory";
 import { internalRoute, publicRoute, resolveCompany } from "./routes";
 import { PersistedPanel } from "./PersistedPanel";
+import LostConnections from "./LostConnections";
 import {
   riskLabel,
   type CompanyInsights,
@@ -233,6 +234,10 @@ export function App() {
       jobTitle: string | null;
       companyId: string;
       companyName: string;
+      departmentName?: string | null;
+      initiativeId?: string | null;
+      initiativeName?: string | null;
+      decisionMaker?: boolean;
     }[]
   >(
     server && lookup.length >= 2
@@ -467,40 +472,50 @@ export function App() {
                     </span>
                   </button>
                 ))}
-                {searchPeople.map((person) => (
-                  <button
-                    key={person.id}
-                    onClick={() => {
-                      const item = data!.initiatives.find((item) =>
-                        item.graph.nodes.some((p) => p.id === person.id),
-                      )!;
-                      go(
-                        `/client/${item.initiative.companyId}/contacts?initiative=${item.initiative.id}`,
-                      );
-                      openPerson(item.initiative.id, person.id);
-                    }}
-                  >
-                    <Users size={17} />
-                    <span>
-                      {person.name}
-                      <small>{person.jobTitle ?? "Контакт"}</small>
-                    </span>
-                  </button>
-                ))}
+                {searchPeople.map((person) => {
+                  const item = data?.initiatives.find(({ graph }) =>
+                    graph.nodes.some((node) => node.id === person.id),
+                  );
+                  if (!item) return null;
+                  const { companyId, id } = item.initiative;
+                  return (
+                    <div className="search-contact-result" key={person.id}>
+                      <button onClick={() => fullPerson(id, person.id)}>
+                        <Users size={17} />
+                        <span>
+                          {person.name}{person.decisionMaker && " · ЛПР"}
+                          <small>{[person.jobTitle, person.department?.name].filter(Boolean).join(" · ") || "Контакт"}</small>
+                        </span>
+                      </button>
+                      <button className="search-map-action" title={item.initiative.name}
+                        onClick={() => go(`/client/${companyId}/map?initiative=${id}&focus=${person.id}`)}>
+                        На карте
+                      </button>
+                    </div>
+                  );
+                })}
                 {lookup === search.trim() &&
                   matches.data?.map((entry) => (
-                    <button
-                      key={entry.id}
-                      onClick={() => directoryPerson(entry.companyId, entry.id)}
-                    >
-                      <Users size={17} />
-                      <span>
-                        {entry.name}
-                        <small>
-                          {entry.companyName} · {entry.jobTitle ?? "Контакт"}
-                        </small>
-                      </span>
-                    </button>
+                    <div className="search-contact-result" key={entry.id}>
+                      <button onClick={() => directoryPerson(entry.companyId, entry.id)}>
+                        {entry.decisionMaker ? (
+                          <ContactPortrait personId={entry.id} size={30} />
+                        ) : <Users size={17} />}
+                        <span>
+                          {entry.name}{entry.decisionMaker && " · ЛПР"}
+                          <small>{[entry.companyName, entry.jobTitle, entry.departmentName].filter(Boolean).join(" · ")}</small>
+                        </span>
+                      </button>
+                      {entry.initiativeId && (
+                        <button
+                          className="search-map-action"
+                          title={entry.initiativeName ?? undefined}
+                          onClick={() => go(`/client/${entry.companyId}/map?initiative=${entry.initiativeId}&focus=${entry.id}`)}
+                        >
+                          На карте
+                        </button>
+                      )}
+                    </div>
                   ))}
                 {server && lookup === search.trim() && matches.error && (
                   <p role="alert">{matches.error}</p>
@@ -763,11 +778,9 @@ export function App() {
                       />
                       </PersistedPanel>
                     ) : (
-                      <HistoryPanel
-                        key={company.id}
-                        entries={history(items)}
-                        onPerson={openPerson}
-                      />
+                      <PersistedPanel key={company.id} id={company.id + ".history"} title="Хронология">
+                        <HistoryPanel entries={history(items)} onPerson={openPerson} />
+                      </PersistedPanel>
                     )
                   ) : tab === "contacts" &&
                     !projectId &&
@@ -806,6 +819,7 @@ export function App() {
                       server={server}
                       loading={workspace.loading}
                       revision={modelRevision}
+                      go={go}
                       onContacts={() => go(`/client/${company.id}/contacts`)}
                     />
                   ) : !active ? (
@@ -820,13 +834,13 @@ export function App() {
                           <label>
                             Проект
                             <select
-                              value={active.initiative.id}
-                              onChange={(event) =>
-                                go(
-                                  `/client/${company.id}/${tab}?initiative=${event.target.value}`,
-                                )
-                              }
+                              value={tab === "insights" ? params.get("initiative") ?? "" : active.initiative.id}
+                              onChange={(event) => {
+                                const id = event.target.value;
+                                go(`/client/${company.id}/${tab}${id ? `?initiative=${id}` : ""}`);
+                              }}
                             >
+                              {tab === "insights" && <option value="">Все проекты</option>}
                               {items.map((item) => (
                                 <option
                                   key={item.initiative.id}
@@ -884,6 +898,7 @@ export function App() {
                           key={active.initiative.id + query}
                           item={active}
                           initialFocus={params.get("focus")}
+                          initialDepartment={params.get("department")}
                           initialDepth={params.get("depth") === "2" ? 2 : 1}
                           initialSharedOnly={params.get("sharedOnly") !== "0"}
                           onlyIds={params.get("shared")?.split(",")}
@@ -926,11 +941,13 @@ export function App() {
                           key={active.initiative.id}
                           item={active}
                           companyId={company.id}
+                          initiativeScope={params.get("initiative") ?? undefined}
                           days={days}
                           facts={companyInsights}
                           server={server}
                           loading={workspace.loading}
                           revision={modelRevision}
+                          go={go}
                           onContacts={() =>
                             go(
                               `/client/${company.id}/contacts?initiative=${active.initiative.id}`,
@@ -958,6 +975,7 @@ export function App() {
                   </div>
                   <CompanyGrid
                     data={data}
+                    collapsible
                     onOpen={(id) => go(`/client/${id}/overview`)}
                   />
                 </>
@@ -1274,9 +1292,11 @@ function Dashboard({
 function CompanyGrid({
   data,
   onOpen,
+  collapsible = false,
 }: {
   data: WorkspaceData;
   onOpen: (id: string) => void;
+  collapsible?: boolean;
 }) {
   return data.companies.length ? (
     <div className="company-grid">
@@ -1294,10 +1314,11 @@ function CompanyGrid({
             total + relationshipHealth(item.coverage).risks.length,
           0,
         );
-        return (
+        const card = (
           <button
             className="company-card surface"
             key={company.id}
+            aria-label={`Открыть карточку компании ${company.name}`}
             onClick={() => onOpen(company.id)}
           >
             <div className="company-card-top">
@@ -1306,7 +1327,7 @@ function CompanyGrid({
               </span>
               <ChevronRight size={20} />
             </div>
-            <h3>{company.name}</h3>
+            {collapsible ? <strong>Открыть карточку</strong> : <h3>{company.name}</h3>}
             <p>{company.industry ?? "Отрасль не указана"}</p>
             <div className="company-card-stats">
               <span>
@@ -1330,6 +1351,11 @@ function CompanyGrid({
             </div>
           </button>
         );
+        return collapsible ? (
+          <PersistedPanel key={company.id} id={company.id + ".card"} title={company.name}>
+            {card}
+          </PersistedPanel>
+        ) : card;
       })}
     </div>
   ) : (
@@ -1463,9 +1489,12 @@ function CompanyOverview({
                       : item && onPerson(item.initiative.id, person.id)
                   }
                 >
-                  <div>
+                  <div className="overview-key-person">
+                    <ContactPortrait personId={person.id} size={36} />
+                    <span>
                     <strong>{person.name}</strong>
                     <small>{person.jobTitle ?? "Должность не указана"}</small>
+                    </span>
                   </div>
                   <ChevronRight size={17} />
                 </button>
@@ -1676,20 +1705,24 @@ function ContactTable({
 function Insights({
   item,
   companyId,
+  initiativeScope,
   days,
   facts,
   server,
   loading,
   revision,
+  go,
   onContacts,
 }: {
   item?: InitiativeData;
   companyId: string;
+  initiativeScope?: string;
   days: number;
   facts?: CompanyInsights;
   server: boolean;
   loading: boolean;
   revision: number;
+  go: (path: string) => void;
   onContacts: () => void;
 }) {
   const risks = facts?.risks ?? [];
@@ -1705,17 +1738,30 @@ function Insights({
   }
   return (
     <>
-      {item && (
-        <RelationshipHealth
-          data={item.coverage}
-          facts={item.health}
-          server={server}
-        />
+      {server && (
+        <PersistedPanel id={companyId + ".lost-connections"} title="Потерянные связи">
+          <LostConnections
+            facts={facts}
+            loading={loading}
+            initiativeId={initiativeScope}
+            onProject={(id) => go(`/client/${companyId}/map?initiative=${id}`)}
+            onMap={(id, department) => {
+              const query = new URLSearchParams({ initiative: id });
+              if (department) query.set("department", department);
+              go(`/client/${companyId}/map?${query}`);
+            }}
+            onContact={(id, initiative) => go(`/client/${companyId}/person/${id}?initiative=${initiative}`)}
+          />
+        </PersistedPanel>
       )}
-      <section className="surface insights-panel">
+      {item && (
+        <PersistedPanel id={companyId + ".health"} title={`Индекс отношений · ${item.initiative.name}`}>
+          <RelationshipHealth data={item.coverage} facts={item.health} server={server} />
+        </PersistedPanel>
+      )}
+      <PersistedPanel id={companyId + ".risks"} title="Сигналы риска по компании" className="insights-panel">
         <div className="section-heading">
           <div>
-            <h2>Сигналы риска по компании</h2>
             <p>
               {facts
                 ? `Сигналов риска: ${facts.riskCount} · взаимодействий за ${days} дней: ${facts.activeInteractionCount}`
@@ -1769,7 +1815,7 @@ function Insights({
             Посмотреть контакты <ChevronRight size={16} />
           </button>
         </div>
-      </section>
+      </PersistedPanel>
       <Navigator
         key={`company-${companyId}-${days}-${revision}`}
         companyId={companyId}

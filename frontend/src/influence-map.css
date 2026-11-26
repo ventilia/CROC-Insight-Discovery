@@ -63,7 +63,7 @@
 }
 
 .graph-map-surface .graph-workspace {
-  grid-template-columns: minmax(0, 1fr) clamp(315px, 32%, 465px);
+  grid-template-columns: minmax(0, 1fr) clamp(350px, 39%, 580px);
   align-items: start;
   gap: 16px;
   border: 0;
@@ -102,14 +102,28 @@
   bottom: 12px;
 }
 
+.graph-map-surface .graph-edge-mode {
+  min-height: 36px;
+  padding-inline: 10px;
+  border: 1px solid var(--line);
+}
+
+.graph-map-surface .graph-edge-mode[aria-pressed="true"] {
+  background: var(--soft);
+  border-color: var(--accent);
+  color: var(--accent-dark);
+}
+
 .graph-stage-controls .icon-button:focus-visible {
   outline-offset: -2px;
 }
 
 .graph-inspector {
+  container: map-inspector / inline-size;
   min-width: 0;
-  max-height: var(--graph-frame-height);
+  height: var(--graph-frame-height);
   overflow: auto;
+  overscroll-behavior-y: contain;
   border: 1px solid var(--line);
   background: var(--panel);
   color: inherit;
@@ -176,7 +190,7 @@
 
 .graph-detail {
   display: grid;
-  gap: 5px;
+  gap: 4px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--line);
 }
@@ -278,7 +292,7 @@
 }
 
 .graph-roster-list {
-  max-height: 102px;
+  max-height: clamp(126px, 18dvh, 200px);
   overflow: auto;
 }
 
@@ -293,8 +307,8 @@
   align-items: center;
   gap: 9px;
   width: 100%;
-  padding: 8px 14px;
-  min-height: 46px;
+  padding: 6px 14px;
+  min-height: 42px;
   border: 0;
   background: transparent;
   text-align: left;
@@ -376,6 +390,26 @@
   overflow-wrap: anywhere;
 }
 
+@container map-inspector (min-width: 420px) {
+  .graph-inspector-lists {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .graph-adjacent {
+    border-top: 0;
+    border-left: 1px solid var(--line);
+  }
+
+  .graph-adjacent h3 {
+    min-height: 49px;
+    align-content: center;
+    padding-block: 5px;
+    border-bottom: 1px solid var(--line);
+  }
+}
+
 .graph-map-surface .graph-footer,
 .graph-map-surface .graph-link-legend,
 .graph-map-surface .graph-connections {
@@ -400,7 +434,7 @@
 }
 
 .profile-page .contact-page-grid {
-  grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr);
+  grid-template-columns: minmax(0, 1fr) clamp(330px, 32%, 520px);
   align-items: start;
   gap: 16px;
 }
@@ -438,7 +472,75 @@
   }
 }
 
-@container relationship-map (max-width: 760px) {
+@media (min-width: 1041px) {
+  .main-shell:has(.profile-page) {
+    height: 100dvh;
+    min-height: 640px;
+  }
+
+  .main-shell:has(.profile-page) > .topbar {
+    flex-shrink: 0;
+  }
+
+  .main-content:has(> .profile-page) {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-width: none;
+    padding-inline-end: clamp(16px, 1.65vw, 32px);
+    padding-block-end: 20px;
+  }
+
+  .profile-page,
+  .profile-page .contact-page-network,
+  .profile-page .graph-profile-map,
+  .profile-page .graph-profile-map .graph-workspace,
+  .profile-page .graph-board {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .profile-page .page-title {
+    flex-shrink: 0;
+    margin-bottom: 16px;
+  }
+
+  .profile-page .contact-page-grid {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .profile-page .graph-profile-map .graph-map-head {
+    flex-shrink: 0;
+  }
+
+  .profile-page .graph-profile-map .graph-workspace {
+    align-items: stretch;
+  }
+
+  .profile-page .graph-profile-map .force-stage {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+  }
+
+  .profile-page .contact-drawer.full-profile {
+    min-height: 0;
+  }
+
+  .profile-page .full-profile .drawer-scroll {
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-gutter: stable;
+  }
+}
+
+@container relationship-map (max-width: 820px) {
   .graph-map-surface .graph-workspace {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -449,7 +551,8 @@
   }
 
   .graph-inspector {
-    max-height: none;
+    height: auto;
+    overflow: visible;
     scrollbar-gutter: auto;
   }
 
@@ -459,7 +562,7 @@
   }
 }
 
-@container relationship-map (max-width: 540px) {
+@media (max-width: 1040px) {
   .profile-page .graph-profile-map .force-stage {
     height: clamp(320px, 56dvh, 510px);
   }

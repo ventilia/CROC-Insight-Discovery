@@ -53,18 +53,32 @@ Get-Content -Raw -LiteralPath 'docker/postgres/load-demo-dataset.sql' |
 
 ## Набор для демонстрации KIT
 
-Для показа полной карты загрузи отдельный синтетический набор после первого запуска с профилем `demo`:
+После первого запуска с профилем `demo` выполни из `backend/` в PowerShell 7:
 
 ```powershell
-Get-Content -Raw -Encoding utf8 -LiteralPath 'docker/postgres/load-demo-showcase.sql' |
-    docker compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U croc_migrator -d croc_insight
-Get-Content -Raw -Encoding utf8 -LiteralPath 'docker/postgres/enrich-demo-showcase.sql' |
+Get-Content -Encoding utf8 'docker/postgres/load-demo-showcase.sql',
+    'docker/postgres/enrich-demo-showcase.sql',
+    'docker/postgres/compact-demo-showcase.sql' |
     docker compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U croc_migrator -d croc_insight
 ```
 
-Набор добавляет 24 компании, 100 проектов, 3 079 сотрудников, 9 872 связи и 17 467 взаимодействий. У проекта «Единая логистическая платформа» компании «Атлас Север» 540 участников и 1 105 связей. Повторная загрузка использует те же идентификаторы и сохраняет редакторские правки. Телефоны и адреса вымышлены. В контактах используется зарезервированная зона `.example`.
+В Bash:
 
-Если набор уже загружен, достаточно второй команды. Скрипт уточняет следующие шаги проектов, наполняет сведения об интересах и мандатах участников и конкретизирует тексты касаний и позиций. Существующие редакторские правки, идентификаторы, даты и каналы взаимодействий сохраняются. Повторный запуск безопасен.
+```bash
+cat docker/postgres/{load,enrich,compact}-demo-showcase.sql |
+    docker compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U croc_migrator -d croc_insight
+```
+
+В каталоге и на панели видны 10 компаний, 21 проект и 170 контактов. В витрине есть две исходные компании «Северная линия» и «Меридиан» и восемь выставочных компаний от «Атлас Север» до «Городской Контур». У «Атлас Север» доступны четыре проекта, у остальных выставочных компаний два. В графе «Единая логистическая платформа» 21 участник и 26 связей. В проекте «Сверка тарифов перевозчиков» можно показать пустую историю. Телефоны и адреса вымышлены, электронная почта использует зону `.example`.
+
+Если демо уже содержит расширенную витрину, выполни только `enrich-demo-showcase.sql` и `compact-demo-showcase.sql`. Первый скрипт уточняет следующие шаги, интересы и мандаты участников, тексты касаний и позиций. Второй применяет фильтр видимости к демобазе. Исходные записи, ссылки между ними и правки пользователей остаются в базе. Повторный запуск сохраняет идентификаторы и обновляет компактную выборку.
+
+Для возврата к полной витрине или работы с расширенным синтетическим набором очисти фильтр:
+
+```powershell
+docker compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U croc_migrator -d croc_insight `
+    -c "TRUNCATE insight.demo_showcase_hidden;"
+```
 
 ## Для фронтенда
 

@@ -254,13 +254,17 @@ paths:
                 maxItems: 5
                 items:
                   type: object
-                  required: [id, name, jobTitle, companyId, companyName]
+                  required: [id, name, jobTitle, companyId, companyName, departmentName, initiativeId, initiativeName, decisionMaker]
                   properties:
                     id: {type: string, format: uuid}
                     name: {type: string}
                     jobTitle: {type: [string, 'null']}
                     companyId: {type: string, format: uuid}
                     companyName: {type: string}
+                    departmentName: {type: [string, 'null']}
+                    initiativeId: {type: [string, 'null'], format: uuid}
+                    initiativeName: {type: [string, 'null']}
+                    decisionMaker: {type: boolean}
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
   /api/v1/companies/{companyId}/initiatives:
@@ -1188,7 +1192,7 @@ components:
               team: {type: string}
     CompanyInsights:
       type: object
-      required: [companyId, companyName, days, verificationDays, registeredContactCount, activeInteractionCount, earliestAsOf, latestAsOf, initiatives, riskCount, risks]
+      required: [companyId, companyName, days, verificationDays, registeredContactCount, activeInteractionCount, earliestAsOf, latestAsOf, initiatives, riskCount, risks, lostConnections]
       properties:
         companyId: {type: string, format: uuid}
         companyName: {type: string}
@@ -1201,6 +1205,22 @@ components:
         initiatives: {type: array, items: {$ref: '#/components/schemas/InitiativeInsights'}}
         riskCount: {type: integer, minimum: 0}
         risks: {type: array, items: {$ref: '#/components/schemas/RiskFact'}}
+        lostConnections: {type: array, items: {$ref: '#/components/schemas/LostConnection'}}
+    LostConnection:
+      type: object
+      description: A project participant, department, or contact verification with stale or missing evidence at the project snapshot.
+      required: [category, evidenceStatus, initiativeId, initiativeName, asOf, subjectId, subjectName, lastInteractionAt, lastVerifiedAt, decisionMaker]
+      properties:
+        category: {type: string, enum: [CONTACT, DEPARTMENT, VERIFICATION]}
+        evidenceStatus: {type: string, enum: [NO_EVIDENCE, STALE]}
+        initiativeId: {type: string, format: uuid}
+        initiativeName: {type: string}
+        asOf: {type: string, format: date-time}
+        subjectId: {type: string, format: uuid}
+        subjectName: {type: string}
+        lastInteractionAt: {type: [string, 'null'], format: date-time}
+        lastVerifiedAt: {type: [string, 'null'], format: date-time}
+        decisionMaker: {type: boolean}
     InitiativeInsights:
       type: object
       required: [initiativeId, initiativeName, asOf, activeInteractionCount]

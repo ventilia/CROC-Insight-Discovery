@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController
 
 data class ContactSearchHit(
     val id: UUID, val name: String, val jobTitle: String?, val companyId: UUID, val companyName: String,
+    val departmentName: String?, val initiativeId: UUID?, val initiativeName: String?, val decisionMaker: Boolean,
 )
 
 @RestController
@@ -19,10 +20,21 @@ class ContactSearchController(private val jdbc: JdbcClient) {
     fun search(@RequestParam @NotBlank @Size(max = 120) q: String, principal: Principal): List<ContactSearchHit> =
         jdbc.sql(
             """
-            SELECT p.id, p.name, p.job_title, c.id AS company_id, c.name AS company_name
+            SELECT p.id, p.name, p.job_title, c.id AS company_id, c.name AS company_name,
+                   d.name AS department_name, project.id AS initiative_id, project.name AS initiative_name,
+                   coalesce(project.decision_maker, false) AS decision_maker
             FROM company_viewers v
             JOIN companies c ON c.id = v.company_id
             JOIN contacts p ON p.company_id = c.id
+            LEFT JOIN departments d ON d.id = p.department_id AND d.company_id = c.id
+            LEFT JOIN LATERAL (
+                SELECT i.id, i.name, ip.decision_maker
+                FROM initiative_participants ip
+                JOIN initiatives i ON i.id = ip.initiative_id AND i.company_id = c.id
+                WHERE ip.contact_id = p.id AND ip.company_id = c.id
+                ORDER BY ip.decision_maker DESC, i.as_of DESC, i.id
+                LIMIT 1
+            ) project ON true
             WHERE v.viewer_key = :viewer AND (
                 strpos(lower(p.name), lower(:query)) > 0
                 OR strpos(lower(p.job_title), lower(:query)) > 0
@@ -35,6 +47,8 @@ class ContactSearchController(private val jdbc: JdbcClient) {
             ContactSearchHit(
                 row.getObject("id", UUID::class.java), row.getString("name"), row.getString("job_title"),
                 row.getObject("company_id", UUID::class.java), row.getString("company_name"),
+                row.getString("department_name"), row.getObject("initiative_id", UUID::class.java),
+                row.getString("initiative_name"), row.getBoolean("decision_maker"),
             )
         }.list()
 }

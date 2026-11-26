@@ -90,8 +90,25 @@ class DashboardService(private val jdbc: JdbcClient) {
             companyId, company.name, days, VERIFICATION_DAYS, company.contacts,
             initiatives.sumOf { it.activeInteractionCount }, initiatives.minOfOrNull { it.asOf },
             initiatives.maxOfOrNull { it.asOf }, initiatives, risks.total, risks.facts,
+            if (maxRiskFacts == null) lostConnections(viewer, companyId, days) else emptyList(),
         )
     }
+
+    private fun lostConnections(viewer: String, companyId: UUID, days: Int): List<LostConnection> =
+        scopedQuery(LOST_CONNECTIONS_SQL, viewer, companyId, days).query { row, _ ->
+            LostConnection(
+                category = ConnectionGapCategory.valueOf(row.getString("category")),
+                evidenceStatus = EvidenceStatus.valueOf(row.getString("evidence_status")),
+                initiativeId = row.getObject("initiative_id", UUID::class.java),
+                initiativeName = row.getString("initiative_name"),
+                asOf = requireNotNull(row.instant("as_of")),
+                subjectId = row.getObject("subject_id", UUID::class.java),
+                subjectName = row.getString("subject_name"),
+                lastInteractionAt = row.instant("touched_at"),
+                lastVerifiedAt = row.instant("verified_at"),
+                decisionMaker = row.getBoolean("decision_maker"),
+            )
+        }.list()
 
     private fun risks(viewer: String, companyId: UUID?, days: Int, limit: Int?): Risks {
         val rows = scopedQuery(RISKS_SQL, viewer, companyId, days)
@@ -190,8 +207,7 @@ class DashboardService(private val jdbc: JdbcClient) {
             ORDER BY i.id
         """
 
-        const val RISKS_SQL = """
-            WITH $SCOPE,
+        const val PROJECT_EVIDENCE = """
             last_touch AS (
                 SELECT i.id AS initiative_id, p.contact_id, max(t.occurred_at) AS touched_at
                 FROM initiative_scope i
@@ -214,7 +230,36 @@ class DashboardService(private val jdbc: JdbcClient) {
                 JOIN departments d ON d.id = e.department_id AND d.company_id = e.company_id
                 GROUP BY e.initiative_id, d.id, d.name, e.window_start
                 HAVING max(e.touched_at) IS NULL OR max(e.touched_at) <= e.window_start
-            ),
+            )
+        """
+
+        const val LOST_CONNECTIONS_SQL = """
+            WITH $SCOPE, $PROJECT_EVIDENCE,
+            gaps AS (
+                SELECT initiative_id, id AS subject_id, name AS subject_name, 'CONTACT' AS category,
+                       touched_at AS observed_at, touched_at, verified_at, decision_maker
+                FROM contact_evidence
+                WHERE touched_at IS NULL OR touched_at <= window_start
+
+                UNION ALL
+                SELECT initiative_id, id, name, 'DEPARTMENT', touched_at, touched_at, NULL, false
+                FROM department_gaps
+
+                UNION ALL
+                SELECT initiative_id, id, name, 'VERIFICATION', verified_at, touched_at, verified_at, decision_maker
+                FROM contact_evidence
+                WHERE verified_at IS NULL OR verified_at <= verification_start
+            )
+            SELECT g.*, i.name AS initiative_name, i.as_of,
+                   CASE WHEN g.observed_at IS NULL THEN 'NO_EVIDENCE' ELSE 'STALE' END AS evidence_status
+            FROM gaps g
+            JOIN initiative_scope i ON i.id = g.initiative_id
+            ORDER BY g.category, g.decision_maker DESC, g.observed_at NULLS FIRST, i.name, g.subject_name,
+                     g.initiative_id, g.subject_id
+        """
+
+        const val RISKS_SQL = """
+            WITH $SCOPE, $PROJECT_EVIDENCE,
             concentrated_initiatives AS (
                 SELECT initiative_id
                 FROM contact_evidence

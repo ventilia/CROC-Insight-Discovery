@@ -36,6 +36,7 @@ import { formatDate } from "./coverage";
 import { selectGraph, type GraphEdge, type MapFilters } from "./graph";
 import {
   edgeStroke,
+  neighborhoodEdgeIds,
   nodeColor,
   type ColorMode,
   type PositionCache,
@@ -45,6 +46,8 @@ import { departmentGraph } from "./departmentGraph";
 import "./influence-map.css";
 
 const ForceScene2D = lazy(() => import("./ForceScene2D"));
+const overviewEdgeLimit = 16;
+const noOverviewEdges = new Set<string>();
 
 const emptyFilters: MapFilters = {
   role: "",
@@ -72,6 +75,7 @@ export function InfluenceMap({
   darkTheme = false,
   variant = "project",
   initialFocus = null,
+  initialDepartment = null,
   initialDepth = 1,
   initialSharedOnly = true,
   onlyIds,
@@ -84,6 +88,7 @@ export function InfluenceMap({
   darkTheme?: boolean;
   variant?: "project" | "profile";
   initialFocus?: string | null;
+  initialDepartment?: string | null;
   initialDepth?: 1 | 2;
   initialSharedOnly?: boolean;
   onlyIds?: string[];
@@ -98,12 +103,18 @@ export function InfluenceMap({
       focus: initialFocus,
       depth: initialDepth,
     }),
-    [smart, setSmart] = useState(emptyContactFilters);
+    [smart, setSmart] = useState(() => ({
+      ...emptyContactFilters,
+      department:
+        item.graph.filters.departments.find(({ id }) => id === initialDepartment)
+          ?.id ?? "",
+    }));
   const dark = darkTheme;
   const [colorMode, setColorMode] = useState<ColorMode>("role");
   const [view, setView] = useState<"people" | "departments">("people");
   const [sharedOnly, setSharedOnly] = useState(initialSharedOnly);
   const [edgeType, setEdgeType] = useState("");
+  const [showAllEdges, setShowAllEdges] = useState(false);
   const [leaders, setLeaders] = useState(false);
   const [showFilters, setShowFilters] = useState(false),
     [labels, setLabels] = useState(true);
@@ -149,6 +160,18 @@ export function InfluenceMap({
     [colorMode, departments],
   );
   const focus = graph.nodes.find((person) => person.id === filters.focus);
+  const focusId = focus?.id;
+  const focusEdges = useMemo(
+    () => (focusId ? neighborhoodEdgeIds(focusId, visible.edges) : undefined),
+    [focusId, visible.edges],
+  );
+  const denseOverview = !focusId && visible.edges.length > overviewEdgeLimit;
+  const simplifiedEdges = denseOverview
+    ? noOverviewEdges
+    : focusEdges && focusEdges.size < visible.edges.length
+      ? focusEdges
+      : undefined;
+  const canSimplify = view === "people" && simplifiedEdges != null;
   const participant =
     visible.nodes.find((person) => person.id === participantId) ??
     visible.nodes.find((person) => person.decisionMaker) ??
@@ -210,6 +233,7 @@ export function InfluenceMap({
     setLeaders(false);
     setSharedOnly(false);
     setEdgeType("");
+    setShowAllEdges(false);
     setEdge(null);
   }
   const grouped = useMemo(
@@ -225,6 +249,9 @@ export function InfluenceMap({
     paused,
     selectedId: view === "people" ? (participant?.id ?? null) : null,
     focusId: view === "people" ? (focus?.id ?? null) : null,
+    edgeSubset: canSimplify && !showAllEdges ? simplifiedEdges : undefined,
+    selectedEdgeId: view === "people" ? edgeId : null,
+    revealAdjacent: denseOverview,
     hoveredId:
       view === "departments" && !hoveredId?.startsWith("department:")
         ? null
@@ -284,6 +311,17 @@ export function InfluenceMap({
       </select>
     </label>
   );
+  const connectionControl = canSimplify && (
+    <button
+      type="button"
+      className="text-button graph-edge-mode"
+      aria-pressed={showAllEdges}
+      onClick={() => setShowAllEdges((current) => !current)}
+      title={denseOverview ? "В кратком режиме видны связи выбранного участника" : "В кратком режиме видны прямые связи и пути ко второму кругу"}
+    >
+      Все связи
+    </button>
+  );
   return (
     <section
       className={
@@ -297,6 +335,7 @@ export function InfluenceMap({
         <h2 id={heading}>{compact ? "Окружение в проекте" : "Карта связей"}</h2>
         <div className="graph-head-actions">
           {compact && depthControl}
+          {compact && connectionControl}
           {!compact && onAddRelationship && (
             <button
               className="secondary"
@@ -384,6 +423,8 @@ export function InfluenceMap({
               Отделы
             </button>
           </div>
+
+          {connectionControl}
 
           {onlyIds?.length ? (
             <button
@@ -599,6 +640,13 @@ export function InfluenceMap({
                   Требует проверки
                 </span>
                 <span>Стрелка — направление связи</span>
+                {canSimplify && !showAllEdges && (
+                  <span>
+                    {denseOverview
+                      ? "На карте видны связи выбранного участника"
+                      : "На карте видны прямые связи и пути ко второму кругу"}
+                  </span>
+                )}
               </div>
               <details className="graph-connections">
                 <summary>
@@ -636,7 +684,7 @@ export function InfluenceMap({
           )}
         </div>
         {!compact && (
-          <aside className="graph-inspector" aria-labelledby={inspectorHeading}>
+          <aside className="graph-inspector" aria-labelledby={inspectorHeading} tabIndex={0}>
             <header className="graph-inspector-heading">
               <h3 id={inspectorHeading}>Сведения о карте</h3>
               <p>{item.initiative.name}</p>
@@ -750,103 +798,105 @@ export function InfluenceMap({
                 {participant.phone && <p>{participant.phone}</p>}
               </section>
             )}
-            <section className="graph-roster" aria-label="Участники карты">
-              <div className="graph-roster-heading">
-                <h3>
-                  Участники <span>{visible.nodes.length}</span>
-                </h3>
-                <button
-                  className="secondary graph-lpr-toggle"
-                  type="button"
-                  aria-pressed={leaders}
-                  onClick={() => {
-                    setLeaders(!leaders);
-                    setEdge(null);
-                  }}
-                >
-                  {leaders && <Check size={13} aria-hidden="true" />} Только ЛПР
-                </button>
-              </div>
-              {visible.nodes.length ? (
-                <ul className="graph-roster-list">
-                  {visible.nodes.map((person) => (
-                    <li key={person.id}>
-                      <button
-                        type="button"
-                        aria-pressed={person.id === participant?.id}
-                        data-highlighted={person.id === hoveredId || undefined}
-                        onMouseEnter={() => setHovered(person.id)}
-                        onMouseLeave={() => setHovered(null)}
-                        onFocus={() => setHovered(person.id)}
-                        onBlur={() => setHovered(null)}
-                        onClick={() => select(person.id)}
-                      >
-                        <i style={{ backgroundColor: color(person) }} />
-                        <span>
-                          <strong>{person.name}</strong>
-                          <small>
-                            {person.department?.name ?? "Отдел не указан"}
-                          </small>
-                        </span>
-                        {person.decisionMaker && (
-                          <span className="graph-lpr">ЛПР</span>
-                        )}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>Нет участников для выбранных фильтров.</p>
-              )}
-            </section>
-            {participant && (
-              <section
-                className="graph-adjacent"
-                aria-label="Связи выбранного участника"
-              >
-                <h3>
-                  Связи участника <span>{adjacent.length}</span>
-                </h3>
-                {adjacent.length ? (
-                  <ul>
-                    {adjacent.map((edge) => {
-                      const outgoing = edge.source === participant.id;
-                      const personId = outgoing ? edge.target : edge.source;
-                      const Direction = outgoing ? ArrowUpRight : ArrowDownLeft;
-                      return (
-                        <li key={edge.id}>
-                          <button
-                            className="text-button"
-                            type="button"
-                            onClick={() => select(personId)}
-                          >
-                            {names.get(personId)}
-                          </button>
-                          <button
-                            className="graph-relation-button"
-                            type="button"
-                            aria-pressed={edge.id === edgeId}
-                            onClick={() =>
-                              setEdge(edge.id === edgeId ? null : edge.id)
-                            }
-                          >
-                            <Direction
-                              size={14}
-                              aria-label={
-                                outgoing ? "Исходящая связь" : "Входящая связь"
-                              }
-                            />
-                            {edge.label}
-                          </button>
-                        </li>
-                      );
-                    })}
+            <div className="graph-inspector-lists">
+              <section className="graph-roster" aria-label="Участники карты">
+                <div className="graph-roster-heading">
+                  <h3>
+                    Участники <span>{visible.nodes.length}</span>
+                  </h3>
+                  <button
+                    className="secondary graph-lpr-toggle"
+                    type="button"
+                    aria-pressed={leaders}
+                    onClick={() => {
+                      setLeaders(!leaders);
+                      setEdge(null);
+                    }}
+                  >
+                    {leaders && <Check size={13} aria-hidden="true" />} Только ЛПР
+                  </button>
+                </div>
+                {visible.nodes.length ? (
+                  <ul className="graph-roster-list">
+                    {visible.nodes.map((person) => (
+                      <li key={person.id}>
+                        <button
+                          type="button"
+                          aria-pressed={person.id === participant?.id}
+                          data-highlighted={person.id === hoveredId || undefined}
+                          onMouseEnter={() => setHovered(person.id)}
+                          onMouseLeave={() => setHovered(null)}
+                          onFocus={() => setHovered(person.id)}
+                          onBlur={() => setHovered(null)}
+                          onClick={() => select(person.id)}
+                        >
+                          <i style={{ backgroundColor: color(person) }} />
+                          <span>
+                            <strong>{person.name}</strong>
+                            <small>
+                              {person.department?.name ?? "Отдел не указан"}
+                            </small>
+                          </span>
+                          {person.decisionMaker && (
+                            <span className="graph-lpr">ЛПР</span>
+                          )}
+                        </button>
+                      </li>
+                    ))}
                   </ul>
                 ) : (
-                  <p>Связи по этому проекту пока не указаны.</p>
+                  <p>Нет участников для выбранных фильтров.</p>
                 )}
               </section>
-            )}
+              {participant && (
+                <section
+                  className="graph-adjacent"
+                  aria-label="Связи выбранного участника"
+                >
+                  <h3>
+                    Связи участника <span>{adjacent.length}</span>
+                  </h3>
+                  {adjacent.length ? (
+                    <ul>
+                      {adjacent.map((edge) => {
+                        const outgoing = edge.source === participant.id;
+                        const personId = outgoing ? edge.target : edge.source;
+                        const Direction = outgoing ? ArrowUpRight : ArrowDownLeft;
+                        return (
+                          <li key={edge.id}>
+                            <button
+                              className="text-button"
+                              type="button"
+                              onClick={() => select(personId)}
+                            >
+                              {names.get(personId)}
+                            </button>
+                            <button
+                              className="graph-relation-button"
+                              type="button"
+                              aria-pressed={edge.id === edgeId}
+                              onClick={() =>
+                                setEdge(edge.id === edgeId ? null : edge.id)
+                              }
+                            >
+                              <Direction
+                                size={14}
+                                aria-label={
+                                  outgoing ? "Исходящая связь" : "Входящая связь"
+                                }
+                              />
+                              {edge.label}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <p>Связи по этому проекту пока не указаны.</p>
+                  )}
+                </section>
+              )}
+            </div>
           </aside>
         )}
       </div>

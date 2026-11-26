@@ -47,6 +47,22 @@ data class CompanyInsightsResponse(
     val initiatives: List<InitiativeActivity>,
     val riskCount: Long,
     val risks: List<RiskFact>,
+    val lostConnections: List<LostConnection>,
+)
+
+enum class ConnectionGapCategory { CONTACT, DEPARTMENT, VERIFICATION }
+
+data class LostConnection(
+    val category: ConnectionGapCategory,
+    val evidenceStatus: EvidenceStatus,
+    val initiativeId: UUID,
+    val initiativeName: String,
+    val asOf: Instant,
+    val subjectId: UUID,
+    val subjectName: String,
+    val lastInteractionAt: Instant?,
+    val lastVerifiedAt: Instant?,
+    val decisionMaker: Boolean,
 )
 
 data class InitiativeActivity(

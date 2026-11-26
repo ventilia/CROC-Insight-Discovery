@@ -55,7 +55,7 @@ function translate(address: string, isPublic: boolean, companies: Company[] = []
   segments[1] = company ? companySlug(company, companies) : convert(segments[1]);
   if (segments[3]) segments[3] = convert(segments[3]);
   const params = new URLSearchParams(query);
-  for (const key of ["initiative", "participant", "focus", "shared"]) {
+  for (const key of ["initiative", "participant", "focus", "shared", "department"]) {
     const value = params.get(key);
     if (value) params.set(key, value.split(",").map(convert).join(","));
   }

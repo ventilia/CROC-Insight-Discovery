@@ -2,6 +2,7 @@ import "./contact-portrait.css";
 
 const original = "/portraits/mockup-leadership.jpg";
 const showcase = "/portraits/showcase-leadership.webp";
+const portfolio = "/portraits/portfolio-leadership.webp";
 
 const portraits: Record<
   string,
@@ -18,6 +19,18 @@ const portraits: Record<
     index: 1,
     columns: 3,
     rows: 2,
+  },
+  "40000000-0000-4000-8000-000000000003": {
+    src: portfolio,
+    index: 0,
+    columns: 3,
+    rows: 3,
+  },
+  "40000000-0000-4000-8000-000000000004": {
+    src: portfolio,
+    index: 4,
+    columns: 3,
+    rows: 3,
   },
 };
 
@@ -50,12 +63,43 @@ for (const [suffix, index] of [
   [1475, 12],
   [1476, 13],
   [1514, 15],
+  [2001, 0],
+  [2010, 1],
+  [2019, 3],
+  [3001, 2],
+  [3012, 4],
+  [3023, 5],
+  [4001, 6],
+  [4013, 8],
+  [4025, 9],
+  [5001, 7],
+  [5008, 13],
+  [5015, 10],
+  [6001, 14],
+  [6010, 11],
+  [6019, 15],
+  [7001, 12],
 ]) {
   portraits[`92000004-0000-4000-8000-${String(suffix).padStart(12, "0")}`] = {
     src: showcase,
     index,
     columns: 4,
     rows: 4,
+  };
+}
+
+for (const [suffix, index] of [
+  [7011, 1],
+  [7021, 2],
+  [8001, 5],
+  [8013, 6],
+  [8024, 3],
+]) {
+  portraits[`92000004-0000-4000-8000-${String(suffix).padStart(12, "0")}`] = {
+    src: portfolio,
+    index,
+    columns: 3,
+    rows: 3,
   };
 }
 
