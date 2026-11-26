@@ -1,0 +1,330 @@
+.graph-map-surface {
+  --graph-stage-height: clamp(390px, 60vh, 660px);
+  border-radius: 0;
+  container: relationship-map / inline-size;
+}
+
+.graph-map-surface .surface-head {
+  gap: 8px 16px;
+  padding: 12px 16px;
+}
+
+.graph-map-surface .graph-toolbar {
+  padding: 0 16px 12px;
+  gap: 8px 12px;
+}
+
+.graph-map-surface .graph-workspace {
+  grid-template-columns: minmax(0, 1fr) clamp(280px, 34%, 420px);
+}
+
+.graph-map-surface .force-stage,
+.graph-map-surface .graph-empty {
+  height: var(--graph-stage-height);
+}
+
+.graph-map-surface
+  :is(
+    .graph-mode,
+    .graph-mode button,
+    .graph-stage-controls,
+    .graph-hover-card
+  ) {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.graph-map-surface .graph-stage-controls {
+  right: 12px;
+  bottom: 12px;
+}
+
+.graph-stage-controls .icon-button:focus-visible {
+  outline-offset: -2px;
+}
+
+.graph-map-surface .graph-hover-card {
+  max-width: min(310px, calc(100% - 32px));
+}
+
+.graph-inspector {
+  min-width: 0;
+  max-height: var(--graph-stage-height);
+  overflow: auto;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  color: inherit;
+  scrollbar-gutter: stable;
+}
+
+.graph-inspector h3 {
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.graph-inspector h3 > span {
+  margin-left: 5px;
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.graph-inspector p,
+.graph-inspector small {
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.graph-detail {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--soft);
+  border-bottom: 1px solid var(--line);
+}
+
+.graph-detail h3 .graph-detail-person {
+  gap: 5px;
+  padding: 0;
+  min-height: 28px;
+  font-size: 16px;
+  font-weight: 650;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.graph-detail-person svg {
+  align-self: center;
+}
+
+.graph-detail > .text-button {
+  justify-self: start;
+  text-align: left;
+}
+
+.graph-detail-heading,
+.graph-detail-meta,
+.graph-roster-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.graph-detail-heading,
+.graph-roster-heading {
+  justify-content: space-between;
+}
+
+.graph-detail-meta {
+  flex-wrap: wrap;
+}
+
+.graph-detail-heading .icon-button {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.graph-detail-endpoints {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.graph-detail-endpoints button {
+  display: block;
+  text-align: left;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.graph-roster-heading {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.graph-map-surface .graph-inspector .graph-lpr-toggle {
+  gap: 5px;
+  margin: 0;
+  padding: 4px 8px;
+  min-height: 32px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.graph-map-surface .graph-inspector .graph-lpr-toggle[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent-dark);
+}
+
+.graph-roster > p,
+.graph-adjacent > p {
+  padding: 12px 14px;
+}
+
+.graph-roster-list,
+.graph-adjacent ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.graph-inspector:has(.graph-detail) .graph-roster-list {
+  max-height: 205px;
+  overflow: auto;
+}
+
+.graph-roster-list li + li,
+.graph-adjacent li + li {
+  border-top: 1px solid var(--line);
+}
+
+.graph-roster-list button {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 14px;
+  min-height: 46px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.graph-roster-list button:is(:hover, [aria-pressed="true"]),
+.graph-relation-button:is(:hover, [aria-pressed="true"]) {
+  background: var(--soft);
+}
+
+.graph-roster-list button[aria-pressed="true"] strong {
+  color: var(--accent-dark);
+}
+
+.graph-roster-list button:focus-visible {
+  outline-offset: -2px;
+}
+
+.graph-roster-list i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.graph-roster-list :is(strong, small) {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.graph-roster-list strong {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.graph-lpr {
+  border: 1px solid var(--line);
+  color: var(--accent-dark);
+  padding: 2px 4px;
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.graph-adjacent {
+  border-top: 1px solid var(--line);
+}
+
+.graph-adjacent h3 {
+  padding: 10px 14px 4px;
+}
+
+.graph-adjacent li {
+  display: grid;
+  justify-items: start;
+  gap: 1px;
+  padding: 7px 14px 8px;
+}
+
+.graph-adjacent li .text-button {
+  min-height: 24px;
+  padding: 0;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.graph-relation-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  max-width: 100%;
+  padding: 3px 5px 3px 0;
+  background: transparent;
+  border: 0;
+  color: var(--ink-muted);
+  text-align: left;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.graph-map-surface .graph-connections {
+  padding: 10px 16px;
+}
+
+.graph-map-surface .graph-connections li > button {
+  border-radius: 0;
+}
+
+.profile-page .contact-drawer.full-profile {
+  border-radius: 0;
+}
+
+.profile-page .profile-page-back {
+  min-height: 36px;
+  margin-bottom: 4px;
+}
+
+.linked-people .profile-link-direction {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+@container relationship-map (min-width: 761px) {
+  .contact-page-network .graph-map-surface .graph-workspace {
+    grid-template-columns: minmax(0, 1fr) clamp(280px, 34%, 420px);
+  }
+}
+
+@container relationship-map (max-width: 760px) {
+  .graph-map-surface .graph-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .graph-map-surface .force-stage,
+  .graph-map-surface .graph-empty {
+    height: clamp(320px, 52vh, 500px);
+  }
+
+  .graph-inspector {
+    max-height: none;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    scrollbar-gutter: auto;
+  }
+
+  .graph-inspector .graph-roster-list {
+    max-height: 230px;
+    overflow: auto;
+  }
+
+  .graph-map-surface .graph-count {
+    margin-left: 0;
+  }
+}

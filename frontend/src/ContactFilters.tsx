@@ -22,7 +22,7 @@ export function ContactFilters({
 }) {
   const set = (key: keyof ContactFilterValues, next: string) =>
     change({ ...value, [key]: next });
-  const managers = [
+  const managers = item.managers?.map((entry) => entry.name) ?? [
     ...new Set(
       item.events
         .map((event) => event.responsibleManager)

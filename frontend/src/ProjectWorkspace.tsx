@@ -3,6 +3,7 @@ import { apiWrite, useRemote } from "./api";
 import { formatDate } from "./coverage";
 import { sharedContacts } from "./projectLinks";
 import type { InitiativeData } from "./workspace";
+import type { Graph } from "./graph";
 export type InformationRequest = {
   id: string;
   personId: string | null;
@@ -126,12 +127,14 @@ export function Requests({
 }
 export function ProjectLinks({
   items,
+  server = false,
   go,
   onPerson,
   onCreate,
   canManage,
 }: {
   items: InitiativeData[];
+  server?: boolean;
   go: (path: string) => void;
   onPerson: (iid: string, pid: string) => void;
   onCreate: () => void;
@@ -139,9 +142,21 @@ export function ProjectLinks({
 }) {
   const [left, setLeft] = useState(items[0]?.initiative.id ?? ""),
     [right, setRight] = useState(items[1]?.initiative.id ?? "");
-  const a = items.find((p) => p.initiative.id === left),
-    b = items.find((p) => p.initiative.id === right),
-    shared = a && b ? sharedContacts(a, b) : [];
+  const leftGraph = useRemote<Graph>(
+    server && left ? `/initiatives/${left}/graph` : null,
+  );
+  const rightGraph = useRemote<Graph>(
+    server && right && right !== left ? `/initiatives/${right}/graph` : null,
+  );
+  const a = items.find((p) => p.initiative.id === left);
+  const b = items.find((p) => p.initiative.id === right);
+  const shared =
+    a && b && (!server || (leftGraph.data && rightGraph.data))
+      ? sharedContacts(
+          { ...a, graph: leftGraph.data ?? a.graph },
+          { ...b, graph: rightGraph.data ?? b.graph },
+        )
+      : [];
   return (
     <section className="surface project-panel">
       <div className="section-heading">
@@ -153,6 +168,16 @@ export function ProjectLinks({
           Новый проект
         </button>
       </div>
+      {(leftGraph.loading || rightGraph.loading) && (
+        <p className="empty-inline" role="status">
+          Сравниваем участников проектов…
+        </p>
+      )}
+      {(leftGraph.error || rightGraph.error) && (
+        <p className="empty-inline" role="alert">
+          {leftGraph.error || rightGraph.error}
+        </p>
+      )}
       {items.length < 2 ? (
         <p className="empty-inline">
           Для сравнения нужны два проекта компании.
@@ -185,8 +210,10 @@ export function ProjectLinks({
                     </select>
                   </label>
                   <p>
-                    {item?.graph.nodes.length ?? 0} участников ·{" "}
-                    {item?.initiative.stage ?? "Стадия не указана"}
+                    {item?.initiative.participantCount ??
+                      item?.graph.nodes.length ??
+                      0}{" "}
+                    участников · {item?.initiative.stage ?? "Стадия не указана"}
                   </p>
                   <button
                     className="text-button"
@@ -204,7 +231,12 @@ export function ProjectLinks({
             })}
           </div>
           <div className="section-heading">
-            <h3>Общих участников: {shared.length}</h3>
+            <h3>
+              Общие участники
+              {leftGraph.loading || rightGraph.loading
+                ? ""
+                : `: ${shared.length}`}
+            </h3>
             {!!shared.length && a && (
               <button
                 className="secondary"
@@ -259,9 +291,14 @@ export function ProjectLinks({
               </table>
             </div>
           ) : (
-            <p className="empty-inline">
-              Общих участников в доступных записях нет.
-            </p>
+            !leftGraph.loading &&
+            !rightGraph.loading &&
+            !leftGraph.error &&
+            !rightGraph.error && (
+              <p className="empty-inline">
+                Общих участников в доступных записях нет.
+              </p>
+            )
           )}
         </>
       )}
@@ -303,7 +340,7 @@ export function ProjectIndex({
               </div>
               <div>
                 <dt>Участников</dt>
-                <dd>{graph.nodes.length}</dd>
+                <dd>{i.participantCount ?? graph.nodes.length}</dd>
               </div>
             </dl>
             <p>{i.nextStep ?? "Следующий шаг не указан"}</p>

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  ArrowDownLeft,
+  ArrowUpRight,
   X,
   Mail,
   Phone,
@@ -10,9 +12,10 @@ import {
   ChevronRight,
 } from "lucide-react";
 import type { WorkspaceAction } from "./WorkspaceEdit";
-import { useRemote, type Dossier, type Position } from "./api";
+import { useRemote, type Dossier, type EventPage, type Position } from "./api";
+import type { CompanyContact } from "./companyApi";
 import { PositionEditor, PositionSummary } from "./PositionEditor";
-import { HistoryList } from "./History";
+import { CompanyTimeline, HistoryList, historyEntries } from "./History";
 import {
   history,
   influenceLabels,
@@ -33,6 +36,7 @@ export function ContactDrawer({
   onMap,
   onManage,
   onRefresh,
+  server = false,
 }: {
   item: InitiativeData;
   personId: string;
@@ -44,6 +48,7 @@ export function ContactDrawer({
   workspaceItems?: InitiativeData[];
   onFull?: () => void;
   onRefresh?: () => void;
+  server?: boolean;
   onMap?: () => void;
   onManage?: (action: WorkspaceAction) => void;
 }) {
@@ -58,11 +63,41 @@ export function ContactDrawer({
   const personIndex = item.graph.nodes.findIndex((p) => p.id === personId);
   const path = `/initiatives/${item.initiative.id}/people/${personId}`;
   const dossier = useRemote<Dossier>(path, attempt);
+  const directoryPath = `/companies/${item.initiative.companyId}`;
+  const companyContact = useRemote<CompanyContact>(
+    server ? `${directoryPath}/contacts/${personId}` : null,
+    attempt,
+  );
+  const recent = useRemote<EventPage>(
+    server ? `${directoryPath}/events?personId=${personId}&limit=10` : null,
+    attempt,
+  );
   const linked = item.graph.edges.filter(
     (edge) => edge.source === personId || edge.target === personId,
   );
-  const events = history([item]).filter((event) =>
-    event.participants.some((p) => p.id === personId),
+  const events = recent.data
+    ? historyEntries(recent.data.items)
+    : history([item]).filter((event) =>
+        event.participants.some((p) => p.id === personId),
+      );
+  const assignments = server
+    ? (companyContact.data?.assignments ?? [])
+    : workspaceItems.flatMap((other) => {
+        const contact = other.graph.nodes.find(
+          (entry) => entry.id === personId,
+        );
+        return contact
+          ? [
+              {
+                initiativeId: other.initiative.id,
+                initiativeName: other.initiative.name,
+                role: contact.role,
+              },
+            ]
+          : [];
+      });
+  const otherProjects = assignments.filter(
+    (entry) => entry.initiativeId !== item.initiative.id,
   );
   useEffect(() => {
     const opener = document.activeElement;
@@ -92,20 +127,22 @@ export function ContactDrawer({
       aria-modal={presentation === "drawer" ? false : undefined}
       aria-labelledby="contact-drawer-title"
       onKeyDown={(event) => {
-        if (event.key === "Escape") close();
+        if (presentation === "drawer" && event.key === "Escape") close();
       }}
     >
-      <header className="drawer-header">
-        <span>Профиль сотрудника</span>
-        <button
-          type="button"
-          className="icon-button"
-          aria-label="Закрыть профиль"
-          onClick={close}
-        >
-          <X size={21} />
-        </button>
-      </header>
+      {presentation === "drawer" && (
+        <header className="drawer-header">
+          <span>Профиль сотрудника</span>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Закрыть профиль"
+            onClick={close}
+          >
+            <X size={21} />
+          </button>
+        </header>
+      )}
       <div className="drawer-scroll">
         <div className="profile-hero">
           <div className="profile-identity">
@@ -332,10 +369,10 @@ export function ContactDrawer({
             {linked.length ? (
               <div className="linked-people">
                 {linked.map((edge) => {
+                  const outgoing = edge.source === personId;
+                  const Direction = outgoing ? ArrowUpRight : ArrowDownLeft;
                   const other = item.graph.nodes.find(
-                    (p) =>
-                      p.id ===
-                      (edge.source === personId ? edge.target : edge.source),
+                    (p) => p.id === (outgoing ? edge.target : edge.source),
                   );
                   return (
                     other && (
@@ -345,9 +382,9 @@ export function ContactDrawer({
                         onClick={() => onPerson(item.initiative.id, other.id)}
                       >
                         <strong>{other.name}</strong>
-                        <span>
-                          {edge.source === personId ? "Исходящая" : "Входящая"}{" "}
-                          связь ·{" "}
+                        <span className="profile-link-direction">
+                          <Direction size={13} aria-hidden="true" />
+                          {outgoing ? "Исходящая" : "Входящая"} связь ·{" "}
                           {edge.confirmed ? "Подтверждена" : "Требует проверки"}
                         </span>
                         <p>{edge.label}</p>
@@ -385,7 +422,17 @@ export function ContactDrawer({
                   Проверьте актуальность данных ЛПР.
                 </p>
               )}
-            <HistoryList entries={events} onPerson={onPerson} />
+            {server ? (
+              <CompanyTimeline
+                companyId={item.initiative.companyId}
+                initiatives={[]}
+                revision={attempt}
+                personId={personId}
+                onPerson={onPerson}
+              />
+            ) : (
+              <HistoryList entries={events} onPerson={onPerson} />
+            )}
           </section>
         </div>
         {events[0] && (
@@ -428,33 +475,22 @@ export function ContactDrawer({
         )}
         <section className="profile-section">
           <h3>Участие в других проектах</h3>
-          {workspaceItems
-            .filter(
-              (other) =>
-                other.initiative.id !== item.initiative.id &&
-                other.initiative.companyId === item.initiative.companyId &&
-                other.graph.nodes.some((p) => p.id === personId),
-            )
-            .map((other) => (
-              <div key={other.initiative.id}>
-                <button
-                  className="text-button"
-                  onClick={() => onPerson(other.initiative.id, personId)}
-                >
-                  {other.initiative.name}
-                </button>
-                <p>
-                  {other.graph.nodes.find((p) => p.id === personId)?.role
-                    ?.label ?? "Роль не указана"}
-                </p>
-              </div>
-            ))}
-          {!workspaceItems.some(
-            (other) =>
-              other.initiative.id !== item.initiative.id &&
-              other.initiative.companyId === item.initiative.companyId &&
-              other.graph.nodes.some((p) => p.id === personId),
-          ) && <p>Другие проекты не указаны.</p>}
+          {otherProjects.map((other) => (
+            <div key={other.initiativeId}>
+              <button
+                className="text-button"
+                onClick={() => onPerson(other.initiativeId, personId)}
+              >
+                {other.initiativeName}
+              </button>
+              <p>{other.role?.label ?? "Роль не указана"}</p>
+            </div>
+          ))}
+          {companyContact.loading && <p role="status">Загружаем проекты…</p>}
+          {companyContact.error && <p role="alert">{companyContact.error}</p>}
+          {!companyContact.loading &&
+            !companyContact.error &&
+            !otherProjects.length && <p>Другие проекты не указаны.</p>}
         </section>
       </div>
     </aside>

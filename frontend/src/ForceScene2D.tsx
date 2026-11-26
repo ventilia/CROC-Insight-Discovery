@@ -10,7 +10,9 @@ import {
   type SceneProps,
 } from "./forceGraph";
 
-export default function ForceScene2D(props: SceneProps) {
+export default function ForceScene2D(
+  props: SceneProps & { onOpen?: (id: string) => void },
+) {
   const {
     nodes,
     edges,
@@ -24,6 +26,7 @@ export default function ForceScene2D(props: SceneProps) {
     controls,
     color,
     onSelect,
+    onOpen,
     onLink,
     onHover,
   } = props;
@@ -31,6 +34,13 @@ export default function ForceScene2D(props: SceneProps) {
     undefined,
   );
   const autoFit = useRef(true);
+  const zoomScale = useRef(1);
+  const lastPress = useRef<{
+    id: string;
+    time: number;
+    x: number;
+    y: number;
+  } | null>(null);
   const [hover, setHover] = useState<string | null>(null),
     [hoverLink, setHoverLink] = useState<string | null>(null),
     [revision, setRevision] = useState(0);
@@ -40,6 +50,18 @@ export default function ForceScene2D(props: SceneProps) {
   );
   const active = hover ?? props.hoveredId ?? selectedId,
     neighbors = useMemo(() => adjacentIds(active, edges), [active, edges]);
+  const curvedEdges = useMemo(() => {
+    const pairs = new Set(
+      edges.map(({ source, target }) => JSON.stringify([source, target])),
+    );
+    return new Set(
+      edges
+        .filter(({ source, target }) =>
+          pairs.has(JSON.stringify([target, source])),
+        )
+        .map(({ id }) => id),
+    );
+  }, [edges]);
   const fit = useCallback(() => {
     const ref = graph.current;
     if (!ref || !nodes.length) return;
@@ -66,7 +88,10 @@ export default function ForceScene2D(props: SceneProps) {
       zoom: (factor) => {
         const ref = graph.current;
         if (ref)
-          ref.zoom(Math.max(0.12, Math.min(6, ref.zoom() * factor)), 150);
+          ref.zoom(
+            Math.max(0.12, Math.min(6, ref.zoom() * factor)),
+            paused ? 0 : 150,
+          );
       },
       reset: () => {
         positions.clear();
@@ -76,11 +101,36 @@ export default function ForceScene2D(props: SceneProps) {
     return () => {
       controls.current = null;
     };
-  }, [controls, fit, positions]);
+  }, [controls, fit, paused, positions]);
   const linked = (link: SceneLink) =>
     !active ||
     endpointId(link.source) === active ||
     endpointId(link.target) === active;
+  const curvature = (link: SceneLink) => (curvedEdges.has(link.id) ? 0.2 : 0);
+  function openNode(node: SceneNode, event: MouseEvent) {
+    const previous = lastPress.current;
+    const mouse = "pointerType" in event && event.pointerType === "mouse";
+    if (
+      onOpen &&
+      mouse &&
+      previous?.id === node.id &&
+      event.timeStamp - previous.time < 425 &&
+      Math.hypot(event.clientX - previous.x, event.clientY - previous.y) <= 8
+    ) {
+      lastPress.current = null;
+      onOpen(node.id);
+      return;
+    }
+    lastPress.current = mouse
+      ? {
+          id: node.id,
+          time: event.timeStamp,
+          x: event.clientX,
+          y: event.clientY,
+        }
+      : null;
+    onSelect(node.id);
+  }
   return (
     <ForceGraph2D<SceneNode, SceneLink>
       ref={graph}
@@ -152,6 +202,7 @@ export default function ForceScene2D(props: SceneProps) {
               : "#87998d"
       }
       linkWidth={(link) => (active && linked(link) ? 2 : 1)}
+      linkCurvature={curvature}
       linkCanvasObjectMode={() => "after"}
       linkCanvasObject={(link, ctx, scale) => {
         if (
@@ -167,12 +218,18 @@ export default function ForceScene2D(props: SceneProps) {
           return;
         const from = link.source,
           to = link.target;
-        const length = Math.hypot(to.x - from.x, to.y - from.y);
+        const dx = to.x - from.x,
+          dy = to.y - from.y;
+        const length = Math.hypot(dx, dy);
         if (length < from.radius + to.radius + 20) return;
-        let angle = Math.atan2(to.y - from.y, to.x - from.x);
+        let angle = Math.atan2(dy, dx);
         if (angle > Math.PI / 2 || angle < -Math.PI / 2) angle += Math.PI;
+        const offset = curvature(link) / 2;
         ctx.save();
-        ctx.translate((from.x + to.x) / 2, (from.y + to.y) / 2);
+        ctx.translate(
+          (from.x + to.x) / 2 + dy * offset,
+          (from.y + to.y) / 2 - dx * offset,
+        );
         ctx.rotate(angle);
         ctx.globalAlpha = active && !linked(link) ? 0.18 : 1;
         const font = Math.min(14, 11 / scale);
@@ -206,8 +263,34 @@ export default function ForceScene2D(props: SceneProps) {
         ctx.restore();
       }}
       linkLineDash={(link) => (link.confirmed ? [] : [5, 4])}
-      linkDirectionalArrowLength={5}
-      linkDirectionalArrowRelPos={0.85}
+      linkDirectionalArrowLength={(link) => {
+        const { source, target } = link;
+        if (typeof source === "string" || typeof target === "string") return 0;
+        const gap =
+          Math.hypot(target.x - source.x, target.y - source.y) -
+          source.radius -
+          target.radius;
+        return Math.max(
+          0,
+          Math.min(
+            (active && linked(link) ? 13 : nodes.length > 200 ? 6 : 10) /
+              zoomScale.current,
+            gap / 3,
+          ),
+        );
+      }}
+      linkDirectionalArrowColor={(link) => {
+        if (active && !linked(link)) return dark ? "#69796e" : "#8a9a8e";
+        if (!link.confirmed) return dark ? "#dfbc7a" : "#906b2d";
+        return active
+          ? dark
+            ? "#b9e290"
+            : "#2d6d4d"
+          : dark
+            ? "#93ad99"
+            : "#526e5c";
+      }}
+      linkDirectionalArrowRelPos={0.89}
       linkHoverPrecision={7}
       cooldownTicks={paused ? 0 : 130}
       warmupTicks={45}
@@ -216,9 +299,12 @@ export default function ForceScene2D(props: SceneProps) {
         setHover(node?.id ?? null);
         onHover(node?.id ?? null);
       }}
-      onNodeClick={(node) => onSelect(node.id)}
+      onNodeClick={openNode}
       onLinkClick={(link) => onLink(link.id)}
       onLinkHover={(link) => setHoverLink(link?.id ?? null)}
+      onZoom={({ k }) => {
+        zoomScale.current = k;
+      }}
       onNodeDragEnd={(node) => {
         node.fx = node.x;
         node.fy = node.y;

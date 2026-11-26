@@ -1,5 +1,7 @@
+import { ArrowLeft } from "lucide-react";
 import { ContactDrawer } from "./ContactDrawer";
 import { InfluenceMap } from "./InfluenceMap";
+import type { GraphEdge } from "./graph";
 import type { InitiativeData } from "./workspace";
 import type { WorkspaceAction } from "./WorkspaceEdit";
 export function ContactPage({
@@ -12,6 +14,9 @@ export function ContactPage({
   onEvent,
   onManage,
   onRefresh,
+  returnTo,
+  onEditRelationship,
+  server,
 }: {
   item?: InitiativeData;
   personId: string;
@@ -22,6 +27,9 @@ export function ContactPage({
   onEvent: () => void;
   onRefresh: () => void;
   onManage?: (action: WorkspaceAction) => void;
+  returnTo?: string;
+  onEditRelationship?: (edge: GraphEdge) => void;
+  server?: boolean;
 }) {
   const person = item?.graph.nodes.find((p) => p.id === personId);
   if (!item || !person)
@@ -35,19 +43,32 @@ export function ContactPage({
       </div>
     );
   const base = `/client/${item.initiative.companyId}`;
-  const onPerson = (iid: string, pid: string) =>
-    go(`${base}/person/${pid}?initiative=${iid}`);
+  const back = () =>
+    go(returnTo ?? `${base}/contacts?initiative=${item.initiative.id}`);
+  const onPerson = (iid: string, pid: string) => {
+    const params = new URLSearchParams({ initiative: iid });
+    if (returnTo && iid === item.initiative.id) {
+      params.set("from", "map");
+      const [, query] = returnTo.split("?");
+      const previous = new URLSearchParams(query);
+      for (const key of ["focus", "shared"]) {
+        const value = previous.get(key);
+        if (value) params.set(key, value);
+      }
+    }
+    go(`${base}/person/${pid}?${params}`);
+  };
   return (
-    <>
+    <div className="profile-page">
       <div className="page-title">
         <div>
           <button
-            className="text-button"
-            onClick={() =>
-              go(`${base}/contacts?initiative=${item.initiative.id}`)
-            }
+            className="text-button profile-page-back"
+            type="button"
+            onClick={back}
           >
-            ← Контакты компании
+            <ArrowLeft size={16} aria-hidden="true" />
+            {returnTo ? "К карте связей" : "К контактам компании"}
           </button>
           <h1>{person.name}</h1>
           <p>
@@ -64,8 +85,9 @@ export function ContactPage({
           personId={personId}
           workspaceItems={items}
           onPerson={onPerson}
-          close={() => go(`${base}/contacts?initiative=${item.initiative.id}`)}
+          close={back}
           canEdit={canEdit}
+          server={server}
           onEvent={onEvent}
           onManage={onManage}
           onMap={() =>
@@ -90,9 +112,10 @@ export function ContactPage({
                     })
                 : undefined
             }
+            onEditRelationship={onEditRelationship}
           />
         </div>
       </div>
-    </>
+    </div>
   );
 }

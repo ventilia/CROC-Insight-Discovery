@@ -10,16 +10,28 @@ import {
 import type { Graph, GraphNode } from "./graph";
 import type { Coverage } from "./coverage";
 import { relationshipHealth } from "./health.ts";
+import type {
+  CompanyInsights,
+  CompanyProfile,
+  DashboardFacts,
+  HealthFacts,
+} from "./companyApi";
 
 export type InitiativeData = {
   initiative: Initiative;
   graph: Graph;
   coverage: Coverage;
   events: Touchpoint[];
+  health?: HealthFacts;
+  managers?: { name: string; contactIds: string[] }[];
 };
 export type WorkspaceData = {
   companies: Company[];
   initiatives: InitiativeData[];
+  dashboard?: DashboardFacts;
+  profile?: CompanyProfile;
+  insights?: CompanyInsights;
+  companyEvents?: EventPage;
   capabilities: {
     mode: string;
     canCreateEvents: boolean;
@@ -31,6 +43,39 @@ export type HistoryEntry = Touchpoint & {
   initiativeId: string;
   initiativeName: string;
 };
+
+type Scope = {
+  companyId?: string;
+  projectId?: string;
+  view?: string;
+  personId?: string;
+};
+
+export function emptyProject(
+  initiative: Initiative,
+  days: number,
+): InitiativeData {
+  return {
+    initiative,
+    graph: {
+      companyId: initiative.companyId,
+      initiativeId: initiative.id,
+      asOf: initiative.asOf,
+      nodes: [],
+      edges: [],
+      filters: { departments: [], roles: [] },
+    },
+    coverage: {
+      initiativeId: initiative.id,
+      asOf: initiative.asOf,
+      days,
+      verificationDays: 90,
+      contacts: [],
+      departments: [],
+    },
+    events: [],
+  };
+}
 
 async function readHistory(id: string, signal: AbortSignal) {
   const items: Touchpoint[] = [],
@@ -56,6 +101,7 @@ async function readHistory(id: string, signal: AbortSignal) {
 export async function loadWorkspace(
   days: number,
   signal: AbortSignal,
+  scope: Scope = {},
 ): Promise<WorkspaceData> {
   const [companies, capabilities] = await Promise.all([
     api<Company[]>("/companies", { signal }),
@@ -67,8 +113,63 @@ export async function loadWorkspace(
       },
     ),
   ]);
+  if (capabilities.mode === "api") {
+    const companyId = companies.find(
+      (company) => company.id === scope.companyId,
+    )?.id;
+    const base = { companies, capabilities };
+    if (!companyId) {
+      const dashboard = await api<DashboardFacts>("/dashboard?days=30", {
+        signal,
+      });
+      return { ...base, initiatives: [], dashboard };
+    }
+    const client = `/companies/${companyId}`;
+    const view = scope.view ?? "overview";
+    const [profile, insights, companyEvents] = await Promise.all([
+      api<CompanyProfile>(client, { signal }),
+      view === "insights"
+        ? api<CompanyInsights>(`${client}/insights?days=${days}`, { signal })
+        : undefined,
+      view === "overview"
+        ? api<EventPage>(`${client}/events?limit=4`, { signal })
+        : undefined,
+    ]);
+    const activeId = scope.projectId ?? profile.initiatives[0]?.id;
+    const initiatives = await Promise.all(
+      profile.initiatives.map(async (initiative) => {
+        const item = emptyProject(initiative, days);
+        const active = initiative.id === activeId;
+        const scopedContacts = view === "contacts" && !!scope.projectId;
+        const needsGraph =
+          active &&
+          (["map", "person", "requests"].includes(view) || scopedContacts);
+        const needsCoverage =
+          active && (["map", "person"].includes(view) || scopedContacts);
+        const project = `/initiatives/${initiative.id}`;
+        const [graph, coverage, managers, health] = await Promise.all([
+          needsGraph ? api<Graph>(`${project}/graph`, { signal }) : item.graph,
+          needsCoverage
+            ? api<Coverage>(`${project}/coverage?days=${days}`, { signal })
+            : item.coverage,
+          active && (scopedContacts || view === "map" || view === "person")
+            ? api<InitiativeData["managers"]>(
+                `${project}/interaction-managers`,
+                { signal },
+              )
+            : undefined,
+          active && view === "insights"
+            ? api<HealthFacts>(`${project}/relationship-health?days=${days}`, {
+                signal,
+              })
+            : undefined,
+        ]);
+        return { ...item, graph, coverage, managers, health };
+      }),
+    );
+    return { ...base, initiatives, profile, insights, companyEvents };
+  }
   const initiatives: InitiativeData[] = [];
-  // Bound the fan-out for corporate portfolios; histories keep the server cursor order.
   for (let offset = 0; offset < companies.length; offset += 4) {
     const batch = await Promise.all(
       companies
@@ -91,9 +192,19 @@ export async function loadWorkspace(
   return { companies, capabilities, initiatives };
 }
 
-export function useWorkspace(days: number) {
+export function useWorkspace(days: number, scope: Scope) {
+  const { companyId, projectId, view, personId } = scope;
   const [revision, setRevision] = useState(0);
+  const key = JSON.stringify([
+    days,
+    revision,
+    companyId,
+    projectId,
+    view,
+    personId,
+  ]);
   const [state, setState] = useState<{
+    key?: string;
     data: WorkspaceData | null;
     loading: boolean;
     error: string | null;
@@ -101,15 +212,21 @@ export function useWorkspace(days: number) {
   useEffect(() => {
     const controller = new AbortController();
     setState((old) => ({ ...old, loading: true, error: null }));
-    loadWorkspace(days, controller.signal).then(
+    loadWorkspace(days, controller.signal, {
+      companyId,
+      projectId,
+      view,
+      personId,
+    }).then(
       (data) => {
         if (!controller.signal.aborted)
-          setState({ data, loading: false, error: null });
+          setState({ key, data, loading: false, error: null });
       },
       (error) => {
         if (!controller.signal.aborted)
           setState((old) => ({
             ...old,
+            key,
             loading: false,
             error:
               error instanceof Error
@@ -119,8 +236,13 @@ export function useWorkspace(days: number) {
       },
     );
     return () => controller.abort();
-  }, [days, revision]);
-  return { ...state, refresh: () => setRevision((value) => value + 1) };
+  }, [key, days, companyId, projectId, view, personId]);
+  return {
+    ...state,
+    loading: state.loading || state.key !== key,
+    revision,
+    refresh: () => setRevision((value) => value + 1),
+  };
 }
 
 export function companyData(data: WorkspaceData, id: string) {
@@ -159,6 +281,13 @@ export function snapshot(items: InitiativeData[]) {
   );
 }
 export function portfolioStats(data: WorkspaceData) {
+  if (data.dashboard)
+    return {
+      companies: data.dashboard.accessibleCompanyCount,
+      contacts: data.dashboard.registeredContactCount,
+      events: data.dashboard.activeInteractionCount,
+      risks: data.dashboard.riskCount,
+    };
   const entries = history(data.initiatives),
     asOf = snapshot(data.initiatives);
   const cutoff = asOf ? Date.parse(asOf) - 30 * 86400000 : 0;
@@ -216,11 +345,17 @@ export function contactMatches(
         ? !coverage?.lastTouchAt
         : coverage?.touchStatus === filters.interaction)) &&
     (!filters.manager ||
-      item.events.some(
-        (event) =>
-          event.responsibleManager === filters.manager &&
-          event.participants.some((p) => p.id === person.id),
-      ))
+      (item.managers
+        ? item.managers.some(
+            (manager) =>
+              manager.name === filters.manager &&
+              manager.contactIds.includes(person.id),
+          )
+        : item.events.some(
+            (event) =>
+              event.responsibleManager === filters.manager &&
+              event.participants.some((p) => p.id === person.id),
+          )))
   );
 }
 export const influenceLabels: Record<string, string> = {

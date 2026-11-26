@@ -7,6 +7,7 @@ export type WorkspaceAction = {
   iid?: string;
   pid?: string;
   cid?: string;
+  edgeId?: string;
 };
 const titles = {
   person: "Новый участник",
@@ -27,6 +28,7 @@ export function WorkspaceEdit({
   saved: (id: string) => void;
 }) {
   const person = item?.graph.nodes.find((p) => p.id === action.pid);
+  const edge = item?.graph.edges.find((item) => item.id === action.edgeId);
   const [draft, setDraft] = useState<Record<string, string>>(() => ({
     name: person?.name ?? "",
     jobTitle: person?.jobTitle ?? "",
@@ -39,14 +41,15 @@ export function WorkspaceEdit({
     decisionMaker: String(person?.decisionMaker ?? false),
     mandate: person?.mandate ?? "",
     interest: person?.interest ?? "",
-    sourceLabel: person?.sourceLabel ?? "",
+    sourceLabel: edge?.sourceLabel ?? person?.sourceLabel ?? "",
     owner: item?.initiative.owner ?? "",
     recipient: item?.initiative.owner ?? "",
     personId: action.pid ?? "",
-    source: action.pid ?? "",
-    target: "",
-    type: "COORDINATION",
-    confirmed: "false",
+    source: edge?.source ?? action.pid ?? "",
+    target: edge?.target ?? "",
+    type: edge?.type ?? "COORDINATION",
+    label: edge?.label ?? "",
+    confirmed: String(edge?.confirmed ?? false),
   }));
   const [pending, setPending] = useState(false),
     [error, setError] = useState("");
@@ -118,7 +121,7 @@ export function WorkspaceEdit({
     >
       <header>
         <div>
-          <h2>{titles[action.kind]}</h2>
+          <h2>{edge ? "Редактировать связь" : titles[action.kind]}</h2>
           {item && <p className="edit-context">{item.initiative.name}</p>}
         </div>
         <button
@@ -147,6 +150,10 @@ export function WorkspaceEdit({
             path = `/initiatives/${iid}/requests`;
           else if (action.kind === "relationship") {
             path = `/initiatives/${iid}/relationships`;
+            if (edge) {
+              path += "/" + edge.id;
+              method = "PATCH";
+            }
             body.confirmed = draft.confirmed === "true";
           } else {
             path = `/initiatives/${iid}/people${action.kind === "edit" ? "/" + action.pid : ""}`;

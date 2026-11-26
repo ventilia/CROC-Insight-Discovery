@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { X, Check } from "lucide-react";
-import { apiWrite } from "./api";
+import { apiWrite, useRemote } from "./api";
+import type { Graph } from "./graph";
 import type { InitiativeData } from "./workspace";
 import { eventLabels } from "./History";
 
@@ -16,12 +17,14 @@ export function EventForm({
   initialPerson,
   close,
   saved,
+  server = false,
 }: {
   items: InitiativeData[];
   initialInitiative: string;
   initialPerson?: string;
   close: () => void;
   saved: () => void;
+  server?: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null),
     submitting = useRef(false);
@@ -35,6 +38,12 @@ export function EventForm({
     [error, setError] = useState("");
   const [id] = useState(() => crypto.randomUUID());
   const current = items.find((item) => item.initiative.id === initiative);
+  const roster = useRemote<Graph>(
+    server && initiative && !current?.graph.nodes.length
+      ? `/initiatives/${initiative}/graph`
+      : null,
+  );
+  const participants = roster.data?.nodes ?? current?.graph.nodes ?? [];
   useEffect(() => {
     const opener = document.activeElement;
     dialog.current?.showModal();
@@ -70,6 +79,7 @@ export function EventForm({
         team: form.get("team"),
         responsibleManager: String(form.get("manager")).trim(),
         outcome: String(form.get("outcome")).trim() || null,
+        comment: String(form.get("comment")).trim() || null,
         nextStep: String(form.get("nextStep")).trim() || null,
         participantIds: selected,
       });
@@ -165,7 +175,13 @@ export function EventForm({
               Участники <small>выберите хотя бы одного</small>
             </span>
             <div>
-              {current?.graph.nodes.map((person) => (
+              {roster.loading && <p role="status">Загружаем участников…</p>}
+              {roster.error && (
+                <p className="form-error" role="alert">
+                  {roster.error}
+                </p>
+              )}
+              {participants.map((person) => (
                 <label key={person.id}>
                   <input
                     type="checkbox"
@@ -207,13 +223,17 @@ export function EventForm({
             </label>
           </div>
           <label>
-            Результат или комментарий
+            Результат
             <textarea
               name="outcome"
               rows={3}
               maxLength={2000}
               placeholder="Что обсудили и о чём договорились"
             />
+          </label>
+          <label>
+            Комментарий
+            <textarea name="comment" rows={2} maxLength={2000} />
           </label>
           <label>
             Следующий шаг
@@ -242,7 +262,7 @@ export function EventForm({
           <button
             type="submit"
             className="primary"
-            disabled={pending || !current?.graph.nodes.length}
+            disabled={pending || !participants.length}
           >
             {pending ? "Сохраняем…" : "Сохранить запись"}
           </button>

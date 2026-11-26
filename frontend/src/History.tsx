@@ -1,7 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CalendarDays, Search } from "lucide-react";
 import { formatDate } from "./coverage";
 import type { HistoryEntry } from "./workspace";
+import {
+  api,
+  useDebounced,
+  type EventPage,
+  type Initiative,
+  type Touchpoint,
+} from "./api";
 
 export const eventLabels: Record<string, string> = {
   MEETING: "Встреча",
@@ -14,69 +21,81 @@ export function HistoryList({
   entries,
   onPerson,
   compact = false,
+  paginated = false,
 }: {
   entries: HistoryEntry[];
   onPerson: (iid: string, pid: string) => void;
   compact?: boolean;
+  paginated?: boolean;
 }) {
   const [limit, setLimit] = useState(10);
   return entries.length ? (
     <>
       <ol className={"activity-list" + (compact ? " compact" : "")}>
-        {entries.slice(0, compact ? 4 : limit).map((event) => {
-          return (
-            <li key={event.id}>
-              <div className="activity-content">
-                <div className="activity-meta">
-                  <span>{eventLabels[event.type] ?? event.type}</span>
-                  <time dateTime={event.occurredAt}>
-                    {formatDate(event.occurredAt)}
-                  </time>
+        {entries
+          .slice(0, compact ? 4 : paginated ? entries.length : limit)
+          .map((event) => {
+            return (
+              <li key={event.id}>
+                <div className="activity-content">
+                  <div className="activity-meta">
+                    <span>{eventLabels[event.type] ?? event.type}</span>
+                    <time dateTime={event.occurredAt}>
+                      {formatDate(event.occurredAt)}
+                    </time>
+                  </div>
+                  <h3>{event.subject}</h3>
+                  <p className="activity-context">
+                    {event.initiativeName} · {event.team}
+                  </p>
+                  {!compact && (
+                    <>
+                      <div className="activity-people">
+                        {event.participants.map((person) => (
+                          <button
+                            key={person.id}
+                            type="button"
+                            onClick={() =>
+                              onPerson(event.initiativeId, person.id)
+                            }
+                          >
+                            {person.name}
+                          </button>
+                        ))}
+                      </div>
+                      {event.outcome && (
+                        <p>
+                          <b>
+                            {event.type === "NOTE"
+                              ? "Комментарий"
+                              : "Результат"}
+                            :
+                          </b>{" "}
+                          {event.outcome}
+                        </p>
+                      )}
+                      {event.nextStep && (
+                        <p className="next-step">
+                          <b>Следующий шаг:</b> {event.nextStep}
+                        </p>
+                      )}
+                      {event.comment && (
+                        <p>
+                          <b>Комментарий</b> {event.comment}
+                        </p>
+                      )}
+                      <small>
+                        Ответственный: {event.responsibleManager ?? "Не указан"}{" "}
+                        · {event.sourceLabel ?? "Источник не указан"}
+                      </small>
+                    </>
+                  )}
                 </div>
-                <h3>{event.subject}</h3>
-                <p className="activity-context">
-                  {event.initiativeName} · {event.team}
-                </p>
-                {!compact && (
-                  <>
-                    <div className="activity-people">
-                      {event.participants.map((person) => (
-                        <button
-                          key={person.id}
-                          type="button"
-                          onClick={() =>
-                            onPerson(event.initiativeId, person.id)
-                          }
-                        >
-                          {person.name}
-                        </button>
-                      ))}
-                    </div>
-                    {event.outcome && (
-                      <p>
-                        <b>
-                          {event.type === "NOTE" ? "Комментарий" : "Результат"}:
-                        </b>{" "}
-                        {event.outcome}
-                      </p>
-                    )}
-                    {event.nextStep && (
-                      <p className="next-step">
-                        <b>Следующий шаг:</b> {event.nextStep}
-                      </p>
-                    )}
-                    <small>
-                      Ответственный: {event.responsibleManager ?? "Не указан"} ·{" "}
-                      {event.sourceLabel ?? "Источник не указан"}
-                    </small>
-                  </>
-                )}
-              </div>
-            </li>
-          );
-        })}
+              </li>
+            );
+          })}
       </ol>
-      {!compact && entries.length > limit && (
+      {!compact && !paginated && entries.length > limit && (
         <button
           type="button"
           className="secondary load-more"
@@ -92,6 +111,198 @@ export function HistoryList({
       <h3>Записей пока нет</h3>
       <p>Добавьте встречу, звонок или договорённость.</p>
     </div>
+  );
+}
+
+export function historyEntries(items: Touchpoint[]): HistoryEntry[] {
+  return items.flatMap((item) =>
+    item.initiativeId && item.initiativeName
+      ? [
+          {
+            ...item,
+            initiativeId: item.initiativeId,
+            initiativeName: item.initiativeName,
+          },
+        ]
+      : [],
+  );
+}
+
+export function CompanyTimeline({
+  companyId,
+  initiatives,
+  revision,
+  onPerson,
+  personId,
+}: {
+  companyId: string;
+  initiatives: Initiative[];
+  revision: number;
+  onPerson: (iid: string, pid: string) => void;
+  personId?: string;
+}) {
+  const [search, setSearch] = useState("");
+  const [type, setType] = useState("");
+  const [manager, setManager] = useState("");
+  const [project, setProject] = useState("");
+  const query = useDebounced(search.trim());
+  const responsibleManager = useDebounced(manager.trim());
+  const filters = new URLSearchParams({ limit: "20" });
+  for (const [key, value] of Object.entries({
+    q: query,
+    type,
+    responsibleManager,
+    initiativeId: project,
+    personId,
+  })) {
+    if (value) filters.set(key, value);
+  }
+  const path = `/companies/${companyId}/events?${filters}`;
+  return (
+    <section className="surface">
+      <div className="section-heading">
+        <h2>{personId ? "История общения" : "История работы с клиентом"}</h2>
+      </div>
+      {!personId && (
+        <div className="filter-grid history-filters">
+          <label className="search-control">
+            <span>Поиск по истории</span>
+            <div>
+              <Search size={17} />
+              <input
+                type="search"
+                maxLength={120}
+                value={search}
+                placeholder="Тема, участник, договорённость"
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </div>
+          </label>
+          <label>
+            Тип записи
+            <select
+              value={type}
+              onChange={(event) => setType(event.target.value)}
+            >
+              <option value="">Все типы</option>
+              {Object.entries(eventLabels).map(([id, label]) => (
+                <option key={id} value={id}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Ответственный менеджер
+            <input
+              value={manager}
+              maxLength={160}
+              onChange={(event) => setManager(event.target.value)}
+            />
+          </label>
+          <label>
+            Проект в истории
+            <select
+              value={project}
+              onChange={(event) => setProject(event.target.value)}
+            >
+              <option value="">Все проекты</option>
+              {initiatives.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+      <TimelinePages
+        key={path + ":" + revision}
+        path={path}
+        onPerson={onPerson}
+      />
+    </section>
+  );
+}
+
+function TimelinePages({
+  path,
+  onPerson,
+}: {
+  path: string;
+  onPerson: (iid: string, pid: string) => void;
+}) {
+  const [entries, setEntries] = useState<HistoryEntry[]>([]);
+  const [next, setNext] = useState<string | null>(null);
+  const [request, setRequest] = useState({
+    cursor: null as string | null,
+    attempt: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError("");
+    const url = request.cursor
+      ? `${path}&cursor=${encodeURIComponent(request.cursor)}`
+      : path;
+    api<EventPage>(url, { signal: controller.signal })
+      .then((page) => {
+        if (controller.signal.aborted) return;
+        setEntries((items) => [
+          ...new Map(
+            [...items, ...historyEntries(page.items)].map((item) => [
+              item.id,
+              item,
+            ]),
+          ).values(),
+        ]);
+        setNext(page.nextCursor !== request.cursor ? page.nextCursor : null);
+      })
+      .catch((failure: unknown) => {
+        if (!controller.signal.aborted)
+          setError(
+            failure instanceof Error ? failure.message : "История недоступна.",
+          );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [path, request]);
+  return (
+    <>
+      {(entries.length > 0 || (!loading && !error)) && (
+        <HistoryList entries={entries} onPerson={onPerson} paginated />
+      )}
+      {loading && (
+        <p className="empty-inline" role="status">
+          Загружаем историю…
+        </p>
+      )}
+      {error && (
+        <p className="empty-inline" role="alert">
+          {error}{" "}
+          <button
+            className="secondary"
+            onClick={() =>
+              setRequest({ ...request, attempt: request.attempt + 1 })
+            }
+          >
+            Повторить
+          </button>
+        </p>
+      )}
+      {next && !loading && !error && (
+        <button
+          className="secondary load-more"
+          onClick={() => setRequest({ cursor: next, attempt: 0 })}
+        >
+          Загрузить ещё
+        </button>
+      )}
+    </>
   );
 }
 

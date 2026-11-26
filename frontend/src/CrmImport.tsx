@@ -7,11 +7,19 @@ import type { WorkspaceData } from "./workspace";
 export function CrmImport({
   data,
   initialId,
+  companyId,
+  onCompany,
+  loading = false,
+  loadError,
   close,
   saved,
 }: {
   data: WorkspaceData;
   initialId?: string;
+  companyId?: string;
+  onCompany?: (id: string) => void;
+  loading?: boolean;
+  loadError?: string | null;
   close: () => void;
   saved: (message: string) => void;
 }) {
@@ -109,13 +117,36 @@ export function CrmImport({
           </p>
         )}
         <fieldset disabled={pending || !supported}>
+          {companyId !== undefined && (
+            <label>
+              Компания
+              <select
+                required
+                value={companyId}
+                onChange={(event) => onCompany?.(event.target.value)}
+              >
+                <option value="">Выберите компанию</option>
+                {data.companies.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label>
-            Компания и проект
+            {companyId === undefined ? "Компания и проект" : "Проект"}
             <select
               required
+              disabled={loading || !data.initiatives.length}
               value={iid}
               onChange={(e) => setIid(e.target.value)}
             >
+              {!data.initiatives.length && (
+                <option value="">
+                  {loading ? "Загружаем проекты…" : "Доступных проектов нет"}
+                </option>
+              )}
               {data.initiatives.map(({ initiative: i }) => (
                 <option key={i.id} value={i.id}>
                   {data.companies.find((c) => c.id === i.companyId)?.name} ·{" "}
@@ -143,6 +174,11 @@ export function CrmImport({
             заполняются отдельно.
           </p>
         </fieldset>
+        {loadError && (
+          <p role="alert" className="form-error">
+            {loadError}
+          </p>
+        )}
         {reading && <p role="status">Читаем файл…</p>}
         {!!contacts.length && (
           <div className="crm-preview">

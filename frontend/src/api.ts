@@ -15,6 +15,7 @@ export type Initiative = {
   owner?: string | null;
   due?: string | null;
   nextStep?: string | null;
+  participantCount?: number;
 };
 export type Stance = "SUPPORTS" | "NEUTRAL" | "DOUBTS" | "OPPOSES";
 export type Position = {
@@ -44,11 +45,23 @@ export type Touchpoint = {
   sourceLabel: string | null;
   responsibleManager: string | null;
   author?: string | null;
+  initiativeId?: string | null;
+  initiativeName?: string | null;
+  comment?: string | null;
   participants: { id: string; name: string }[];
 };
 export type EventPage = { items: Touchpoint[]; nextCursor: string | null };
 
 type Remote<T> = { data: T | null; error: string | null; loading: boolean };
+
+export function useDebounced<T>(value: T, delay = 220) {
+  const [current, setCurrent] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setCurrent(value), delay);
+    return () => window.clearTimeout(timer);
+  }, [value, delay]);
+  return current;
+}
 
 export class ApiError extends Error {
   readonly status: number;
@@ -100,8 +113,8 @@ let csrfRequest: Promise<{ headerName: string; token: string }> | undefined;
 
 export async function apiWrite<T>(
   path: string,
-  method: "PATCH" | "POST",
-  body: unknown,
+  method: "PATCH" | "POST" | "PUT" | "DELETE",
+  body?: unknown,
 ): Promise<T> {
   csrfRequest ??= api<{ headerName: string; token: string }>("/csrf").finally(
     () => {

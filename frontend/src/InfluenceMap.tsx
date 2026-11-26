@@ -1,5 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  lazy,
+  Suspense,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  ArrowDownLeft,
+  ArrowRight,
+  ArrowUpRight,
+  Check,
   Focus,
   Minus,
   Plus,
@@ -10,10 +22,16 @@ import {
   Play,
   X,
   Network,
+  Pencil,
 } from "lucide-react";
 import { ContactFilters, emptyContactFilters } from "./ContactFilters";
-import { contactMatches, type InitiativeData } from "./workspace";
-import { selectGraph, type MapFilters } from "./graph";
+import {
+  contactMatches,
+  influenceLabels,
+  type InitiativeData,
+} from "./workspace";
+import { formatDate } from "./coverage";
+import { selectGraph, type GraphEdge, type MapFilters } from "./graph";
 import {
   nodeColor,
   type ColorMode,
@@ -21,7 +39,10 @@ import {
   type SceneControls,
 } from "./forceGraph";
 import { departmentGraph } from "./departmentGraph";
-import ForceScene2D from "./ForceScene2D";
+import "./influence-map.css";
+
+const ForceScene2D = lazy(() => import("./ForceScene2D"));
+
 const emptyFilters: MapFilters = {
   role: "",
   department: "",
@@ -38,6 +59,7 @@ export function InfluenceMap({
   initialFocus = null,
   onlyIds,
   onAddRelationship,
+  onEditRelationship,
 }: {
   item: InitiativeData;
   selectedId: string | null;
@@ -46,7 +68,9 @@ export function InfluenceMap({
   initialFocus?: string | null;
   onlyIds?: string[];
   onAddRelationship?: () => void;
+  onEditRelationship?: (edge: GraphEdge) => void;
 }) {
+  const heading = useId();
   const [filters, setFilters] = useState({
       ...emptyFilters,
       focus: initialFocus,
@@ -65,10 +89,11 @@ export function InfluenceMap({
   );
   const [hoveredId, setHovered] = useState<string | null>(null),
     [edgeId, setEdge] = useState<string | null>(null);
-  const [connectionsOpen, setConnectionsOpen] = useState(false),
-    [size, setSize] = useState({ width: 600, height: 500 });
+  const [participantId, setParticipant] = useState(selectedId ?? initialFocus);
+  const [size, setSize] = useState({ width: 600, height: 500 });
   const stage = useRef<HTMLDivElement>(null),
     controls = useRef<SceneControls | null>(null);
+  const edgeHeading = useRef<HTMLHeadingElement>(null);
   const positions2D = useRef<PositionCache>(new Map());
   const graph = item.graph;
   const visible = useMemo(() => {
@@ -101,9 +126,25 @@ export function InfluenceMap({
   );
   const focus = graph.nodes.find((person) => person.id === filters.focus),
     hovered = visible.nodes.find((person) => person.id === hoveredId);
-  const selectedEdge = visible.edges.find((edge) => edge.id === edgeId);
+  const participant =
+    graph.nodes.find((person) => person.id === participantId) ??
+    visible.nodes.find((person) => person.decisionMaker) ??
+    visible.nodes[0];
+  const adjacent = participant
+    ? graph.edges.filter(
+        (edge) =>
+          edge.source === participant.id || edge.target === participant.id,
+      )
+    : [];
+  const lastTouch = item.coverage.contacts.find(
+    (entry) => entry.id === participant?.id,
+  )?.lastTouchAt;
+  const selectedEdge = graph.edges.find((edge) => edge.id === edgeId);
   const filterCount = Object.values(smart).filter(Boolean).length;
   const names = new Map(graph.nodes.map((node) => [node.id, node.name]));
+  useEffect(() => {
+    if (edgeId) edgeHeading.current?.focus();
+  }, [edgeId]);
   useEffect(() => {
     const element = stage.current;
     if (!element) return;
@@ -118,9 +159,24 @@ export function InfluenceMap({
     observer.observe(element);
     return () => observer.disconnect();
   }, [visible.nodes.length > 0]);
+  useEffect(() => {
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const pauseMotion = () => setPaused(preference.matches);
+    preference.addEventListener("change", pauseMotion);
+    return () => preference.removeEventListener("change", pauseMotion);
+  }, []);
   function select(id: string) {
     setHovered(null);
-    onSelect(id);
+    setEdge(null);
+    setParticipant(id);
+  }
+  function resetFilters() {
+    setSmart(emptyContactFilters);
+    setFilters(emptyFilters);
+    setLeaders(false);
+    setSharedOnly(false);
+    setEdgeType("");
+    setEdge(null);
   }
   const grouped = useMemo(
     () => departmentGraph(visible.nodes, visible.edges),
@@ -133,7 +189,11 @@ export function InfluenceMap({
     dark,
     labels,
     paused,
-    selectedId: view === "departments" ? null : selectedId,
+    selectedId:
+      view === "people" &&
+      visible.nodes.some((node) => node.id === participantId)
+        ? participantId
+        : null,
     hoveredId:
       view === "departments" && !hoveredId?.startsWith("department:")
         ? null
@@ -157,6 +217,7 @@ export function InfluenceMap({
         setHovered(null);
       } else select(id);
     },
+    onOpen: view === "people" ? onSelect : undefined,
     onLink: (id: string) => {
       setEdge(id);
       setHovered(null);
@@ -166,18 +227,14 @@ export function InfluenceMap({
   return (
     <section
       className={
-        "surface influence-map force-map" +
-        (dark ? " graph-dark" : "") +
-        (view === "departments" ? " departments-view" : "")
+        "surface influence-map force-map graph-map-surface" +
+        (dark ? " graph-dark" : "")
       }
-      aria-labelledby="map-heading"
+      aria-labelledby={heading}
     >
       <div className="surface-head">
         <div>
-          <h2 id="map-heading">
-            Карта связей <span>{visible.nodes.length} участников</span>
-          </h2>
-          <p>Перемещайте узлы. Нажмите на сотрудника, чтобы открыть профиль.</p>
+          <h2 id={heading}>Карта связей</h2>
         </div>
         <div className="graph-head-actions">
           {onAddRelationship && (
@@ -202,13 +259,13 @@ export function InfluenceMap({
           <button
             className="secondary"
             type="button"
-            disabled={!selectedId && !filters.focus}
+            disabled={!participant && !filters.focus}
             aria-pressed={!!filters.focus}
             onClick={() => {
               setFilters(
                 filters.focus
                   ? emptyFilters
-                  : { ...emptyFilters, focus: selectedId },
+                  : { ...emptyFilters, focus: participantId },
               );
               setSmart(emptyContactFilters);
               setEdge(null);
@@ -257,13 +314,6 @@ export function InfluenceMap({
           </button>
         ) : null}
 
-        <button
-          className="secondary"
-          aria-pressed={leaders}
-          onClick={() => setLeaders(!leaders)}
-        >
-          Только ЛПР
-        </button>
         <label className="graph-color-control">
           Тип связи
           <select
@@ -323,30 +373,34 @@ export function InfluenceMap({
           {visible.nodes.length} из {graph.nodes.length} · связей{" "}
           {visible.edges.length}
         </span>
-        {(filterCount > 0 || filters.focus) && (
-          <button
-            className="text-button"
-            onClick={() => {
-              setSmart(emptyContactFilters);
-              setFilters(emptyFilters);
-              setEdge(null);
-            }}
-          >
+        {(filterCount > 0 || filters.focus || edgeType || leaders) && (
+          <button className="text-button" onClick={resetFilters}>
             Сбросить
           </button>
         )}
       </div>
-      {visible.nodes.length ? (
-        <div className="graph-workspace">
+      <div className="graph-workspace">
+        {visible.nodes.length ? (
           <div
             className="force-stage"
             ref={stage}
             tabIndex={0}
             role="region"
-            aria-label="Интерактивный граф сотрудников"
-            aria-describedby="graph-instructions"
+            aria-label={
+              view === "people"
+                ? "Интерактивный граф сотрудников"
+                : "Интерактивный граф отделов"
+            }
           >
-            <ForceScene2D key={view} {...sceneProps} />
+            <Suspense
+              fallback={
+                <p className="empty-inline" role="status">
+                  Загружаем граф…
+                </p>
+              }
+            >
+              <ForceScene2D key={view} {...sceneProps} />
+            </Suspense>
             <div className="graph-stage-controls">
               <button
                 className="icon-button"
@@ -381,7 +435,7 @@ export function InfluenceMap({
                 <RotateCcw size={17} />
               </button>
             </div>
-            {hovered && !selectedEdge && (
+            {hovered && (
               <div className="graph-hover-card">
                 <strong>{hovered.name}</strong>
                 <span>{hovered.jobTitle ?? "Должность не указана"}</span>
@@ -391,92 +445,207 @@ export function InfluenceMap({
                 </small>
               </div>
             )}
-            {selectedEdge && (
-              <div className="graph-edge-card">
+          </div>
+        ) : (
+          <div className="empty-state graph-empty">
+            <Network size={28} />
+            <h3>
+              {graph.nodes.length
+                ? "Никто не найден"
+                : "Участники проекта не указаны"}
+            </h3>
+            <p>
+              {graph.nodes.length
+                ? "Измените фильтры или откройте всю карту."
+                : "Карта появится после добавления участников."}
+            </p>
+            {graph.nodes.length > 0 && (
+              <button className="secondary" onClick={resetFilters}>
+                Сбросить фильтры
+              </button>
+            )}
+          </div>
+        )}
+        <aside className="graph-inspector" aria-label="Сведения о карте">
+          {selectedEdge && (
+            <section className="graph-detail" aria-label="Связь в проекте">
+              <div className="graph-detail-heading">
+                <h3 ref={edgeHeading} tabIndex={-1}>
+                  Связь в проекте
+                </h3>
                 <button
+                  type="button"
                   className="icon-button"
                   aria-label="Закрыть описание связи"
                   onClick={() => setEdge(null)}
                 >
                   <X size={16} />
                 </button>
-                <strong>
-                  {names.get(selectedEdge.source)} →{" "}
-                  {names.get(selectedEdge.target)}
-                </strong>
-                <p>{selectedEdge.label}</p>
-                <small>
-                  Основание: {selectedEdge.sourceLabel ?? "Не указано"}
-                </small>
-                <span>
-                  {selectedEdge.confirmed
-                    ? "Подтверждённая связь"
-                    : "Требует проверки"}
-                </span>
               </div>
-            )}
-            <div className="graph-canvas-caption">
-              <Network size={14} />
-              <span>Свободное расположение</span>
-            </div>
-          </div>
-          <aside className="graph-directory" aria-label="Участники карты">
-            <div>
-              <strong>Участники</strong>
-              <span>{visible.nodes.length}</span>
-            </div>
-            <ul>
-              {visible.nodes.map((person) => (
-                <li key={person.id}>
-                  <button
-                    type="button"
-                    aria-pressed={person.id === selectedId}
-                    onMouseEnter={() => setHovered(person.id)}
-                    onMouseLeave={() => setHovered(null)}
-                    onFocus={() => setHovered(person.id)}
-                    onBlur={() => setHovered(null)}
-                    onClick={() => select(person.id)}
-                  >
-                    <i style={{ backgroundColor: color(person) }} />
-                    <span>
-                      <strong>{person.name}</strong>
-                      <small>
-                        {person.department?.name ?? "Отдел не указан"}
-                      </small>
-                    </span>
-                    {person.decisionMaker && <b>ЛПР</b>}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </aside>
-        </div>
-      ) : (
-        <div className="empty-state">
-          <Network size={28} />
-          <h3>
-            {graph.nodes.length
-              ? "Никто не найден"
-              : "Участники проекта не указаны"}
-          </h3>
-          <p>
-            {graph.nodes.length
-              ? "Измените фильтры или откройте всю карту."
-              : "Карта появится после добавления участников."}
-          </p>
-          {graph.nodes.length > 0 && (
-            <button
-              className="secondary"
-              onClick={() => {
-                setSmart(emptyContactFilters);
-                setFilters(emptyFilters);
-              }}
-            >
-              Сбросить фильтры
-            </button>
+              <div className="graph-detail-endpoints">
+                <button
+                  className="text-button"
+                  type="button"
+                  onClick={() => select(selectedEdge.source)}
+                >
+                  {names.get(selectedEdge.source)}
+                </button>
+                <ArrowRight size={15} aria-label="в сторону" />
+                <button
+                  className="text-button"
+                  type="button"
+                  onClick={() => select(selectedEdge.target)}
+                >
+                  {names.get(selectedEdge.target)}
+                </button>
+              </div>
+              <p>{selectedEdge.label}</p>
+              <small>
+                {selectedEdge.confirmed
+                  ? "Подтверждённая связь"
+                  : "Требует проверки"}
+                {selectedEdge.sourceLabel && ` · ${selectedEdge.sourceLabel}`}
+              </small>
+              {onEditRelationship && (
+                <button
+                  className="text-button"
+                  type="button"
+                  onClick={() => onEditRelationship(selectedEdge)}
+                >
+                  <Pencil size={13} /> Редактировать связь
+                </button>
+              )}
+            </section>
           )}
-        </div>
-      )}
+          {participant && (
+            <section className="graph-detail" aria-label="Выбранный участник">
+              <h3>
+                <button
+                  className="text-button graph-detail-person"
+                  type="button"
+                  onClick={() => onSelect(participant.id)}
+                >
+                  {participant.name}{" "}
+                  <ArrowUpRight size={16} aria-hidden="true" />
+                </button>
+              </h3>
+              <p>
+                {[participant.jobTitle, participant.department?.name]
+                  .filter(Boolean)
+                  .join(" · ") || "Должность не указана"}
+              </p>
+              <div className="graph-detail-meta">
+                {participant.role && <small>{participant.role.label}</small>}
+                {participant.decisionMaker && (
+                  <span className="graph-lpr">ЛПР</span>
+                )}
+              </div>
+              <p>
+                Влияние · {influenceLabels[participant.influence ?? "UNKNOWN"]}
+              </p>
+              <p>Последнее общение · {formatDate(lastTouch ?? null)}</p>
+              {participant.email && <p>{participant.email}</p>}
+              {participant.phone && <p>{participant.phone}</p>}
+            </section>
+          )}
+          <section className="graph-roster" aria-label="Участники карты">
+            <div className="graph-roster-heading">
+              <h3>
+                Участники <span>{visible.nodes.length}</span>
+              </h3>
+              <button
+                className="secondary graph-lpr-toggle"
+                type="button"
+                aria-pressed={leaders}
+                onClick={() => {
+                  setLeaders(!leaders);
+                  setEdge(null);
+                }}
+              >
+                {leaders && <Check size={13} aria-hidden="true" />} Только ЛПР
+              </button>
+            </div>
+            {visible.nodes.length ? (
+              <ul className="graph-roster-list">
+                {visible.nodes.map((person) => (
+                  <li key={person.id}>
+                    <button
+                      type="button"
+                      aria-pressed={person.id === participant?.id}
+                      onMouseEnter={() => setHovered(person.id)}
+                      onMouseLeave={() => setHovered(null)}
+                      onFocus={() => setHovered(person.id)}
+                      onBlur={() => setHovered(null)}
+                      onClick={() => select(person.id)}
+                    >
+                      <i style={{ backgroundColor: color(person) }} />
+                      <span>
+                        <strong>{person.name}</strong>
+                        <small>
+                          {person.department?.name ?? "Отдел не указан"}
+                        </small>
+                      </span>
+                      {person.decisionMaker && (
+                        <span className="graph-lpr">ЛПР</span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>Нет участников для выбранных фильтров.</p>
+            )}
+          </section>
+          {participant && (
+            <section
+              className="graph-adjacent"
+              aria-label="Связи выбранного участника"
+            >
+              <h3>
+                Связи участника <span>{adjacent.length}</span>
+              </h3>
+              {adjacent.length ? (
+                <ul>
+                  {adjacent.map((edge) => {
+                    const outgoing = edge.source === participant.id;
+                    const personId = outgoing ? edge.target : edge.source;
+                    const Direction = outgoing ? ArrowUpRight : ArrowDownLeft;
+                    return (
+                      <li key={edge.id}>
+                        <button
+                          className="text-button"
+                          type="button"
+                          onClick={() => select(personId)}
+                        >
+                          {names.get(personId)}
+                        </button>
+                        <button
+                          className="graph-relation-button"
+                          type="button"
+                          aria-pressed={edge.id === edgeId}
+                          onClick={() =>
+                            setEdge(edge.id === edgeId ? null : edge.id)
+                          }
+                        >
+                          <Direction
+                            size={14}
+                            aria-label={
+                              outgoing ? "Исходящая связь" : "Входящая связь"
+                            }
+                          />
+                          {edge.label}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p>Связи по этому проекту пока не указаны.</p>
+              )}
+            </section>
+          )}
+        </aside>
+      </div>
       <div className="graph-footer">
         <div className="graph-legend">
           {(legendMode === "role"
@@ -553,18 +722,7 @@ export function InfluenceMap({
         </span>
         <span>Стрелка — направление связи</span>
       </div>
-      <p className="graph-instructions" id="graph-instructions">
-        Перетаскивайте узлы и фон. Колесо — масштаб. Наведите на человека, чтобы
-        увидеть его ближайшие связи и их описание.{" "}
-        {view === "people"
-          ? "Размер узла — влияние."
-          : "Размер отдела — число участников. Нажмите на отдел, чтобы открыть людей."}
-      </p>
-      <details
-        className="graph-connections"
-        open={connectionsOpen}
-        onToggle={(event) => setConnectionsOpen(event.currentTarget.open)}
-      >
+      <details className="graph-connections">
         <summary>
           Связи и их смысл <span>{visible.edges.length}</span>
         </summary>
@@ -574,7 +732,10 @@ export function InfluenceMap({
               <li key={edge.id}>
                 <button
                   className={edge.id === edgeId ? "selected" : ""}
-                  onClick={() => setEdge(edgeId === edge.id ? null : edge.id)}
+                  aria-pressed={edge.id === edgeId}
+                  onClick={() => {
+                    setEdge(edgeId === edge.id ? null : edge.id);
+                  }}
                 >
                   <strong>
                     {names.get(edge.source)} → {names.get(edge.target)}
