@@ -24,6 +24,7 @@ data class DirectoryFilters(
     @field:Size(max = 160) val jobTitle: String? = null,
     @field:Pattern(regexp = "^[A-Z][A-Z0-9_]{0,31}$") val roleCode: String? = null,
     val influence: Influence? = null,
+    val decisionMaker: Boolean? = null,
     val interaction: Recency? = null,
     @field:Size(max = 160) val responsibleManager: String? = null,
     @field:Min(1) @field:Max(365) val days: Int = 30,

@@ -83,6 +83,22 @@ class CompanyDirectoryApiTest(@LocalServerPort private val port: Int) {
     }
 
     @Test
+    fun `decision maker filter matches company level status and filtered totals`() {
+        val decisionMakers = read("$companyPath/contacts?decisionMaker=true&limit=1&offset=2")
+        assertThat(decisionMakers.path("total").asInt()).isEqualTo(3)
+        assertThat(decisionMakers.path("items").valuesOf("id")).containsExactly(marina)
+
+        val otherPeople = read("$companyPath/contacts?decisionMaker=false")
+        assertThat(otherPeople.path("total").asInt()).isEqualTo(1)
+        assertThat(otherPeople.path("items").valuesOf("id")).containsExactly(personWithoutEvents)
+
+        val consultant = read("$companyPath/contacts?decisionMaker=true&roleCode=CONSULTANT")
+        assertThat(consultant.path("total").asInt()).isEqualTo(1)
+        assertThat(consultant.path("items").valuesOf("id")).containsExactly(marina)
+        assertThat(get("$companyPath/contacts?decisionMaker=unknown").statusCode()).isEqualTo(400)
+    }
+
+    @Test
     fun `company graph keeps directed initiative edges between unique visible people`() {
         val graph = read("$companyPath/graph")
         assertThat(graph.path("nodes").valuesOf("id")).hasSize(4).doesNotHaveDuplicates()

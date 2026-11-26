@@ -79,6 +79,7 @@ paths:
         - $ref: '#/components/parameters/ContactJobTitle'
         - $ref: '#/components/parameters/ContactRole'
         - $ref: '#/components/parameters/ContactInfluence'
+        - $ref: '#/components/parameters/ContactDecisionMaker'
         - $ref: '#/components/parameters/ContactInteraction'
         - $ref: '#/components/parameters/ContactManager'
         - $ref: '#/components/parameters/KitDays'
@@ -138,6 +139,7 @@ paths:
         - $ref: '#/components/parameters/ContactJobTitle'
         - $ref: '#/components/parameters/ContactRole'
         - $ref: '#/components/parameters/ContactInfluence'
+        - $ref: '#/components/parameters/ContactDecisionMaker'
         - $ref: '#/components/parameters/ContactInteraction'
         - $ref: '#/components/parameters/ContactManager'
         - $ref: '#/components/parameters/KitDays'
@@ -970,6 +972,11 @@ components:
       name: influence
       in: query
       schema: {type: string, enum: [HIGH, MEDIUM, LOW, UNKNOWN]}
+    ContactDecisionMaker:
+      name: decisionMaker
+      in: query
+      description: 'При true контакт принимает решения хотя бы в одной инициативе компании. При false таких инициатив у контакта нет.'
+      schema: {type: boolean}
     ContactInteraction:
       name: interaction
       in: query

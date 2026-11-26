@@ -91,6 +91,10 @@ class DirectoryContacts(private val jdbc: JdbcClient) {
                           OR strpos(lower(c.job_title), lower(:q)) > 0
                           OR strpos(lower(d.name), lower(:q)) > 0)
           AND (:jobTitle IS NULL OR strpos(lower(c.job_title), lower(:jobTitle)) > 0)
+          AND (:decisionMaker IS NULL OR :decisionMaker = EXISTS (
+              SELECT 1 FROM initiative_participants p
+              WHERE p.company_id = c.company_id AND p.contact_id = c.id AND p.decision_maker
+          ))
           AND (:interaction IS NULL OR coalesce(latest.interaction, 'UNKNOWN') = :interaction)
           AND (:responsibleManager IS NULL OR EXISTS (
               SELECT 1
@@ -125,6 +129,7 @@ class DirectoryContacts(private val jdbc: JdbcClient) {
         .param("jobTitle", filters.jobTitle?.trim()?.takeIf(String::isNotEmpty), Types.VARCHAR)
         .param("roleCode", filters.roleCode, Types.VARCHAR)
         .param("influence", filters.influence?.name, Types.VARCHAR)
+        .param("decisionMaker", filters.decisionMaker, Types.BOOLEAN)
         .param("interaction", filters.interaction?.name, Types.VARCHAR)
         .param("responsibleManager", filters.responsibleManager?.trim()?.takeIf(String::isNotEmpty), Types.VARCHAR)
         .param("days", filters.days)
