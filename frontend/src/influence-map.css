@@ -29,6 +29,7 @@
 .graph-settings {
   background: var(--panel);
   border: 1px solid var(--line);
+  border-radius: var(--radius-control);
   padding: 12px;
   margin-bottom: 12px;
 }
@@ -65,6 +66,7 @@
   min-height: 40px;
   padding-inline: 11px;
   border: 1px solid var(--line);
+  border-radius: var(--radius-control);
   background: var(--panel);
   color: var(--ink-muted);
 }
@@ -110,6 +112,7 @@
 .graph-map-surface .graph-empty {
   height: var(--graph-frame-height);
   border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
 }
 
 .graph-map-surface .graph-board :is(.force-stage, .graph-empty) {
@@ -117,8 +120,15 @@
 }
 
 .graph-map-surface :is(.graph-mode, .graph-mode button, .graph-stage-controls) {
-  border-radius: 0;
   box-shadow: none;
+}
+
+.graph-map-surface :is(.graph-mode, .graph-stage-controls) {
+  border-radius: var(--radius-control);
+}
+
+.graph-map-surface .graph-mode button {
+  border-radius: calc(var(--radius-control) - 4px);
 }
 
 .graph-map-surface :is(.graph-mode button, .graph-toolbar select) {
@@ -157,6 +167,7 @@
   container: map-inspector / inline-size;
   min-width: 0;
   border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
   background: var(--panel);
   color: inherit;
 }
@@ -473,11 +484,7 @@
 }
 
 .graph-map-surface .graph-connections li > button {
-  border-radius: 0;
-}
-
-.profile-page .contact-drawer.full-profile {
-  border-radius: 0;
+  border-radius: var(--radius-control);
 }
 
 .profile-page .profile-page-back {

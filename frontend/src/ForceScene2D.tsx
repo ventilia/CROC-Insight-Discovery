@@ -48,6 +48,7 @@ export default function ForceScene2D(
   const [hover, setHover] = useState<string | null>(null);
   const [hoverLink, setHoverLink] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
+  const [labelFont, setLabelFont] = useState("Arial, sans-serif");
   const [portraitImages, setPortraitImages] = useState<
     Record<string, HTMLImageElement>
   >({});
@@ -113,6 +114,20 @@ export default function ForceScene2D(
     );
     if (ref.zoom() > 2.1) ref.zoom(2.1, 0);
   }, [nodes.length, width, height]);
+
+  useEffect(() => {
+    let active = true;
+    const font = getComputedStyle(document.documentElement).fontFamily;
+    void document.fonts.load(`600 13px ${font}`, "Карта связей ABC").then(
+      () => {
+        if (active) setLabelFont(font);
+      },
+      () => {},
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -297,7 +312,7 @@ export default function ForceScene2D(
         continue;
 
       const font = important ? 13 : 11;
-      ctx.font = `${important ? 700 : 500} ${font}px Arial, sans-serif`;
+      ctx.font = `${important ? 700 : 500} ${font}px ${labelFont}`;
       const text = node.name;
       const textWidth = Math.min(width - 20, ctx.measureText(text).width);
       const box = labelBox(

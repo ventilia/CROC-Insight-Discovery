@@ -7,15 +7,35 @@
     .empty-state,
     .error-banner,
     .event-dialog,
+    .contact-drawer.full-profile
+  ) {
+  border-radius: var(--radius-panel);
+}
+
+.kit-app
+  :is(
     .insight-grid article,
     .request-list li,
     .department-cards > div,
     .key-people > button,
     .project-index article,
-    .project-bridge article,
-    .contact-drawer
+    .project-bridge article
   ) {
-  border-radius: 0;
+  border-radius: var(--radius-control);
+}
+
+.kit-app :is(.primary, .secondary, .icon-button, .sidebar nav button, input, select, textarea) {
+  border-radius: var(--radius-control);
+}
+
+.kit-app .contact-drawer:not(.full-profile) {
+  border-radius: var(--radius-panel) 0 0 var(--radius-panel);
+}
+
+@media (max-width: 450px) {
+  .kit-app .contact-drawer:not(.full-profile) {
+    border-radius: 0;
+  }
 }
 
 .main-content.client-content {
@@ -260,12 +280,14 @@ html {
   padding: 4px;
   min-width: min(225px, calc(100vw - 32px));
   border: 1px solid var(--line);
+  border-radius: var(--radius-control);
   background: var(--panel);
 }
 
 .client-action-menu button {
   background: transparent;
   border: 0;
+  border-radius: calc(var(--radius-control) - 4px);
   padding: 8px 11px;
   min-height: 38px;
   text-align: start;
@@ -423,6 +445,7 @@ html {
   margin: 0 var(--workspace-inset) 14px;
   padding: 12px;
   border: 1px solid var(--line);
+  border-radius: var(--radius-control);
   background: var(--soft);
 }
 
