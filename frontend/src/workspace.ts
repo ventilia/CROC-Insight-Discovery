@@ -10,6 +10,7 @@ import {
 import type { Graph, GraphNode } from "./graph";
 import type { Coverage } from "./coverage";
 import { relationshipHealth } from "./health.ts";
+import { resolveCompany } from "./routes.ts";
 import type {
   CompanyInsights,
   CompanyProfile,
@@ -114,9 +115,7 @@ export async function loadWorkspace(
     ),
   ]);
   if (capabilities.mode === "api") {
-    const companyId = companies.find(
-      (company) => company.id === scope.companyId,
-    )?.id;
+    const companyId = resolveCompany(companies, scope.companyId)?.id;
     const base = { companies, capabilities };
     if (!companyId) {
       const dashboard = await api<DashboardFacts>("/dashboard?days=30", {

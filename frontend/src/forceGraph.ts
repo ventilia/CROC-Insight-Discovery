@@ -37,6 +37,9 @@ export type SceneProps = {
   selectedId: string | null;
   hoveredId?: string | null;
   focusId?: string | null;
+  edgeSubset?: ReadonlySet<string>;
+  selectedEdgeId?: string | null;
+  revealAdjacent?: boolean;
   dark: boolean;
   labels: boolean;
   paused: boolean;
@@ -143,4 +146,24 @@ export function adjacentIds(id: string | null, edges: GraphEdge[]) {
     if (edge.target === id) ids.add(edge.source);
   }
   return ids;
+}
+
+export function neighborhoodEdgeIds(focusId: string, edges: GraphEdge[]) {
+  const nearby = adjacentIds(focusId, edges)!;
+  const links = new Set<string>();
+  const bridges = new Map<string, GraphEdge>();
+  for (const edge of edges) {
+    if (edge.source === focusId || edge.target === focusId) {
+      links.add(edge.id);
+      continue;
+    }
+    const fromNearby = nearby.has(edge.source);
+    if (fromNearby === nearby.has(edge.target)) continue;
+    const other = fromNearby ? edge.target : edge.source;
+    const previous = bridges.get(other);
+    if (!previous || (edge.confirmed && !previous.confirmed))
+      bridges.set(other, edge);
+  }
+  for (const edge of bridges.values()) links.add(edge.id);
+  return links;
 }

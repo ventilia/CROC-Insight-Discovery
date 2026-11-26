@@ -27,6 +27,9 @@ export default function ForceScene2D(
     paused,
     selectedId,
     focusId,
+    edgeSubset,
+    selectedEdgeId,
+    revealAdjacent,
     controls,
     color,
     onSelect,
@@ -182,10 +185,16 @@ export default function ForceScene2D(
   }, [controls, fit, paused, positions]);
 
   const highlights = (link: SceneLink) =>
+    link.id === selectedEdgeId ||
     link.id === hoverLink ||
     (!!active &&
       (endpointId(link.source) === active ||
         endpointId(link.target) === active));
+  const visibleLink = (link: SceneLink) =>
+    !edgeSubset ||
+    edgeSubset.has(link.id) ||
+    link.id === selectedEdgeId ||
+    (!!revealAdjacent && highlights(link));
   const curvature = (link: SceneLink) => curves.get(link.id) ?? 0;
   const linkColor = (link: SceneLink) =>
     edgeStroke(link.type, link.confirmed, dark);
@@ -265,7 +274,11 @@ export default function ForceScene2D(
       const selected = node.id === active;
       const important =
         selected || node.decisionMaker || node.groupSize != null;
-      if (!important && (!labels || (nodes.length > 140 && scale < 0.8)))
+      if (
+        !important &&
+        (!labels ||
+          (nodes.length > 36 && scale < 0.8 && !neighbors?.has(node.id)))
+      )
         continue;
       const { x, y } = ref.graph2ScreenCoords(node.x, node.y);
       const radius = node.radius * scale;
@@ -422,10 +435,11 @@ export default function ForceScene2D(
         );
         ctx.fill();
       }}
+      linkVisibility={visibleLink}
       linkColor={(link) =>
-        linkColor(link) + (highlights(link) ? "ff" : active ? "62" : "9d")
+        linkColor(link) + (highlights(link) ? "ff" : active ? "4d" : "82")
       }
-      linkWidth={(link) => (highlights(link) ? 2.1 : 1.15)}
+      linkWidth={(link) => (highlights(link) ? 2.1 : 1)}
       linkCurvature={curvature}
       linkCanvasObjectMode={() => "after"}
       linkCanvasObject={drawArrows}

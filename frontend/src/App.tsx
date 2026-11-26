@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { useDebounced, useRemote, type Company, type Initiative } from "./api";
 import { CompanyDirectory, DirectoryContact } from "./CompanyDirectory";
+import { internalRoute, publicRoute, resolveCompany } from "./routes";
+import { PersistedPanel } from "./PersistedPanel";
 import {
   riskLabel,
   type CompanyInsights,
@@ -72,13 +74,18 @@ const tabs = [
 const INTERACTION_DAYS = 30;
 
 function useRoute() {
-  const [route, setRoute] = useState(() => location.hash.slice(1) || "/");
+  const read = () => internalRoute(location.hash.startsWith("#/") ? location.hash.slice(1) : location.pathname + location.search);
+  const [route, setRoute] = useState(read);
   useEffect(() => {
-    const update = () => setRoute(location.hash.slice(1) || "/");
+    const update = () => setRoute(read());
     window.addEventListener("hashchange", update);
-    return () => window.removeEventListener("hashchange", update);
+    window.addEventListener("popstate", update);
+    return () => {
+      window.removeEventListener("hashchange", update);
+      window.removeEventListener("popstate", update);
+    };
   }, []);
-  return route;
+  return { route, setRoute };
 }
 export function App() {
   const [theme, setTheme] = useState<"dark" | "light">(() =>
@@ -95,7 +102,7 @@ export function App() {
       /* Storage may be unavailable. */
     }
   }, [theme]);
-  const route = useRoute();
+  const { route, setRoute } = useRoute();
   const [path, query = ""] = route.split("?");
   const parts = path.split("/").filter(Boolean);
   const params = new URLSearchParams(query);
@@ -133,7 +140,13 @@ export function App() {
   });
   const data = workspace.data,
     companies = data?.companies ?? [];
-  const company = companies.find((company) => company.id === parts[1]);
+  const company = resolveCompany(companies, parts[1]);
+  useEffect(() => {
+    if (!data || (isClient && !company)) return;
+    const address = publicRoute(route, companies);
+    if (address !== location.pathname + location.search || location.hash.startsWith("#/"))
+      window.history.replaceState(null, "", address);
+  }, [route, data, companies, company, isClient]);
   const server = data?.capabilities.mode === "api";
   const profile = data?.profile?.id === company?.id ? data?.profile : undefined;
   const companyInsights =
@@ -146,7 +159,10 @@ export function App() {
     (item) => item.initiative.id === person?.iid,
   );
   const go = (path: string) => {
-    location.hash = path;
+    const address = publicRoute(path, companies);
+    if (address !== location.pathname + location.search)
+      window.history.pushState(null, "", address);
+    setRoute(internalRoute(address));
     setPerson(null);
     setProfileOpen(false);
     setSearch("");
@@ -254,11 +270,11 @@ export function App() {
       <aside className={"sidebar" + (mobileNav ? " expanded" : "")}>
         <a
           className="kit-brand"
-          href="#/"
-          onClick={() => {
-            setPerson(null);
-            setProfileOpen(false);
-            setMobileNav(false);
+          href="/"
+          onClick={(event) => {
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            go("/");
           }}
         >
           <span>
@@ -737,6 +753,7 @@ export function App() {
                     />
                   ) : tab === "history" ? (
                     server ? (
+                      <PersistedPanel key={company.id} id={company.id + ".history"} title="Хронология">
                       <CompanyTimeline
                         key={company.id}
                         companyId={company.id}
@@ -744,6 +761,7 @@ export function App() {
                         revision={workspace.revision}
                         onPerson={fullPerson}
                       />
+                      </PersistedPanel>
                     ) : (
                       <HistoryPanel
                         key={company.id}
@@ -1385,14 +1403,7 @@ function CompanyOverview({
         </div>
       </section>
       <div className="overview-columns">
-        <section className="surface">
-          <div className="section-heading">
-            <div>
-              <h2>Подразделения</h2>
-              <p>Организационная структура клиента</p>
-            </div>
-            <Building2 size={19} />
-          </div>
+        <PersistedPanel key={company.id + ".departments"} id={company.id + ".departments"} title="Подразделения">
           <div className="department-cards">
             {departments.map((department) => {
               const members = people.filter(
@@ -1434,15 +1445,8 @@ function CompanyOverview({
               <p className="empty-inline">Подразделения пока не указаны.</p>
             )}
           </div>
-        </section>
-        <section className="surface">
-          <div className="section-heading">
-            <div>
-              <h2>Ключевые участники</h2>
-              <p>Лица, принимающие решения</p>
-            </div>
-            <Users size={19} />
-          </div>
+        </PersistedPanel>
+        <PersistedPanel key={company.id + ".leaders"} id={company.id + ".leaders"} title="Ключевые участники">
           <div className="key-people">
             {keyPeople.map((person) => {
               const item = items.find((item) =>
@@ -1471,21 +1475,15 @@ function CompanyOverview({
               <p className="empty-inline">ЛПР пока не определены.</p>
             )}
           </div>
-        </section>
+        </PersistedPanel>
       </div>
-      <section className="surface">
-        <div className="section-heading">
-          <div>
-            <h2>Последние взаимодействия</h2>
-            <p>Записи по всем проектам компании.</p>
-          </div>
-        </div>
+      <PersistedPanel key={company.id + ".latest"} id={company.id + ".latest"} title="Последние взаимодействия">
         <HistoryList
           entries={latest ?? history(items)}
           onPerson={onPerson}
           compact
         />
-      </section>
+      </PersistedPanel>
     </>
   );
 }

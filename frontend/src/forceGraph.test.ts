@@ -123,3 +123,21 @@ test("подпись ЛПР находит место за пределами з
       required.y + required.height <= 70,
   );
 });
+
+test("окружение оставляет прямые связи и проверенную связь на каждого участника второго шага", async () => {
+  const { neighborhoodEdgeIds } = await import("./forceGraph.ts");
+  const relation = graph.edges[0];
+  const edges = [
+    { ...relation, id: "direct-a", source: "focus", target: "a" },
+    { ...relation, id: "direct-b", source: "b", target: "focus" },
+    { ...relation, id: "unconfirmed-bridge", source: "a", target: "c", confirmed: false },
+    { ...relation, id: "confirmed-bridge", source: "c", target: "b", confirmed: true },
+    { ...relation, id: "direct-crosslink", source: "a", target: "b" },
+    { ...relation, id: "second-crosslink", source: "c", target: "d" },
+    { ...relation, id: "other-bridge", source: "a", target: "d" },
+  ];
+  assert.deepEqual(
+    neighborhoodEdgeIds("focus", edges),
+    new Set(["direct-a", "direct-b", "confirmed-bridge", "other-bridge"]),
+  );
+});

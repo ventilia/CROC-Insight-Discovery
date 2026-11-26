@@ -404,9 +404,15 @@ export function DirectoryContact({
             <div>
               <h1>{item?.name ?? "Карточка контакта"}</h1>
               {item?.jobTitle && <p>{item.jobTitle}</p>}
+              {item?.decisionMaker && <span className="pill">ЛПР</span>}
             </div>
           </div>
         </div>
+        {item && <button className="primary" onClick={() => go(item.assignments[0]
+          ? `${base}/map?initiative=${item.assignments[0].initiativeId}&focus=${item.id}`
+          : `${base}/map`)}>
+          {item.assignments.length ? "Показать на карте" : "Карта компании"}
+        </button>}
       </div>
       {remote.loading && <p role="status">Загружаем карточку…</p>}
       {remote.error && <p role="alert">{remote.error}</p>}
@@ -444,6 +450,7 @@ export function DirectoryContact({
                   <dt>Последний контакт</dt>
                   <dd>{formatDate(item.lastInteractionAt)}</dd>
                 </div>
+                <div><dt>Ответственный менеджер</dt><dd>{item.responsibleManager ?? "Не назначен"}</dd></div>
               </dl>
             </section>
             <section className="surface">
@@ -452,8 +459,7 @@ export function DirectoryContact({
               </div>
               <div className="key-people">
                 {item.assignments.map((entry) => (
-                  <button
-                    key={entry.initiativeId}
+                  <div className="directory-project-actions" key={entry.initiativeId}><button
                     onClick={() =>
                       go(
                         `${base}/person/${item.id}?initiative=${entry.initiativeId}`,
@@ -461,8 +467,9 @@ export function DirectoryContact({
                     }
                   >
                     <strong>{entry.initiativeName}</strong>
+                    {entry.role && <small>{entry.role.label}</small>}
                     <ChevronRight size={16} />
-                  </button>
+                  </button><button className="text-button" onClick={() => go(`${base}/map?initiative=${entry.initiativeId}&focus=${item.id}`)}>На карте</button></div>
                 ))}
                 {item.connections.map((entry) => (
                   <button
@@ -478,7 +485,7 @@ export function DirectoryContact({
                 ))}
                 {!item.assignments.length && !item.connections.length && (
                   <p className="empty-inline">
-                    Связи и проекты пока не указаны.
+                    Контакт пока не включён в проект. Его можно добавить в проект через импорт или открыть карту компании.
                   </p>
                 )}
               </div>

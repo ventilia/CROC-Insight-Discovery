@@ -36,7 +36,7 @@ export function startServer({
           throw new HttpError(405, "Метод недоступен.");
         const file = resolve(
           staticDir,
-          "." + decodeURIComponent(path === "/" ? "/index.html" : path),
+          "." + decodeURIComponent(path === "/" || /^\/clients(?:\/[a-z0-9~_-]+)*\/?$/i.test(path) ? "/index.html" : path),
         );
         if (!file.startsWith(resolve(staticDir) + sep) || !existsSync(file))
           throw new HttpError(404, "Файл недоступен.");
@@ -48,6 +48,8 @@ export function startServer({
               ".css": "text/css; charset=utf-8",
               ".woff2": "font/woff2",
               ".svg": "image/svg+xml",
+              ".jpg": "image/jpeg",
+              ".webp": "image/webp",
             }[extname(file)] || "application/octet-stream",
           "X-Content-Type-Options": "nosniff",
         });

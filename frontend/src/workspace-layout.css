@@ -459,3 +459,10 @@ html[data-theme="dark"] .client-insights .insight-grid article {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.persisted-panel { min-width: 0; align-self: start; width: 100%; }
+.persisted-panel > summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 17px 22px; cursor: pointer; list-style: none; }
+.persisted-panel > summary::-webkit-details-marker { display: none; }
+.persisted-panel > summary h2 { margin: 0; font-size: 18px; }
+.persisted-panel:not([open]) > summary svg { transform: rotate(-90deg); }
+.persisted-panel > .surface { border: 0; margin: 0; }
+.directory-project-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
