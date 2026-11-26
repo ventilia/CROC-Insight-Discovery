@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import {
   ArrowDownLeft,
@@ -61,6 +62,33 @@ const relationshipTypes: Record<string, string> = {
   COORDINATION: "Координация",
   EXPERTISE: "Экспертиза",
 };
+
+function InspectorList({ children, className }: {
+  children: ReactNode[];
+  className?: string;
+}) {
+  const id = useId();
+  const [expanded, setExpanded] = useState(false);
+  const previewSize = 6;
+  return (
+    <>
+      <ul id={id} className={className}>
+        {expanded ? children : children.slice(0, previewSize)}
+      </ul>
+      {children.length > previewSize && (
+        <button
+          type="button"
+          className="text-button graph-list-toggle"
+          aria-controls={id}
+          aria-expanded={expanded}
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? "Свернуть список" : `Показать все · ${children.length}`}
+        </button>
+      )}
+    </>
+  );
+}
 
 export type MapNavigationContext = {
   focus: string | null;
@@ -802,13 +830,16 @@ export function InfluenceMap({
                     <span className="graph-lpr">ЛПР</span>
                   )}
                 </div>
-                <p>
-                  Влияние ·{" "}
-                  {influenceLabels[participant.influence ?? "UNKNOWN"]}
-                </p>
-                <p>Последнее общение · {formatDate(lastTouch ?? null)}</p>
-                {participant.email && <p>{participant.email}</p>}
-                {participant.phone && <p>{participant.phone}</p>}
+                <div className="graph-detail-meta">
+                  <small>Влияние · {influenceLabels[participant.influence ?? "UNKNOWN"]}</small>
+                  <small>Последнее общение · {formatDate(lastTouch ?? null)}</small>
+                </div>
+                {(participant.email || participant.phone) && (
+                  <div className="graph-detail-meta">
+                    {participant.email && <small>{participant.email}</small>}
+                    {participant.phone && <small>{participant.phone}</small>}
+                  </div>
+                )}
               </section>
             )}
             <div className="graph-inspector-lists">
@@ -830,7 +861,7 @@ export function InfluenceMap({
                   </button>
                 </div>
                 {visible.nodes.length ? (
-                  <ul className="graph-roster-list">
+                  <InspectorList className="graph-roster-list">
                     {visible.nodes.map((person) => (
                       <li key={person.id}>
                         <button
@@ -856,7 +887,7 @@ export function InfluenceMap({
                         </button>
                       </li>
                     ))}
-                  </ul>
+                  </InspectorList>
                 ) : (
                   <p>Нет участников для выбранных фильтров.</p>
                 )}
@@ -870,7 +901,7 @@ export function InfluenceMap({
                     Связи участника <span>{adjacent.length}</span>
                   </h3>
                   {adjacent.length ? (
-                    <ul>
+                    <InspectorList key={participant.id}>
                       {adjacent.map((edge) => {
                         const outgoing = edge.source === participant.id;
                         const personId = outgoing ? edge.target : edge.source;
@@ -903,7 +934,7 @@ export function InfluenceMap({
                           </li>
                         );
                       })}
-                    </ul>
+                    </InspectorList>
                   ) : (
                     <p>Связи по этому проекту пока не указаны.</p>
                   )}

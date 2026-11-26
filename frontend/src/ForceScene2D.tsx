@@ -95,15 +95,12 @@ export default function ForceScene2D(
       if (ids) ids.push(edge.id);
       else pairs.set(code, [edge.id]);
     }
+    for (const ids of pairs.values()) ids.sort();
     return new Map(
       edges.map((edge) => {
-        const parallel = pairs.get(key(edge.source, edge.target)) ?? [];
-        const reversed = pairs.has(key(edge.target, edge.source));
-        const base = reversed ? 0.16 : 0;
-        return [
-          edge.id,
-          base + (parallel.length > 1 ? parallel.indexOf(edge.id) * 0.09 : 0),
-        ];
+        const parallel = pairs.get(key(edge.source, edge.target))!;
+        const lane = parallel.indexOf(edge.id) / Math.max(1, parallel.length - 1);
+        return [edge.id, 0.22 + lane * 0.24];
       }),
     );
   }, [edges]);
@@ -202,7 +199,7 @@ export default function ForceScene2D(
       link.id === selectedEdgeId ||
       (!!revealAdjacent && highlights(link));
   };
-  const curvature = (link: SceneLink) => curves.get(link.id) ?? 0;
+  const curvature = (link: SceneLink) => curves.get(link.id) ?? 0.22;
   const linkColor = (link: SceneLink) =>
     edgeStroke(link.type, link.confirmed, dark);
 
@@ -263,9 +260,11 @@ export default function ForceScene2D(
     const occupied: NonNullable<ReturnType<typeof labelBox>>[] = [];
     const targets: typeof labelTargets.current = [];
     for (const node of data.nodes) {
-      if (node.groupSize == null) continue;
+      if (node.groupSize == null && !node.decisionMaker && node.id !== active) {
+        continue;
+      }
       const { x, y } = ref.graph2ScreenCoords(node.x, node.y);
-      const radius = node.radius * scale;
+      const radius = Math.max(node.radius * scale, 3.8) + 4;
       occupied.push({
         x: x - radius,
         y: y - radius,
@@ -446,7 +445,7 @@ export default function ForceScene2D(
       linkColor={(link) =>
         linkColor(link) + (highlights(link) ? "ff" : active ? "4d" : "82")
       }
-      linkWidth={(link) => (highlights(link) ? 2.1 : 1)}
+      linkWidth={(link) => (highlights(link) ? 2 : 0.85)}
       linkCurvature={curvature}
       linkCanvasObjectMode={() => "after"}
       linkCanvasObject={drawArrows}

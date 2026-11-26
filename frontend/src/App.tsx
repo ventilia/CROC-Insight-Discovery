@@ -962,12 +962,7 @@ export function App() {
                 <>
                   <div className="page-title">
                     <div>
-                      <span className="eyebrow">Компании</span>
                       <h1>Клиенты</h1>
-                      <p>
-                        Структура, контакты и состояние отношений с каждой
-                        компанией
-                      </p>
                     </div>
                     <span className="total-label">
                       Всего: {companies.length}
@@ -1176,25 +1171,22 @@ function Dashboard({
       label: "Компании",
       value: stats.companies,
 
-      note: "Доступны вашей команде",
     },
     {
-      label: "Контакты в базе",
+      label: "Контакты",
       value: stats.contacts,
 
-      note: "Сотрудники компаний",
     },
     {
       label: "Взаимодействия",
       value: stats.events,
 
-      note: "За 30 дней до указанной даты",
+      note: "За 30 дней",
     },
     {
       label: "Замечания",
       value: stats.risks,
 
-      note: "По данным проектов",
     },
   ];
   return (
@@ -1202,7 +1194,6 @@ function Dashboard({
       <div className="page-title">
         <div>
           <h1>Работа с клиентами</h1>
-          <p>Компании, контакты и последние записи.</p>
         </div>
         <span className="snapshot-label">
           <CalendarDays size={16} />
@@ -1216,14 +1207,13 @@ function Dashboard({
               <span>{metric.label}</span>
             </div>
             <strong>{metric.value}</strong>
-            <small>{metric.note}</small>
+            {metric.note && <small>{metric.note}</small>}
           </div>
         ))}
       </section>
       <div className="section-heading outside">
         <div>
           <h2>Клиенты</h2>
-          <p>Контакты и история работы с каждой компанией.</p>
         </div>
         <button className="text-button" onClick={() => go("/companies")}>
           Все клиенты
@@ -1236,7 +1226,6 @@ function Dashboard({
           <div className="section-heading">
             <div>
               <h2>Что нужно проверить</h2>
-              <p>По истории общения и данным сотрудников.</p>
             </div>
           </div>
           <div className="risk-list">
@@ -1279,7 +1268,6 @@ function Dashboard({
           <div className="section-heading">
             <div>
               <h2>Последние взаимодействия</h2>
-              <p>Встречи, звонки и переписка.</p>
             </div>
             <CalendarDays size={19} />
           </div>
@@ -1402,7 +1390,7 @@ function CompanyOverview({
     <>
       <section className="company-summary surface">
         <div>
-          <h2>{company.name}</h2>
+          <h2>О компании</h2>
           <p>{company.description ?? "Описание компании не заполнено."}</p>
           <button className="primary" disabled={!items.length} onClick={onMap}>
             <Network size={17} />
@@ -1560,7 +1548,6 @@ function ContactTable({
             Контакты проекта{" "}
             <span className="count-badge">{visible.length}</span>
           </h2>
-          <p>Роли, влияние и история общения</p>
         </div>
         <button className="secondary" disabled={!visible.length} onClick={copy}>
           <Copy size={16} />

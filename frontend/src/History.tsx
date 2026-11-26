@@ -373,7 +373,6 @@ export function HistoryPanel({
       <div className="section-heading">
         <div>
           <h2>История работы с клиентом</h2>
-          <p>Встречи, переписка и договорённости.</p>
         </div>
         <span className="count-badge">{visible.length}</span>
       </div>
