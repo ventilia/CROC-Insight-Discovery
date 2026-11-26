@@ -1,3 +1,4 @@
+import { Search, Target } from "lucide-react";
 import type { InitiativeData } from "./workspace";
 export const emptyContactFilters = {
   search: "",
@@ -11,14 +12,39 @@ export const emptyContactFilters = {
   decisionMaker: "",
 };
 export type ContactFilterValues = typeof emptyContactFilters;
+
+export function DecisionMakerFilter({
+  active,
+  onToggle,
+}: {
+  active: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="decision-maker-filter"
+      aria-pressed={active}
+      onClick={onToggle}
+    >
+      <Target size={17} aria-hidden="true" />
+      Только ЛПР
+    </button>
+  );
+}
+
 export function ContactFilters({
   item,
   value,
   change,
+  showSearch = true,
+  showDecisionMaker = true,
 }: {
   item: InitiativeData;
   value: ContactFilterValues;
   change: (value: ContactFilterValues) => void;
+  showSearch?: boolean;
+  showDecisionMaker?: boolean;
 }) {
   const set = (key: keyof ContactFilterValues, next: string) =>
     change({ ...value, [key]: next });
@@ -38,16 +64,29 @@ export function ContactFilters({
   ];
   return (
     <div className="smart-filters">
-      <div className="filter-grid">
-        <label>
-          Поиск контакта
-          <input
-            type="search"
-            placeholder="Имя, должность, email"
-            value={value.search}
-            onChange={(event) => set("search", event.target.value)}
+      <div className="filter-grid primary-contact-filters">
+        {showSearch && (
+          <label className="search-control">
+            <span>Поиск контакта</span>
+            <div>
+              <Search size={17} aria-hidden="true" />
+              <input
+                type="search"
+                placeholder="Имя, должность, email"
+                value={value.search}
+                onChange={(event) => set("search", event.target.value)}
+              />
+            </div>
+          </label>
+        )}
+        {showDecisionMaker && (
+          <DecisionMakerFilter
+            active={value.decisionMaker === "yes"}
+            onToggle={() =>
+              set("decisionMaker", value.decisionMaker === "yes" ? "" : "yes")
+            }
           />
-        </label>
+        )}
         <label>
           Роль в решении
           <select
@@ -100,7 +139,7 @@ export function ContactFilters({
                 onChange={(e) => set("decisionMaker", e.target.value)}
               >
                 <option value="">Все участники</option>
-                <option value="yes">Только ЛПР</option>
+                <option value="yes">ЛПР</option>
                 <option value="no">Без ЛПР</option>
               </select>
             </label>

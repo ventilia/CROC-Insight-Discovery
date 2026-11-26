@@ -42,6 +42,7 @@ export type CompanyFacts = {
 };
 
 export type CompanyInsights = {
+  companyId: string;
   latestAsOf: string | null;
   activeInteractionCount: number;
   riskCount: number;

@@ -132,7 +132,10 @@ export async function loadWorkspace(
         ? api<CompanyInsights>(`${client}/insights?days=${days}`, { signal })
         : undefined,
       view === "overview"
-        ? api<EventPage>(`${client}/events?limit=4`, { signal })
+        ? api<EventPage>(
+            `${client}/events?${new URLSearchParams({ limit: "4", through: new Date().toISOString() })}`,
+            { signal },
+          )
         : undefined,
     ]);
     const activeId = scope.projectId ?? profile.initiatives[0]?.id;

@@ -30,6 +30,19 @@
   padding-inline: clamp(18px, 2vw, 40px);
 }
 
+.main-content:is(.client-contacts, .client-history, .client-insights) {
+  --workspace-inset: clamp(16px, 2vw, 28px);
+  --workspace-muted: #53695b;
+  max-width: 2060px;
+  min-width: 0;
+  padding-inline: clamp(16px, 1.65vw, 36px);
+}
+
+html[data-theme="dark"]
+  .main-content:is(.client-contacts, .client-history, .client-insights) {
+  --workspace-muted: var(--ink-muted);
+}
+
 .client-content > .page-title {
   margin-bottom: 17px;
 }
@@ -64,15 +77,13 @@
 }
 .client-map .scope-bar > label:first-child {
   flex: 0 1 285px;
-}
-.client-map .scope-bar > label {
-  min-width: 112px;
+  min-width: 0;
 }
 .client-map .scope-bar label select {
   min-height: 38px;
 }
 .client-map .graph-map-surface {
-  --graph-stage-height: clamp(365px, calc(100dvh - 395px), 680px);
+  --graph-stage-height: clamp(365px, calc(100dvh - 342px), 760px);
 }
 
 .sidebar-ai {
@@ -118,8 +129,263 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
-.directory-filters {
-  grid-template-columns: repeat(auto-fit, minmax(156px, 1fr));
+.contact-scope {
+  align-items: end;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.contact-scope > label:first-child {
+  width: min(100%, 360px);
+  min-width: 0;
+}
+.contact-scope > label,
+.client-insights .scope-bar > label {
+  color: var(--workspace-muted);
+  font-size: 13px;
+  font-weight: 550;
+}
+.client-insights .scope-bar > label:first-child {
+  width: min(100%, 360px);
+  min-width: 0;
+}
+
+:is(.company-directory, .project-contacts, .history-surface, .client-insights)
+  .section-heading {
+  padding-inline: var(--workspace-inset);
+}
+:is(.company-directory, .project-contacts, .history-surface, .client-insights)
+  .section-heading
+  h2 {
+  font-size: clamp(20px, 2vw, 24px);
+  line-height: 1.25;
+}
+:is(.company-directory, .project-contacts, .history-surface, .client-insights)
+  .section-heading
+  p {
+  font-size: 14px;
+  color: var(--workspace-muted);
+}
+
+.company-directory .directory-filters,
+.project-contacts .primary-contact-filters,
+.history-surface .history-filters {
+  grid-template-columns: minmax(180px, 1.5fr) repeat(3, minmax(132px, 1fr));
+  align-items: end;
+}
+.company-directory .directory-filters {
+  padding: 0 var(--workspace-inset) 24px;
+}
+.project-contacts .smart-filters {
+  padding: 0 var(--workspace-inset) 24px;
+}
+.history-surface .history-filters {
+  padding: 0 var(--workspace-inset) 20px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+:is(.company-directory, .project-contacts, .history-surface)
+  .filter-grid
+  label {
+  min-width: 0;
+  color: var(--workspace-muted);
+  font-size: 13px;
+  font-weight: 550;
+}
+:is(.company-directory, .project-contacts, .history-surface)
+  .filter-grid
+  :is(input, select) {
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 400;
+}
+:is(.company-directory, .project-contacts, .history-surface)
+  .filter-grid
+  input::placeholder {
+  color: var(--workspace-muted);
+  opacity: 1;
+}
+.project-contacts .filter-bottom :is(summary, .text-button) {
+  min-height: 36px;
+  font-size: 13px;
+}
+.decision-maker-filter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--panel, #fff);
+  color: var(--accent-dark);
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.decision-maker-filter:hover {
+  background: var(--soft, #edf5ef);
+}
+.decision-maker-filter[aria-pressed="true"] {
+  background: var(--accent);
+  color: #fff;
+}
+html[data-theme="dark"] .decision-maker-filter[aria-pressed="true"] {
+  color: #101512;
+}
+
+:is(.company-directory, .project-contacts) .table-scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+:is(.company-directory, .project-contacts) :is(th, td) {
+  padding: 13px 16px;
+}
+:is(.company-directory, .project-contacts) th {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--workspace-muted);
+}
+:is(.company-directory, .project-contacts) td {
+  font-size: 14px;
+  line-height: 1.5;
+}
+:is(.company-directory, .project-contacts) :is(th, td):first-child {
+  width: 30%;
+  min-width: 210px;
+  padding-left: var(--workspace-inset);
+}
+:is(.company-directory, .project-contacts) .person-button strong {
+  font-size: 15px;
+  font-weight: 650;
+  white-space: normal;
+}
+:is(.company-directory, .project-contacts) .person-button:hover strong {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+:is(.company-directory, .project-contacts)
+  :is(.person-button small, .cell-date, .status-tag.UNKNOWN) {
+  font-size: 13px;
+  color: var(--workspace-muted);
+}
+.project-contacts :is(.role-badge, .status-tag) {
+  font-size: 12px;
+}
+.contact-identity {
+  display: flex;
+  align-items: baseline;
+  gap: 4px 8px;
+  flex-wrap: wrap;
+}
+.decision-maker-label {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--secondary-panel, #e8f2ea);
+  color: var(--accent-dark);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.history-surface .activity-list {
+  padding: 0 var(--workspace-inset) 12px;
+}
+.history-surface .activity-list > li {
+  display: grid;
+  grid-template-columns: minmax(96px, 130px) minmax(0, 1fr);
+  gap: 12px 20px;
+  margin: 0;
+  padding: 20px 0;
+}
+.activity-date {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 5px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--workspace-muted);
+}
+.activity-date time {
+  color: var(--accent-dark);
+  font-size: 14px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.history-surface .activity-content h3 {
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+.history-surface .activity-content :is(p, small) {
+  max-width: 76ch;
+  color: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.history-surface .activity-content :is(.activity-context, small) {
+  color: var(--workspace-muted) !important;
+  font-size: 13px !important;
+}
+.history-surface .activity-people button {
+  min-height: 36px;
+  padding-inline: 9px;
+  color: var(--accent-dark);
+  font-size: 13px;
+}
+
+.client-insights .health-score > span {
+  font-size: 16px;
+}
+.client-insights .health-score small,
+.client-insights .health-score > div span,
+.client-insights .health-body :is(span, details, .health-risk) {
+  font-size: 14px;
+}
+.client-insights .health-factors span,
+.client-insights .health-body details {
+  color: var(--workspace-muted);
+}
+.client-insights .health-factors strong {
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+.client-insights .insight-grid {
+  display: block;
+  padding: 0 var(--workspace-inset);
+}
+.client-insights .insight-grid article {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 12px 24px;
+  padding: 16px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+}
+html[data-theme="dark"] .client-insights .insight-grid article {
+  background: transparent;
+}
+.client-insights .insight-grid h3 {
+  font-size: 16px;
+  line-height: 1.45;
+  font-weight: 650;
+}
+.client-insights .insight-meta strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.client-insights .insight-meta p {
+  margin: 3px 0 0;
+  color: var(--workspace-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.client-insights .section-actions {
+  padding-inline: var(--workspace-inset);
+  padding-bottom: 20px;
+  flex-wrap: wrap;
 }
 .local-model-dialog form > p {
   margin-block: 8px;
@@ -134,6 +400,14 @@
   flex-wrap: wrap;
 }
 
+@media (max-width: 1020px) {
+  .company-directory .directory-filters,
+  .project-contacts .primary-contact-filters,
+  .history-surface .history-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 720px) {
   .main-content.client-content {
     padding-inline: 12px;
@@ -144,10 +418,44 @@
   .client-map .scope-bar > label:first-child {
     flex: 1 1 170px;
   }
-  .client-map .scope-bar > label {
-    flex: 1 1 108px;
-  }
   .client-map .scope-bar > button {
     min-height: 36px;
+  }
+  :is(.client-contacts, .client-history, .client-insights) > .client-tabs {
+    margin-inline: -12px;
+    padding-inline: 12px;
+  }
+  .contact-scope > label:first-child,
+  .client-insights .scope-bar > label:first-child {
+    flex-basis: 100%;
+  }
+  .project-contacts .section-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  :is(.company-directory, .project-contacts, .history-surface)
+    .filter-grid
+    select {
+    padding-inline-start: 10px;
+  }
+  .history-surface .activity-list > li,
+  .client-insights .insight-grid article {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .activity-date {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .client-insights .health-factors {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 340px) {
+  .company-directory .directory-filters,
+  .project-contacts .primary-contact-filters,
+  .history-surface .history-filters {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

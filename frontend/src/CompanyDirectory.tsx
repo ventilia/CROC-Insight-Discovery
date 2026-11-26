@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronRight, Search } from "lucide-react";
 import { useDebounced, useRemote } from "./api";
 import type {
@@ -7,16 +7,79 @@ import type {
   ContactSummary,
 } from "./companyApi";
 import { formatDate } from "./coverage";
-import { influenceLabels } from "./workspace";
+import { history, influenceLabels, type InitiativeData } from "./workspace";
 import { CompanyTimeline } from "./History";
+import { DecisionMakerFilter } from "./ContactFilters";
+import { ContactPortrait } from "./ContactPortrait";
+
+type LocalContact = ContactSummary & { email: string | null };
+
+function localDirectory(items: InitiativeData[]) {
+  const contacts = new Map<string, LocalContact>();
+  const managers = new Map<string, string>();
+  for (const event of history(items)) {
+    if (!event.responsibleManager) continue;
+    for (const person of event.participants) {
+      if (!managers.has(person.id))
+        managers.set(person.id, event.responsibleManager);
+    }
+  }
+  const influenceRank = { UNKNOWN: 0, LOW: 1, MEDIUM: 2, HIGH: 3 };
+  for (const item of items) {
+    const coverage = new Map(
+      item.coverage.contacts.map((entry) => [entry.id, entry]),
+    );
+    for (const person of item.graph.nodes) {
+      const previous = contacts.get(person.id);
+      const touch = coverage.get(person.id);
+      const lastInteraction = touch?.lastTouchAt ?? null;
+      const latest = Boolean(
+        lastInteraction &&
+          (!previous?.lastInteractionAt ||
+            Date.parse(lastInteraction) >
+              Date.parse(previous.lastInteractionAt)),
+      );
+      const roles = previous?.roles ?? [];
+      const influence = person.influence ?? "UNKNOWN";
+      contacts.set(person.id, {
+        id: person.id,
+        name: person.name,
+        email: person.email ?? previous?.email ?? null,
+        jobTitle: person.jobTitle ?? previous?.jobTitle ?? null,
+        department: person.department ?? previous?.department ?? null,
+        roles:
+          person.role && !roles.some((role) => role.code === person.role?.code)
+            ? [...roles, person.role]
+            : roles,
+        influence:
+          previous &&
+          influenceRank[previous.influence] > influenceRank[influence]
+            ? previous.influence
+            : influence,
+        decisionMaker: person.decisionMaker || !!previous?.decisionMaker,
+        lastInteractionAt: latest
+          ? lastInteraction
+          : (previous?.lastInteractionAt ?? null),
+        interaction:
+          (latest ? touch?.touchStatus : previous?.interaction) ?? "UNKNOWN",
+        responsibleManager: managers.get(person.id) ?? null,
+      });
+    }
+  }
+  return [...contacts.values()].sort((a, b) =>
+    a.name.localeCompare(b.name, "ru"),
+  );
+}
 
 export function CompanyDirectory({
   profile,
+  localItems,
   days,
   revision,
   onPerson,
 }: {
-  profile: CompanyProfile;
+  profile?: CompanyProfile;
+  localItems?: InitiativeData[];
   days: number;
   revision: number;
   onPerson: (id: string) => void;
@@ -28,6 +91,7 @@ export function CompanyDirectory({
   const [role, setRole] = useState("");
   const [job, setJob] = useState("");
   const [manager, setManager] = useState("");
+  const [decisionMaker, setDecisionMaker] = useState(false);
   const [offset, setOffset] = useState(0);
   const filters = new URLSearchParams({ days: String(days) });
   const query = useDebounced(search.trim());
@@ -41,6 +105,7 @@ export function CompanyDirectory({
     roleCode: role,
     jobTitle,
     responsibleManager,
+    decisionMaker: decisionMaker ? "true" : "",
   })) {
     if (value) filters.set(key, value);
   }
@@ -48,16 +113,55 @@ export function CompanyDirectory({
   filters.set("limit", String(pageSize));
   filters.set("offset", String(offset));
   const contacts = useRemote<{ items: ContactSummary[]; total: number }>(
-    `/companies/${profile.id}/contacts?${filters}`,
+    profile ? `/companies/${profile.id}/contacts?${filters}` : null,
     revision,
   );
-  const roles = profile.roles ?? [];
+  const localContacts = useMemo(
+    () => localDirectory(localItems ?? []),
+    [localItems],
+  );
+  const includes = (value: string | null, term: string) =>
+    !term ||
+    (value ?? "")
+      .toLocaleLowerCase("ru")
+      .includes(term.toLocaleLowerCase("ru"));
+  const visible = localItems
+    ? localContacts.filter(
+        (entry) =>
+          (!decisionMaker || entry.decisionMaker) &&
+          (!department || entry.department?.id === department) &&
+          (!influence || entry.influence === influence) &&
+          (!interaction || entry.interaction === interaction) &&
+          (!role || entry.roles.some((entry) => entry.code === role)) &&
+          (includes(entry.name, query) || includes(entry.email, query)) &&
+          includes(entry.jobTitle, jobTitle) &&
+          includes(entry.responsibleManager, responsibleManager),
+      )
+    : undefined;
+  const page = visible
+    ? { items: visible.slice(offset, offset + pageSize), total: visible.length }
+    : contacts.data;
+  const roles = profile?.roles ?? [
+    ...new Map(
+      localContacts.flatMap((entry) =>
+        entry.roles.map((role) => [role.code, role]),
+      ),
+    ).values(),
+  ];
+  const departments = profile?.departments ?? [
+    ...new Map(
+      localContacts.flatMap(({ department }) =>
+        department ? [[department.id, department] as const] : [],
+      ),
+    ).values(),
+  ];
   return (
     <section className="surface company-directory">
       <div className="section-heading">
         <h2>Контакты компании</h2>
         <span className="count-badge">
-          {contacts.data?.total ?? profile.contactCount}
+          {page?.total ??
+            (contacts.loading ? "…" : (profile?.contactCount ?? 0))}
         </span>
       </div>
       <div className="filter-grid directory-filters">
@@ -77,6 +181,13 @@ export function CompanyDirectory({
             />
           </div>
         </label>
+        <DecisionMakerFilter
+          active={decisionMaker}
+          onToggle={() => {
+            setDecisionMaker(!decisionMaker);
+            setOffset(0);
+          }}
+        />
         <label>
           Подразделение
           <select
@@ -86,8 +197,8 @@ export function CompanyDirectory({
               setOffset(0);
             }}
           >
-            <option value="">Все подразделения</option>
-            {profile.departments.map((entry) => (
+            <option value="">Все отделы</option>
+            {departments.map((entry) => (
               <option key={entry.id} value={entry.id}>
                 {entry.name}
               </option>
@@ -103,7 +214,7 @@ export function CompanyDirectory({
               setOffset(0);
             }}
           >
-            <option value="">Любое влияние</option>
+            <option value="">Любое</option>
             {Object.entries(influenceLabels).map(([code, label]) => (
               <option key={code} value={code}>
                 {label}
@@ -178,9 +289,14 @@ export function CompanyDirectory({
           {contacts.error}
         </p>
       )}
-      {contacts.data &&
-        (contacts.data.items.length ? (
-          <div className="table-scroll">
+      {page &&
+        (page.items.length ? (
+          <div
+            className="table-scroll"
+            tabIndex={0}
+            role="region"
+            aria-label="Контакты компании"
+          >
             <table>
               <thead>
                 <tr>
@@ -193,15 +309,23 @@ export function CompanyDirectory({
                 </tr>
               </thead>
               <tbody>
-                {contacts.data.items.map((entry) => (
+                {page.items.map((entry) => (
                   <tr key={entry.id}>
                     <td>
                       <button
                         className="person-button"
                         onClick={() => onPerson(entry.id)}
                       >
+                        {entry.decisionMaker && (
+                          <ContactPortrait personId={entry.id} size={36} />
+                        )}
                         <span>
-                          <strong>{entry.name}</strong>
+                          <span className="contact-identity">
+                            <strong>{entry.name}</strong>
+                            {entry.decisionMaker && (
+                              <span className="decision-maker-label">ЛПР</span>
+                            )}
+                          </span>
                           <small>
                             {entry.jobTitle ?? "Должность не указана"}
                           </small>
@@ -223,7 +347,7 @@ export function CompanyDirectory({
         ) : (
           <p className="empty-inline">Контакты по этим фильтрам не найдены.</p>
         ))}
-      {contacts.data && (offset > 0 || contacts.data.total > pageSize) && (
+      {page && (offset > 0 || page.total > pageSize) && (
         <div className="table-pagination">
           <button
             className="secondary"
@@ -232,10 +356,10 @@ export function CompanyDirectory({
           >
             Назад
           </button>
-          <span>Всего {contacts.data.total}</span>
+          <span>Всего {page.total}</span>
           <button
             className="secondary"
-            disabled={offset + pageSize >= contacts.data.total}
+            disabled={offset + pageSize >= page.total}
             onClick={() => setOffset(offset + pageSize)}
           >
             Далее
@@ -273,8 +397,15 @@ export function DirectoryContact({
           >
             ← Контакты компании
           </button>
-          <h1>{item?.name ?? "Карточка контакта"}</h1>
-          <p>{item?.jobTitle}</p>
+          <div className="profile-portrait-heading">
+            {item?.decisionMaker && (
+              <ContactPortrait personId={item.id} size={56} />
+            )}
+            <div>
+              <h1>{item?.name ?? "Карточка контакта"}</h1>
+              {item?.jobTitle && <p>{item.jobTitle}</p>}
+            </div>
+          </div>
         </div>
       </div>
       {remote.loading && <p role="status">Загружаем карточку…</p>}

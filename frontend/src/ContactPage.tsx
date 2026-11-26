@@ -1,7 +1,7 @@
 import { ArrowLeft } from "lucide-react";
+import { useLayoutEffect, useRef } from "react";
 import { ContactDrawer } from "./ContactDrawer";
 import { InfluenceMap } from "./InfluenceMap";
-import type { GraphEdge } from "./graph";
 import type { InitiativeData } from "./workspace";
 import type { WorkspaceAction } from "./WorkspaceEdit";
 export function ContactPage({
@@ -15,7 +15,6 @@ export function ContactPage({
   onManage,
   onRefresh,
   returnTo,
-  onEditRelationship,
   server,
 }: {
   item?: InitiativeData;
@@ -28,10 +27,15 @@ export function ContactPage({
   onRefresh: () => void;
   onManage?: (action: WorkspaceAction) => void;
   returnTo?: string;
-  onEditRelationship?: (edge: GraphEdge) => void;
   server?: boolean;
 }) {
+  const heading = useRef<HTMLHeadingElement>(null);
   const person = item?.graph.nodes.find((p) => p.id === personId);
+  useLayoutEffect(() => {
+    if (!person) return;
+    window.scrollTo(0, 0);
+    heading.current?.focus({ preventScroll: true });
+  }, [person?.id]);
   if (!item || !person)
     return (
       <div className="empty-state">
@@ -51,7 +55,7 @@ export function ContactPage({
       params.set("from", "map");
       const [, query] = returnTo.split("?");
       const previous = new URLSearchParams(query);
-      for (const key of ["focus", "shared"]) {
+      for (const key of ["focus", "depth", "shared", "sharedOnly"]) {
         const value = previous.get(key);
         if (value) params.set(key, value);
       }
@@ -70,13 +74,26 @@ export function ContactPage({
             <ArrowLeft size={16} aria-hidden="true" />
             {returnTo ? "К карте связей" : "К контактам компании"}
           </button>
-          <h1>{person.name}</h1>
+          <h1 ref={heading} tabIndex={-1}>
+            {person.name}
+          </h1>
           <p>
             {person.jobTitle ?? "Должность не указана"} · {item.initiative.name}
           </p>
         </div>
       </div>
       <div className="contact-page-grid">
+        <div className="contact-page-network">
+          <InfluenceMap
+            key={item.initiative.id + personId}
+            item={item}
+            selectedId={personId}
+            initialFocus={personId}
+            onSelect={(pid) => onPerson(item.initiative.id, pid)}
+            darkTheme={dark}
+            variant="profile"
+          />
+        </div>
         <ContactDrawer
           key={item.initiative.id + personId}
           presentation="page"
@@ -94,27 +111,6 @@ export function ContactPage({
             go(`${base}/map?initiative=${item.initiative.id}&focus=${personId}`)
           }
         />
-        <div className="contact-page-network">
-          <InfluenceMap
-            key={item.initiative.id + personId}
-            item={item}
-            selectedId={personId}
-            initialFocus={personId}
-            onSelect={(pid) => onPerson(item.initiative.id, pid)}
-            darkTheme={dark}
-            onAddRelationship={
-              onManage
-                ? () =>
-                    onManage({
-                      kind: "relationship",
-                      iid: item.initiative.id,
-                      pid: personId,
-                    })
-                : undefined
-            }
-            onEditRelationship={onEditRelationship}
-          />
-        </div>
       </div>
     </div>
   );

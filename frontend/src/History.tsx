@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Search } from "lucide-react";
 import { formatDate } from "./coverage";
 import type { HistoryEntry } from "./workspace";
@@ -22,11 +22,13 @@ export function HistoryList({
   onPerson,
   compact = false,
   paginated = false,
+  dateColumn = false,
 }: {
   entries: HistoryEntry[];
   onPerson: (iid: string, pid: string) => void;
   compact?: boolean;
   paginated?: boolean;
+  dateColumn?: boolean;
 }) {
   const [limit, setLimit] = useState(10);
   return entries.length ? (
@@ -35,34 +37,45 @@ export function HistoryList({
         {entries
           .slice(0, compact ? 4 : paginated ? entries.length : limit)
           .map((event) => {
+            const meta = (
+              <div className={dateColumn ? "activity-date" : "activity-meta"}>
+                {!dateColumn && (
+                  <span>{eventLabels[event.type] ?? event.type}</span>
+                )}
+                <time dateTime={event.occurredAt}>
+                  {formatDate(event.occurredAt)}
+                </time>
+                {dateColumn && (
+                  <span>{eventLabels[event.type] ?? event.type}</span>
+                )}
+              </div>
+            );
             return (
               <li key={event.id}>
+                {dateColumn && meta}
                 <div className="activity-content">
-                  <div className="activity-meta">
-                    <span>{eventLabels[event.type] ?? event.type}</span>
-                    <time dateTime={event.occurredAt}>
-                      {formatDate(event.occurredAt)}
-                    </time>
-                  </div>
+                  {!dateColumn && meta}
                   <h3>{event.subject}</h3>
                   <p className="activity-context">
                     {event.initiativeName} · {event.team}
                   </p>
                   {!compact && (
                     <>
-                      <div className="activity-people">
-                        {event.participants.map((person) => (
-                          <button
-                            key={person.id}
-                            type="button"
-                            onClick={() =>
-                              onPerson(event.initiativeId, person.id)
-                            }
-                          >
-                            {person.name}
-                          </button>
-                        ))}
-                      </div>
+                      {event.participants.length > 0 && (
+                        <div className="activity-people">
+                          {event.participants.map((person) => (
+                            <button
+                              key={person.id}
+                              type="button"
+                              onClick={() =>
+                                onPerson(event.initiativeId, person.id)
+                              }
+                            >
+                              {person.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                       {event.outcome && (
                         <p>
                           <b>
@@ -147,7 +160,8 @@ export function CompanyTimeline({
   const [project, setProject] = useState("");
   const query = useDebounced(search.trim());
   const responsibleManager = useDebounced(manager.trim());
-  const filters = new URLSearchParams({ limit: "20" });
+  const through = useMemo(() => new Date().toISOString(), [revision]);
+  const filters = new URLSearchParams({ limit: "20", through });
   for (const [key, value] of Object.entries({
     q: query,
     type,
@@ -159,7 +173,7 @@ export function CompanyTimeline({
   }
   const path = `/companies/${companyId}/events?${filters}`;
   return (
-    <section className="surface">
+    <section className={personId ? "surface" : "surface history-surface"}>
       <div className="section-heading">
         <h2>{personId ? "История общения" : "История работы с клиентом"}</h2>
       </div>
@@ -220,6 +234,7 @@ export function CompanyTimeline({
         key={path + ":" + revision}
         path={path}
         onPerson={onPerson}
+        dateColumn={!personId}
       />
     </section>
   );
@@ -228,9 +243,11 @@ export function CompanyTimeline({
 function TimelinePages({
   path,
   onPerson,
+  dateColumn,
 }: {
   path: string;
   onPerson: (iid: string, pid: string) => void;
+  dateColumn: boolean;
 }) {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [next, setNext] = useState<string | null>(null);
@@ -274,7 +291,12 @@ function TimelinePages({
   return (
     <>
       {(entries.length > 0 || (!loading && !error)) && (
-        <HistoryList entries={entries} onPerson={onPerson} paginated />
+        <HistoryList
+          entries={entries}
+          onPerson={onPerson}
+          paginated
+          dateColumn={dateColumn}
+        />
       )}
       {loading && (
         <p className="empty-inline" role="status">
@@ -347,7 +369,7 @@ export function HistoryPanel({
     ).entries(),
   ];
   return (
-    <section className="surface">
+    <section className="surface history-surface">
       <div className="section-heading">
         <div>
           <h2>История работы с клиентом</h2>
@@ -414,6 +436,7 @@ export function HistoryPanel({
           key={[search, type, manager, initiative].join("|")}
           entries={visible}
           onPerson={onPerson}
+          dateColumn
         />
       ) : (
         <div className="empty-state">

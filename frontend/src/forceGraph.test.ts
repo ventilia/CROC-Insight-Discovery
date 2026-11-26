@@ -10,6 +10,7 @@ import {
   type PositionCache,
 } from "./forceGraph.ts";
 import type { Graph } from "./graph.ts";
+import { labelBox } from "./graphLabels.ts";
 const graph: Graph = JSON.parse(
   readFileSync(
     new URL("../../backend/examples/graph.json", import.meta.url),
@@ -91,4 +92,34 @@ test("подсветка охватывает только ближайших с
   ];
   assert.deepEqual(adjacentIds("a", edges), new Set(["a", "b", "c"]));
   assert.equal(adjacentIds(null, edges), null);
+});
+
+test("окружение фиксирует центр и разводит участников по нескольким кольцам", () => {
+  const nodes = Array.from({ length: 40 }, (_, index) => ({
+    ...graph.nodes[index % 4],
+    id: String(index),
+  }));
+  const scene = createForceData(nodes, [], new Map(), "7");
+  const center = scene.nodes.find((node) => node.id === "7")!;
+  assert.deepEqual([center.x, center.y], [0, 0]);
+  const normalizedDistance = (node: typeof center) =>
+    Math.round(Math.hypot(node.x / 132, node.y / 103));
+  assert.deepEqual(
+    [...new Set(scene.nodes.map(normalizedDistance))].sort(),
+    [0, 1, 2, 3],
+  );
+});
+
+test("подпись ЛПР находит место за пределами занятых соседних подписей", () => {
+  const anchor = { x: 200, y: 150, radius: 8 };
+  const viewport = { width: 420, height: 300 };
+  const occupied = [{ x: 96, y: 70, width: 204, height: 156 }];
+  assert.equal(labelBox(anchor, 80, 18, viewport, occupied, false), null);
+  const required = labelBox(anchor, 80, 18, viewport, occupied, true)!;
+  assert.ok(
+    required.x >= 300 ||
+      required.x + required.width <= 96 ||
+      required.y >= 226 ||
+      required.y + required.height <= 70,
+  );
 });

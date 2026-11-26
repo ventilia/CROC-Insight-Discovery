@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -12,6 +12,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import type { WorkspaceAction } from "./WorkspaceEdit";
+import { ContactPortrait } from "./ContactPortrait";
 import { useRemote, type Dossier, type EventPage, type Position } from "./api";
 import type { CompanyContact } from "./companyApi";
 import { PositionEditor, PositionSummary } from "./PositionEditor";
@@ -68,8 +69,11 @@ export function ContactDrawer({
     server ? `${directoryPath}/contacts/${personId}` : null,
     attempt,
   );
+  const through = useMemo(() => new Date().toISOString(), [item]);
   const recent = useRemote<EventPage>(
-    server ? `${directoryPath}/events?personId=${personId}&limit=10` : null,
+    server
+      ? `${directoryPath}/events?${new URLSearchParams({ personId, limit: "10", through })}`
+      : null,
     attempt,
   );
   const linked = item.graph.edges.filter(
@@ -100,12 +104,13 @@ export function ContactDrawer({
     (entry) => entry.initiativeId !== item.initiative.id,
   );
   useEffect(() => {
+    if (presentation === "page") return;
     const opener = document.activeElement;
     heading.current?.focus();
     return () => {
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
     };
-  }, [personId]);
+  }, [personId, presentation]);
   async function copy() {
     try {
       await navigator.clipboard.writeText(
@@ -145,12 +150,19 @@ export function ContactDrawer({
       )}
       <div className="drawer-scroll">
         <div className="profile-hero">
-          <div className="profile-identity">
-            <h2 id="contact-drawer-title" ref={heading} tabIndex={-1}>
-              {person.name}
-            </h2>
-            <p>{person.jobTitle ?? "Должность не указана"}</p>
-            <span>{person.department?.name ?? "Подразделение не указано"}</span>
+          <div className="profile-portrait-heading">
+            {person.decisionMaker && (
+              <ContactPortrait personId={person.id} size={62} />
+            )}
+            <div className="profile-identity">
+              <h2 id="contact-drawer-title" ref={heading} tabIndex={-1}>
+                {person.name}
+              </h2>
+              <p>{person.jobTitle ?? "Должность не указана"}</p>
+              <span>
+                {person.department?.name ?? "Подразделение не указано"}
+              </span>
+            </div>
           </div>
           <div className="profile-badges">
             <span className={"role-badge tone-" + roleTone(person.role?.code)}>

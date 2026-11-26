@@ -1,10 +1,15 @@
 import type { GraphEdge, GraphNode } from "./graph.ts";
+import { graphPositions } from "./graphLayout.ts";
 
 export type SceneNode = GraphNode & {
   radius: number;
   x: number;
   y: number;
   z: number;
+  homeX: number;
+  homeY: number;
+  vx?: number;
+  vy?: number;
   fx?: number;
   fy?: number;
   fz?: number;
@@ -31,6 +36,7 @@ export type SceneProps = {
   height: number;
   selectedId: string | null;
   hoveredId?: string | null;
+  focusId?: string | null;
   dark: boolean;
   labels: boolean;
   paused: boolean;
@@ -67,6 +73,13 @@ export const departmentColors = [
   "#8687bc",
   "#b78264",
 ];
+export function edgeStroke(type: string, confirmed: boolean, dark: boolean) {
+  if (!confirmed) return dark ? "#e1ba67" : "#8b5d0a";
+  if (type === "APPROVAL") return dark ? "#76b0eb" : "#2869a5";
+  if (type === "COORDINATION") return dark ? "#77c6a2" : "#297a54";
+  if (type === "EXPERTISE") return dark ? "#e1a174" : "#994823";
+  return dark ? "#a2bfae" : "#56766a";
+}
 export function nodeColor(
   node: GraphNode,
   mode: ColorMode,
@@ -83,19 +96,24 @@ export function createForceData(
   nodes: GraphNode[],
   edges: GraphEdge[],
   cache: PositionCache,
+  focusId?: string | null,
 ): SceneData {
   const ids = new Set(nodes.map((node) => node.id));
+  const positions = graphPositions(nodes, focusId);
   return {
     nodes: nodes.map((node, index) => {
-      const angle = index * 2.39996323,
-        distance = 55 + Math.sqrt(index + 1) * 32;
+      const point = positions.get(node.id)!;
+      const saved = cache.get(node.id);
+      const position = !focusId || saved?.fx != null ? saved : undefined;
       return {
         ...node,
         radius: influenceRadius(node),
-        x: Math.cos(angle) * distance,
-        y: Math.sin(angle) * distance,
-        z: Math.sin(index * 1.9) * distance * 0.45,
-        ...cache.get(node.id),
+        x: point.x,
+        y: point.y,
+        homeX: point.x,
+        homeY: point.y,
+        z: Math.sin(index * 1.9) * 28,
+        ...position,
       };
     }),
     // The force engine replaces source/target IDs and adds coordinates: never pass API records directly.
