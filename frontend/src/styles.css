@@ -2786,18 +2786,6 @@ td {
     scroll-behavior: auto !important;
   }
 }
-@media (min-width: 1100px) {
-  .kit-app:has(.contact-drawer:not(.full-profile)) .main-shell {
-    margin-right: 450px;
-  }
-  .kit-app:has(.contact-drawer:not(.full-profile)) .mode-badge,
-  .kit-app:has(.contact-drawer:not(.full-profile)) .breadcrumb > span {
-    display: none;
-  }
-  .kit-app:has(.contact-drawer:not(.full-profile)) .page-title {
-    flex-wrap: wrap;
-  }
-}
 .tone-green {
   --tone: #397c55;
 }
@@ -3299,14 +3287,6 @@ h2 {
   }
   .graph-count {
     margin-left: 0;
-  }
-  .kit-app:has(.contact-drawer:not(.full-profile)) .graph-workspace {
-    grid-template-columns: 1fr;
-  }
-  .kit-app:has(.contact-drawer:not(.full-profile)) .graph-directory {
-    border-left: 0;
-    border-top: 1px solid var(--line);
-    max-height: 160px;
   }
 }
 @media (max-width: 720px) {

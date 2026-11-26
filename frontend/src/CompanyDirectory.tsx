@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { ChevronRight, Search } from "lucide-react";
+import { useId, useMemo, useState } from "react";
+import { ChevronRight, Search, SlidersHorizontal } from "lucide-react";
 import { useDebounced, useRemote } from "./api";
 import type {
   CompanyContact,
@@ -93,6 +93,10 @@ export function CompanyDirectory({
   const [manager, setManager] = useState("");
   const [decisionMaker, setDecisionMaker] = useState(false);
   const [offset, setOffset] = useState(0);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showColumns, setShowColumns] = useState(false);
+  const filterPanel = useId();
+  const extraFilterCount = [influence, interaction, role, job, manager].filter(Boolean).length;
   const filters = new URLSearchParams({ days: String(days) });
   const query = useDebounced(search.trim());
   const jobTitle = useDebounced(job.trim());
@@ -205,78 +209,100 @@ export function CompanyDirectory({
             ))}
           </select>
         </label>
-        <label>
-          Влияние
-          <select
-            value={influence}
-            onChange={(event) => {
-              setInfluence(event.target.value);
-              setOffset(0);
-            }}
-          >
-            <option value="">Любое</option>
-            {Object.entries(influenceLabels).map(([code, label]) => (
-              <option key={code} value={code}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Общение
-          <select
-            value={interaction}
-            onChange={(event) => {
-              setInteraction(event.target.value);
-              setOffset(0);
-            }}
-          >
-            <option value="">Вся история</option>
-            <option value="RECENT">Недавнее</option>
-            <option value="STALE">Давнее</option>
-            <option value="UNKNOWN">Без записей</option>
-          </select>
-        </label>
-        {roles.length > 0 && (
+        <button
+          className="secondary directory-filter-toggle"
+          type="button"
+          aria-expanded={showFilters}
+          aria-controls={filterPanel}
+          onClick={() => setShowFilters(!showFilters)}
+        >
+          <SlidersHorizontal size={16} aria-hidden="true" />
+          Фильтры{extraFilterCount ? ` · ${extraFilterCount}` : ""}
+        </button>
+      </div>
+      <div className="directory-options" id={filterPanel} hidden={!showFilters}>
+        <div className="filter-grid directory-extra-filters">
           <label>
-            Роль
+            Влияние
             <select
-              value={role}
+              value={influence}
               onChange={(event) => {
-                setRole(event.target.value);
+                setInfluence(event.target.value);
                 setOffset(0);
               }}
             >
-              <option value="">Все роли</option>
-              {roles.map(({ code, label }) => (
+              <option value="">Любое</option>
+              {Object.entries(influenceLabels).map(([code, label]) => (
                 <option key={code} value={code}>
                   {label}
                 </option>
               ))}
             </select>
           </label>
-        )}
-        <label>
-          Должность
+          <label>
+            Общение
+            <select
+              value={interaction}
+              onChange={(event) => {
+                setInteraction(event.target.value);
+                setOffset(0);
+              }}
+            >
+              <option value="">Вся история</option>
+              <option value="RECENT">Недавнее</option>
+              <option value="STALE">Давнее</option>
+              <option value="UNKNOWN">Без записей</option>
+            </select>
+          </label>
+          {roles.length > 0 && (
+            <label>
+              Роль
+              <select
+                value={role}
+                onChange={(event) => {
+                  setRole(event.target.value);
+                  setOffset(0);
+                }}
+              >
+                <option value="">Все роли</option>
+                {roles.map(({ code, label }) => (
+                  <option key={code} value={code}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label>
+            Должность
+            <input
+              value={job}
+              maxLength={160}
+              onChange={(event) => {
+                setJob(event.target.value);
+                setOffset(0);
+              }}
+            />
+          </label>
+          <label>
+            Ответственный менеджер
+            <input
+              value={manager}
+              maxLength={160}
+              onChange={(event) => {
+                setManager(event.target.value);
+                setOffset(0);
+              }}
+            />
+          </label>
+        </div>
+        <label className="directory-columns-toggle">
           <input
-            value={job}
-            maxLength={160}
-            onChange={(event) => {
-              setJob(event.target.value);
-              setOffset(0);
-            }}
+            type="checkbox"
+            checked={showColumns}
+            onChange={(event) => setShowColumns(event.target.checked)}
           />
-        </label>
-        <label>
-          Ответственный менеджер
-          <input
-            value={manager}
-            maxLength={160}
-            onChange={(event) => {
-              setManager(event.target.value);
-              setOffset(0);
-            }}
-          />
+          Показать столбцы «Влияние» и «Менеджер»
         </label>
       </div>
       {contacts.loading && (
@@ -297,21 +323,21 @@ export function CompanyDirectory({
             role="region"
             aria-label="Контакты компании"
           >
-            <table>
-              <thead>
-                <tr>
+            <table className="directory-table" role="table">
+              <thead role="rowgroup">
+                <tr role="row">
                   <th>Сотрудник</th>
                   <th>Подразделение</th>
                   <th>Роли</th>
-                  <th>Влияние</th>
+                  {showColumns && <th>Влияние</th>}
                   <th>Последнее общение</th>
-                  <th>Менеджер</th>
+                  {showColumns && <th>Менеджер</th>}
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {page.items.map((entry) => (
-                  <tr key={entry.id}>
-                    <td>
+                  <tr key={entry.id} role="row">
+                    <td role="cell">
                       <button
                         className="person-button"
                         onClick={() => onPerson(entry.id)}
@@ -332,13 +358,17 @@ export function CompanyDirectory({
                         </span>
                       </button>
                     </td>
-                    <td>{entry.department?.name ?? "—"}</td>
-                    <td>
+                    <td role="cell" data-label="Подразделение">{entry.department?.name ?? "—"}</td>
+                    <td role="cell" data-label="Роли">
                       {entry.roles.map((item) => item.label).join(", ") || "—"}
                     </td>
-                    <td>{influenceLabels[entry.influence]}</td>
-                    <td>{formatDate(entry.lastInteractionAt)}</td>
-                    <td>{entry.responsibleManager ?? "—"}</td>
+                    {showColumns && (
+                      <td role="cell" data-label="Влияние">{influenceLabels[entry.influence]}</td>
+                    )}
+                    <td role="cell" data-label="Последнее общение">{formatDate(entry.lastInteractionAt)}</td>
+                    {showColumns && (
+                      <td role="cell" data-label="Менеджер">{entry.responsibleManager ?? "—"}</td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -402,7 +432,7 @@ export function DirectoryContact({
               <ContactPortrait personId={item.id} size={56} />
             )}
             <div>
-              <h1>{item?.name ?? "Карточка контакта"}</h1>
+              <h2 className="client-profile-title">{item?.name ?? "Карточка контакта"}</h2>
               {item?.jobTitle && <p>{item.jobTitle}</p>}
               {item?.decisionMaker && <span className="pill">ЛПР</span>}
             </div>

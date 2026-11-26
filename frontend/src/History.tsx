@@ -21,21 +21,26 @@ export function HistoryList({
   entries,
   onPerson,
   compact = false,
+  previewCount,
   paginated = false,
   dateColumn = false,
 }: {
   entries: HistoryEntry[];
   onPerson: (iid: string, pid: string) => void;
   compact?: boolean;
+  previewCount?: number;
   paginated?: boolean;
   dateColumn?: boolean;
 }) {
   const [limit, setLimit] = useState(10);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
+  const compactLimit = previewExpanded ? 4 : (previewCount ?? 4);
+  const hiddenPreviewCount = Math.min(4, entries.length) - (previewCount ?? 4);
   return entries.length ? (
     <>
       <ol className={"activity-list" + (compact ? " compact" : "")}>
         {entries
-          .slice(0, compact ? 4 : paginated ? entries.length : limit)
+          .slice(0, compact ? compactLimit : paginated ? entries.length : limit)
           .map((event) => {
             const meta = (
               <div className={dateColumn ? "activity-date" : "activity-meta"}>
@@ -108,6 +113,16 @@ export function HistoryList({
             );
           })}
       </ol>
+      {compact && hiddenPreviewCount > 0 && (
+        <button
+          type="button"
+          className="text-button preview-more"
+          aria-expanded={previewExpanded}
+          onClick={() => setPreviewExpanded(!previewExpanded)}
+        >
+          {previewExpanded ? "Свернуть записи" : `Ещё ${hiddenPreviewCount}`}
+        </button>
+      )}
       {!compact && !paginated && entries.length > limit && (
         <button
           type="button"

@@ -22,6 +22,13 @@
   max-width: 1860px;
   padding-inline: clamp(22px, 2.6vw, 52px);
   margin-block: 0;
+  min-width: 0;
+  --workspace-inset: clamp(16px, 2vw, 28px);
+  --workspace-muted: var(--ink-muted);
+}
+
+html {
+  scrollbar-gutter: stable;
 }
 
 .kit-app .topbar {
@@ -31,6 +38,13 @@
 
 .kit-app .main-content {
   padding-block: 20px 28px;
+  position: relative;
+}
+
+.kit-app .updating {
+  position: absolute;
+  inset: 2px max(12px, 2vw) auto auto;
+  margin: 0;
 }
 
 .kit-app .page-title {
@@ -207,39 +221,60 @@
 
 .kit-app .client-tabs button {
   padding-bottom: 10px;
+  font-weight: 500;
 }
 
-.main-content.client-map {
-  max-width: 2100px;
-  padding-top: 19px;
-  padding-inline: clamp(18px, 2vw, 40px);
-}
-
-.main-content:is(.client-contacts, .client-history, .client-insights) {
-  --workspace-inset: clamp(16px, 2vw, 28px);
-  --workspace-muted: #53695b;
-  max-width: 2060px;
-  min-width: 0;
-  padding-inline: clamp(16px, 1.65vw, 36px);
-}
-
-html[data-theme="dark"]
-  .main-content:is(.client-contacts, .client-history, .client-insights) {
-  --workspace-muted: var(--ink-muted);
+.kit-app .client-tabs button[aria-current="page"] {
+  font-weight: 500;
 }
 
 .client-content > .page-title {
-  margin-bottom: 17px;
+  flex-wrap: nowrap;
+  margin-bottom: 14px;
 }
-.client-map > .page-title {
-  margin-bottom: 10px;
+
+.client-content > .page-title > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
-.client-map > .page-title h1 {
-  font-size: 28px;
+
+.client-actions {
+  position: relative;
+  flex-shrink: 0;
+  z-index: 2;
 }
-.client-map > .page-title p {
-  margin-top: 5px;
+
+.client-actions summary {
+  list-style: none;
+  cursor: pointer;
 }
+
+.client-actions summary::-webkit-details-marker {
+  display: none;
+}
+
+.client-action-menu {
+  position: absolute;
+  inset: calc(100% + 5px) 0 auto auto;
+  display: grid;
+  padding: 4px;
+  min-width: min(225px, calc(100vw - 32px));
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.client-action-menu button {
+  background: transparent;
+  border: 0;
+  padding: 8px 11px;
+  min-height: 38px;
+  text-align: start;
+}
+
+.client-action-menu button:is(:hover, :focus-visible):not(:disabled) {
+  background: var(--soft);
+}
+
 .client-content > .client-tabs {
   margin-bottom: 16px;
 }
@@ -247,9 +282,6 @@ html[data-theme="dark"]
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-.client-map > .client-tabs {
-  margin-bottom: 11px;
 }
 .client-map .scope-bar {
   align-items: end;
@@ -290,6 +322,31 @@ html[data-theme="dark"]
 }
 .sidebar-ai + .sidebar-theme-toggle {
   margin-top: 0;
+}
+
+.sidebar-project {
+  padding-inline: 4px;
+  margin-top: 13px;
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+
+.sidebar-project select {
+  max-width: 100%;
+  min-width: 0;
+  text-overflow: ellipsis;
+  min-height: 36px;
+  font-size: 12px;
+}
+
+.client-profile-title {
+  font-size: clamp(19px, 2vw, 26px);
+  line-height: 1.25;
+}
+
+.preview-more {
+  min-height: 36px;
+  margin: 0 24px 12px;
 }
 .section-actions {
   display: flex;
@@ -358,7 +415,44 @@ html[data-theme="dark"]
   align-items: end;
 }
 .company-directory .directory-filters {
+  grid-template-columns: minmax(160px, 1.5fr) auto minmax(140px, 1fr) auto;
   padding: 0 var(--workspace-inset) 14px;
+}
+
+.directory-options {
+  margin: 0 var(--workspace-inset) 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  background: var(--soft);
+}
+
+.directory-extra-filters {
+  grid-template-columns: repeat(auto-fit, minmax(min(145px, 100%), 1fr));
+}
+
+.directory-columns-toggle {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-muted);
+  font-size: 13px;
+  flex-direction: row;
+}
+
+.directory-columns-toggle input {
+  width: auto;
+  accent-color: var(--accent);
+}
+
+.directory-filter-toggle {
+  white-space: nowrap;
+  min-height: 38px;
+}
+
+.directory-table {
+  table-layout: fixed;
+  overflow-wrap: anywhere;
 }
 .project-contacts .smart-filters {
   padding: 0 var(--workspace-inset) 14px;
@@ -618,13 +712,50 @@ html[data-theme="dark"] .client-insights .insight-grid article {
   .client-map .scope-bar > button {
     min-height: 36px;
   }
-  :is(.client-map, .client-contacts, .client-history, .client-insights) > .client-tabs {
+  .client-content > .client-tabs {
     margin-inline: -12px;
     padding-inline: 12px;
   }
   .contact-scope > label:first-child,
   .client-insights .scope-bar > label:first-child {
     flex-basis: 100%;
+  }
+  .company-directory .directory-table,
+  .directory-table tbody {
+    display: block;
+    min-width: 0;
+  }
+  .directory-table thead {
+    position: absolute;
+    clip-path: inset(50%);
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .directory-table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 12px;
+    padding: 10px var(--workspace-inset);
+    border-top: 1px solid var(--line);
+  }
+  .company-directory .directory-table td {
+    display: block;
+    border: 0;
+    padding: 0;
+    font-size: 13px;
+  }
+  .company-directory .directory-table td:first-child {
+    grid-column: 1 / -1;
+    min-width: 0;
+    width: auto;
+  }
+  .directory-table td[data-label]::before {
+    content: attr(data-label) / "";
+    display: block;
+    color: var(--ink-muted);
+    font-size: 11px;
   }
   .project-contacts .section-heading {
     align-items: flex-start;

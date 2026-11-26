@@ -107,7 +107,6 @@ export function InfluenceMap({
   initialDepth = 1,
   initialSharedOnly = true,
   onlyIds,
-  onAddRelationship,
   onEditRelationship,
 }: {
   item: InitiativeData;
@@ -120,7 +119,6 @@ export function InfluenceMap({
   initialDepth?: 1 | 2;
   initialSharedOnly?: boolean;
   onlyIds?: string[];
-  onAddRelationship?: () => void;
   onEditRelationship?: (edge: GraphEdge) => void;
 }) {
   const heading = useId();
@@ -214,7 +212,9 @@ export function InfluenceMap({
     (entry) => entry.id === participant?.id,
   )?.lastTouchAt;
   const selectedEdge = graph.edges.find((edge) => edge.id === edgeId);
-  const filterCount = Object.values(smart).filter(Boolean).length;
+  const filterCount =
+    Object.entries(smart).filter(([key, value]) => key !== "search" && value).length +
+    Number(Boolean(edgeType)) + Number(leaders);
   const names = new Map(graph.nodes.map((node) => [node.id, node.name]));
   useEffect(() => {
     if (edgeId) edgeHeading.current?.focus();
@@ -362,6 +362,25 @@ export function InfluenceMap({
       </button>
     </>
   );
+  const focusControl = (
+    <button
+      className="text-button graph-focus"
+      type="button"
+      disabled={!participant && !filters.focus}
+      aria-pressed={!!filters.focus}
+      onClick={() => {
+        const personId = compact ? selectedId : (participant?.id ?? focus?.id);
+        if (personId) toggleFocus(personId);
+      }}
+    >
+      <Focus size={15} />
+      {focus
+        ? "Вся карта"
+        : compact
+          ? "К окружению"
+          : "Показать окружение"}
+    </button>
+  );
   return (
     <section
       className={
@@ -369,64 +388,18 @@ export function InfluenceMap({
         (compact ? " graph-profile-map" : "") +
         (dark ? " graph-dark" : "")
       }
-      aria-labelledby={heading}
+      aria-label={compact ? undefined : "Карта связей"}
+      aria-labelledby={compact ? heading : undefined}
     >
-      <header className="surface-head graph-map-head">
-        <h2 id={heading}>{compact ? "Окружение в проекте" : "Карта связей"}</h2>
-        <div className="graph-head-actions">
-          {compact && depthControl}
-          {compact && connectionControl}
-          {!compact && onAddRelationship && (
-            <button
-              className="secondary"
-              onClick={onAddRelationship}
-              disabled={graph.nodes.length < 2}
-            >
-              Добавить связь
-            </button>
-          )}
-
-          {!compact && (
-            <button
-              className="secondary"
-              type="button"
-              aria-expanded={showFilters}
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <SlidersHorizontal size={15} />
-              Фильтры{filterCount ? ` · ${filterCount}` : ""}
-            </button>
-          )}
-          <button
-            className="secondary"
-            type="button"
-            disabled={!participant && !filters.focus}
-            aria-pressed={!!filters.focus}
-            onClick={() => {
-              const personId = compact ? selectedId : participant?.id;
-              if (personId) toggleFocus(personId);
-            }}
-          >
-            <Focus size={15} />
-            {focus
-              ? "Вся карта"
-              : compact
-                ? "К окружению"
-                : "Окружение выбранного"}
-          </button>
-        </div>
-      </header>
-      {!compact && showFilters && (
-        <ContactFilters
-          item={item}
-          value={smart}
-          showSearch={false}
-          showDecisionMaker={false}
-          change={(value) => {
-            setSmart(value);
-            setEdge(null);
-          }}
-        />
+      {compact && (
+        <header className="surface-head graph-map-head">
+          <h2 id={heading}>Окружение в проекте</h2>
+          <div className="graph-head-actions">
+            {depthControl}
+            {connectionControl}
+            {focusControl}
+          </div>
+        </header>
       )}
       {!compact && (
         <div className="graph-toolbar">
@@ -464,8 +437,6 @@ export function InfluenceMap({
             </button>
           </div>
 
-          {connectionControl}
-
           {onlyIds?.length ? (
             <button
               className="text-button"
@@ -476,42 +447,68 @@ export function InfluenceMap({
             </button>
           ) : null}
 
-          <label className="graph-color-control">
-            Тип связи
-            <select
-              value={edgeType}
-              onChange={(e) => setEdgeType(e.target.value)}
-            >
-              <option value="">Все типы</option>
-              {edgeTypes.map((type) => (
-                <option key={type} value={type}>
-                  {relationshipTypes[type] ?? type}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {view === "people" && (
+          {focus && depthControl}
+          <button
+            className="secondary graph-filter-toggle"
+            type="button"
+            aria-expanded={showFilters}
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <SlidersHorizontal size={15} />
+            Фильтры{filterCount ? ` · ${filterCount}` : ""}
+          </button>
+        </div>
+      )}
+      {!compact && showFilters && (
+        <div className="graph-settings">
+          <ContactFilters
+            item={item}
+            value={smart}
+            showSearch={false}
+            showDecisionMaker={false}
+            change={(value) => {
+              setSmart(value);
+              setEdge(null);
+            }}
+          />
+          <div className="graph-toolbar graph-display-options">
+            {connectionControl}
             <label className="graph-color-control">
-              Цвет узлов
+              Тип связи
               <select
-                aria-label="Цвет узлов"
-                value={colorMode}
-                onChange={(event) =>
-                  setColorMode(event.target.value as ColorMode)
-                }
+                value={edgeType}
+                onChange={(e) => setEdgeType(e.target.value)}
               >
-                <option value="role">По роли</option>
-                <option value="department">По отделу</option>
+                <option value="">Все типы</option>
+                {edgeTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {relationshipTypes[type] ?? type}
+                  </option>
+                ))}
               </select>
             </label>
-          )}
-          {focus && depthControl}
-          {(filterCount > 0 || filters.focus || edgeType || leaders) && (
-            <button className="text-button" onClick={resetFilters}>
-              Сбросить
-            </button>
-          )}
+
+            {view === "people" && (
+              <label className="graph-color-control">
+                Цвет узлов
+                <select
+                  aria-label="Цвет узлов"
+                  value={colorMode}
+                  onChange={(event) =>
+                    setColorMode(event.target.value as ColorMode)
+                  }
+                >
+                  <option value="role">По роли</option>
+                  <option value="department">По отделу</option>
+                </select>
+              </label>
+            )}
+            {(filterCount > 0 || filters.focus || smart.search || edgeMode !== "auto") && (
+              <button className="text-button" onClick={resetFilters}>
+                Сбросить настройки карты
+              </button>
+            )}
+          </div>
         </div>
       )}
       <div className="graph-workspace">
@@ -597,6 +594,27 @@ export function InfluenceMap({
           {!compact && (
             <>
               <div className="graph-footer">
+                <div className="graph-options">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={labels}
+                      onChange={(event) => setLabels(event.target.checked)}
+                    />
+                    Подписи
+                  </label>
+                  <button
+                    className="text-button"
+                    aria-pressed={paused}
+                    onClick={() => setPaused(!paused)}
+                  >
+                    {paused ? <Play size={14} /> : <Pause size={14} />}
+                    {paused ? "Продолжить движение" : "Остановить движение"}
+                  </button>
+                </div>
+              </div>
+              <details className="graph-key">
+                <summary>Обозначения на карте</summary>
                 <div className="graph-legend">
                   {(legendMode === "role"
                     ? graph.filters.roles.map((role) => ({
@@ -640,55 +658,37 @@ export function InfluenceMap({
                     </button>
                   ))}
                 </div>
-                <div className="graph-options">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={labels}
-                      onChange={(event) => setLabels(event.target.checked)}
-                    />
-                    Подписи
-                  </label>
-                  <button
-                    className="text-button"
-                    aria-pressed={paused}
-                    onClick={() => setPaused(!paused)}
-                  >
-                    {paused ? <Play size={14} /> : <Pause size={14} />}
-                    {paused ? "Продолжить движение" : "Остановить движение"}
-                  </button>
-                </div>
-              </div>
-              <div
-                className="graph-link-legend"
-                aria-label="Обозначения связей"
-              >
-                {view === "people" &&
-                  edgeTypes.map((type) => (
-                    <span key={type}>
-                      <i
-                        style={{ borderColor: edgeStroke(type, true, dark) }}
-                      />
-                      {relationshipTypes[type] ?? type}
-                    </span>
-                  ))}
-                <span>
-                  <i
-                    className="link-unconfirmed"
-                    style={{ borderColor: edgeStroke("", false, dark) }}
-                  />
-                  Требует проверки
-                </span>
-                <span>Стрелка — направление связи</span>
-                {edgeMode === "hover" && <span>Линии видны при наведении на узел или фокусе в списке участников</span>}
-                {canSimplify && edgeMode === "auto" && (
+                <div
+                  className="graph-link-legend"
+                  aria-label="Обозначения связей"
+                >
+                  {view === "people" &&
+                    edgeTypes.map((type) => (
+                      <span key={type}>
+                        <i
+                          style={{ borderColor: edgeStroke(type, true, dark) }}
+                        />
+                        {relationshipTypes[type] ?? type}
+                      </span>
+                    ))}
                   <span>
-                    {denseOverview
-                      ? "На карте видны связи выбранного участника"
-                      : "На карте видны прямые связи и пути ко второму кругу"}
+                    <i
+                      className="link-unconfirmed"
+                      style={{ borderColor: edgeStroke("", false, dark) }}
+                    />
+                    Требует проверки
                   </span>
-                )}
-              </div>
+                  <span>Стрелка — направление связи</span>
+                  {edgeMode === "hover" && <span>Линии видны при наведении на узел или фокусе в списке участников</span>}
+                  {canSimplify && edgeMode === "auto" && (
+                    <span>
+                      {denseOverview
+                        ? "На карте видны связи выбранного участника"
+                        : "На карте видны прямые связи и пути ко второму кругу"}
+                    </span>
+                  )}
+                </div>
+              </details>
               <details className="graph-connections">
                 <summary>
                   Связи и их смысл <span>{visible.edges.length}</span>
@@ -728,7 +728,6 @@ export function InfluenceMap({
           <aside className="graph-inspector" aria-labelledby={inspectorHeading} tabIndex={0}>
             <header className="graph-inspector-heading">
               <h3 id={inspectorHeading}>Сведения о карте</h3>
-              <p>{item.initiative.name}</p>
               <dl
                 className="graph-inspector-stats"
                 aria-label="Статистика карты"
@@ -835,13 +834,17 @@ export function InfluenceMap({
                   <small>Последнее общение · {formatDate(lastTouch ?? null)}</small>
                 </div>
                 {(participant.email || participant.phone) && (
-                  <div className="graph-detail-meta">
-                    {participant.email && <small>{participant.email}</small>}
-                    {participant.phone && <small>{participant.phone}</small>}
-                  </div>
+                  <details className="graph-contact-details">
+                    <summary>Почта и телефон</summary>
+                    <div className="graph-detail-meta">
+                      {participant.email && <small>{participant.email}</small>}
+                      {participant.phone && <small>{participant.phone}</small>}
+                    </div>
+                  </details>
                 )}
               </section>
             )}
+            {focusControl}
             <div className="graph-inspector-lists">
               <section className="graph-roster" aria-label="Участники карты">
                 <div className="graph-roster-heading">
