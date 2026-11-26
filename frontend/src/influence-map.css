@@ -119,6 +119,8 @@
 }
 
 .graph-inspector {
+  display: flex;
+  flex-direction: column;
   container: map-inspector / inline-size;
   min-width: 0;
   height: var(--graph-frame-height);
@@ -128,6 +130,10 @@
   background: var(--panel);
   color: inherit;
   scrollbar-gutter: stable;
+}
+
+.graph-inspector > :is(.graph-inspector-heading, .graph-detail) {
+  flex: none;
 }
 
 .graph-inspector-heading {
@@ -392,9 +398,33 @@
 
 @container map-inspector (min-width: 420px) {
   .graph-inspector-lists {
+    flex: 1;
     display: grid;
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-    align-items: start;
+    grid-template-rows: minmax(0, 1fr);
+    min-height: 9rem;
+  }
+
+  .graph-inspector-lists > :is(.graph-roster, .graph-adjacent) {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .graph-roster:only-child {
+    grid-column: 1 / -1;
+  }
+
+  .graph-inspector-lists :is(.graph-roster-heading, .graph-adjacent h3) {
+    flex: none;
+  }
+
+  .graph-inspector-lists :is(.graph-roster-list, .graph-adjacent ul) {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow: auto;
+    overscroll-behavior-y: contain;
   }
 
   .graph-adjacent {
@@ -551,6 +581,7 @@
   }
 
   .graph-inspector {
+    display: block;
     height: auto;
     overflow: visible;
     scrollbar-gutter: auto;
@@ -559,6 +590,10 @@
   .graph-inspector .graph-roster-list {
     max-height: 230px;
     overflow: auto;
+  }
+
+  .graph-inspector .graph-adjacent ul {
+    max-height: 230px;
   }
 }
 

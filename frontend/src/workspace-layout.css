@@ -421,7 +421,7 @@ html[data-theme="dark"] .client-insights .insight-grid article {
   .client-map .scope-bar > button {
     min-height: 36px;
   }
-  :is(.client-contacts, .client-history, .client-insights) > .client-tabs {
+  :is(.client-map, .client-contacts, .client-history, .client-insights) > .client-tabs {
     margin-inline: -12px;
     padding-inline: 12px;
   }

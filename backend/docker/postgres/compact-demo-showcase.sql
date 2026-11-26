@@ -32,13 +32,9 @@ SELECT id FROM initiatives
 WHERE id::text LIKE '92000002-%' AND company_id NOT IN (SELECT id FROM demo_showcase_hidden)
   AND right(id::text, 2) > CASE WHEN company_id = '92000001-0000-4000-8000-000000000001' THEN '04' ELSE '02' END;
 
--- The anchors are the original contact IDs of the program, architecture, and
--- finance directors. Keep those directors and up to six specialists per team.
--- Fixed anchors preserve identities when the original showcase is reloaded.
--- Company 5 has seven original contacts per retained team.
+-- Keep Atlas North at full size and use smaller teams in the other companies
 WITH teams(anchor) AS (
-    VALUES (1001), (1058), (1122),
-           (2001), (2010), (2019),
+    VALUES (2001), (2010), (2019),
            (3001), (3012), (3023),
            (4001), (4013), (4025),
            (5001), (5008), (5015),
@@ -49,6 +45,7 @@ WITH teams(anchor) AS (
 INSERT INTO demo_showcase_hidden (id)
 SELECT c.id FROM contacts c
 WHERE c.id::text LIKE '92000004-%'
+  AND c.company_id <> '92000001-0000-4000-8000-000000000001'
   AND c.company_id NOT IN (SELECT id FROM demo_showcase_hidden)
   AND NOT EXISTS (
       SELECT 1 FROM teams t

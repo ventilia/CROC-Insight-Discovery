@@ -114,7 +114,7 @@ export function InfluenceMap({
   const [view, setView] = useState<"people" | "departments">("people");
   const [sharedOnly, setSharedOnly] = useState(initialSharedOnly);
   const [edgeType, setEdgeType] = useState("");
-  const [showAllEdges, setShowAllEdges] = useState(false);
+  const [edgeMode, setEdgeMode] = useState<"auto" | "all" | "hover">("auto");
   const [leaders, setLeaders] = useState(false);
   const [showFilters, setShowFilters] = useState(false),
     [labels, setLabels] = useState(true);
@@ -233,7 +233,7 @@ export function InfluenceMap({
     setLeaders(false);
     setSharedOnly(false);
     setEdgeType("");
-    setShowAllEdges(false);
+    setEdgeMode("auto");
     setEdge(null);
   }
   const grouped = useMemo(
@@ -249,7 +249,8 @@ export function InfluenceMap({
     paused,
     selectedId: view === "people" ? (participant?.id ?? null) : null,
     focusId: view === "people" ? (focus?.id ?? null) : null,
-    edgeSubset: canSimplify && !showAllEdges ? simplifiedEdges : undefined,
+    edgeSubset: canSimplify && edgeMode === "auto" ? simplifiedEdges : undefined,
+    hoverLinksOnly: edgeMode === "hover",
     selectedEdgeId: view === "people" ? edgeId : null,
     revealAdjacent: denseOverview,
     hoveredId:
@@ -311,16 +312,27 @@ export function InfluenceMap({
       </select>
     </label>
   );
-  const connectionControl = canSimplify && (
-    <button
-      type="button"
-      className="text-button graph-edge-mode"
-      aria-pressed={showAllEdges}
-      onClick={() => setShowAllEdges((current) => !current)}
-      title={denseOverview ? "В кратком режиме видны связи выбранного участника" : "В кратком режиме видны прямые связи и пути ко второму кругу"}
-    >
-      Все связи
-    </button>
+  const connectionControl = (
+    <>
+      {canSimplify && (
+        <button
+          type="button"
+          className="text-button graph-edge-mode"
+          aria-pressed={edgeMode === "all"}
+          onClick={() => setEdgeMode((current) => current === "all" ? "auto" : "all")}
+        >
+          Все связи
+        </button>
+      )}
+      <button
+        type="button"
+        className="text-button graph-edge-mode"
+        aria-pressed={edgeMode === "hover"}
+        onClick={() => setEdgeMode((current) => current === "hover" ? "auto" : "hover")}
+      >
+        Только при наведении
+      </button>
+    </>
   );
   return (
     <section
@@ -640,7 +652,8 @@ export function InfluenceMap({
                   Требует проверки
                 </span>
                 <span>Стрелка — направление связи</span>
-                {canSimplify && !showAllEdges && (
+                {edgeMode === "hover" && <span>Линии видны при наведении на узел или фокусе в списке участников</span>}
+                {canSimplify && edgeMode === "auto" && (
                   <span>
                     {denseOverview
                       ? "На карте видны связи выбранного участника"

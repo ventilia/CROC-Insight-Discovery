@@ -28,6 +28,7 @@ export default function ForceScene2D(
     selectedId,
     focusId,
     edgeSubset,
+    hoverLinksOnly,
     selectedEdgeId,
     revealAdjacent,
     controls,
@@ -55,7 +56,8 @@ export default function ForceScene2D(
     () => createForceData(nodes, edges, positions, focusId),
     [nodes, edges, positions, focusId, revision],
   );
-  const active = hover ?? props.hoveredId ?? selectedId;
+  const hoveredNode = hover ?? props.hoveredId;
+  const active = hoveredNode ?? selectedId;
   const neighbors = useMemo(() => adjacentIds(active, edges), [active, edges]);
   const portraitSources = useMemo(
     () =>
@@ -190,11 +192,16 @@ export default function ForceScene2D(
     (!!active &&
       (endpointId(link.source) === active ||
         endpointId(link.target) === active));
-  const visibleLink = (link: SceneLink) =>
-    !edgeSubset ||
-    edgeSubset.has(link.id) ||
-    link.id === selectedEdgeId ||
-    (!!revealAdjacent && highlights(link));
+  const visibleLink = (link: SceneLink) => {
+    if (hoverLinksOnly) {
+      return !!hoveredNode &&
+        (endpointId(link.source) === hoveredNode || endpointId(link.target) === hoveredNode);
+    }
+    return !edgeSubset ||
+      edgeSubset.has(link.id) ||
+      link.id === selectedEdgeId ||
+      (!!revealAdjacent && highlights(link));
+  };
   const curvature = (link: SceneLink) => curves.get(link.id) ?? 0;
   const linkColor = (link: SceneLink) =>
     edgeStroke(link.type, link.confirmed, dark);

@@ -38,6 +38,7 @@ export type SceneProps = {
   hoveredId?: string | null;
   focusId?: string | null;
   edgeSubset?: ReadonlySet<string>;
+  hoverLinksOnly?: boolean;
   selectedEdgeId?: string | null;
   revealAdjacent?: boolean;
   dark: boolean;
