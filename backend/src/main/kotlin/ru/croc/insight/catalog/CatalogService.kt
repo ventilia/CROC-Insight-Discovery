@@ -2,6 +2,7 @@ package ru.croc.insight.catalog
 
 import java.sql.ResultSet
 import java.time.Instant
+import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.util.UUID
 import org.springframework.jdbc.core.simple.JdbcClient
@@ -11,7 +12,17 @@ import org.springframework.transaction.annotation.Transactional
 
 data class CompanySummary(val id: UUID, val name: String, val industry: String?, val description: String?)
 
-data class InitiativeSummary(val id: UUID, val companyId: UUID, val name: String, val asOf: Instant)
+data class InitiativeSummary(
+    val id: UUID,
+    val companyId: UUID,
+    val name: String,
+    val asOf: Instant,
+    val stage: String? = null,
+    val owner: String? = null,
+    val due: LocalDate? = null,
+    val nextStep: String? = null,
+    val participantCount: Long = 0,
+)
 
 @Service
 class CatalogService(private val jdbc: JdbcClient) {
@@ -46,10 +57,10 @@ class CatalogService(private val jdbc: JdbcClient) {
 
         return jdbc.sql(
             """
-            SELECT id, company_id, name, as_of
-            FROM initiatives
-            WHERE company_id = :companyId
-            ORDER BY id
+            SELECT i.*, (SELECT count(*) FROM initiative_participants p WHERE p.initiative_id = i.id) AS participant_count
+            FROM initiatives i
+            WHERE i.company_id = :companyId
+            ORDER BY i.id
             """.trimIndent(),
         )
             .param("companyId", companyId)
@@ -60,7 +71,7 @@ class CatalogService(private val jdbc: JdbcClient) {
     fun findInitiative(viewer: String, initiativeId: UUID): InitiativeSummary? =
         jdbc.sql(
             """
-            SELECT i.id, i.company_id, i.name, i.as_of
+            SELECT i.*, (SELECT count(*) FROM initiative_participants p WHERE p.initiative_id = i.id) AS participant_count
             FROM initiatives i
             JOIN company_viewers v ON v.company_id = i.company_id
             WHERE i.id = :initiativeId AND v.viewer_key = :viewer
@@ -77,5 +88,10 @@ class CatalogService(private val jdbc: JdbcClient) {
         companyId = row.getObject("company_id", UUID::class.java),
         name = row.getString("name"),
         asOf = row.getObject("as_of", OffsetDateTime::class.java).toInstant(),
+        stage = row.getString("stage"),
+        owner = row.getString("owner"),
+        due = row.getObject("due", LocalDate::class.java),
+        nextStep = row.getString("next_step"),
+        participantCount = row.getLong("participant_count"),
     )
 }

@@ -43,6 +43,98 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
     private val mapper = JsonMapper.builder().build()
 
     @Test
+    fun `editor can create a project and round trip participant and relationship changes`() {
+        preparedWriter
+        val company = "10000000-0000-4000-8000-000000000094"
+        val catalog = "/api/v1/companies/$company/initiatives"
+        val save = editorWrites()
+        val project = mapOf("name" to "Рабочий проект", "owner" to "Владелец", "due" to "2026-12-01", "nextStep" to "Согласовать ТЗ")
+        assertThat(save("/api/v1/companies/$privateCompany/initiatives", "POST", project).statusCode()).isEqualTo(404)
+        val created = save(catalog, "POST", project)
+        assertThat(created.statusCode()).isEqualTo(201)
+        val id = json(created).path("id").asString()
+        val path = "/api/v1/initiatives/$id"
+        assertThat(save(catalog, "POST", project + ("name" to " рабочий проект ")).statusCode()).isEqualTo(409)
+        val savedProject = json(editorGet(catalog)).first { it.path("id").asString() == id }
+        assertThat(savedProject.path("due").asString()).isEqualTo("2026-12-01")
+        assertThat(savedProject.path("nextStep").asString()).isEqualTo("Согласовать ТЗ")
+
+        val person = mapOf("name" to "Мария", "decisionMaker" to true, "mandate" to "Согласование", "email" to "person@example.test")
+        val createdPerson = save("$path/people", "POST", person)
+        assertThat(createdPerson.statusCode()).isEqualTo(201)
+        val personId = json(createdPerson).path("id").asString()
+        val edited = person + mapOf("expectedVersion" to 0, "interest" to "Срок пилота")
+        assertThat(save("$path/people/$personId", "PATCH", edited).statusCode()).isEqualTo(200)
+        assertThat(save("$path/people/$personId", "PATCH", edited).statusCode()).isEqualTo(409)
+        val dossier = json(editorGet("$path/people/$personId")).path("person")
+        assertThat(dossier.path("editVersion").asInt()).isEqualTo(1)
+        assertThat(dossier.path("interest").asString()).isEqualTo("Срок пилота")
+        assertThat(dossier.path("mandate").asString()).isEqualTo("Согласование")
+
+        val target = save("$path/people", "POST", mapOf("name" to "Анна", "decisionMaker" to false))
+        assertThat(target.statusCode()).isEqualTo(201)
+        val edge = mapOf(
+            "source" to personId, "target" to json(target).path("id").asString(),
+            "type" to "COORDINATION", "label" to "Уточняет сроки", "confirmed" to false,
+        )
+        assertThat(save("$path/relationships", "POST", edge + ("target" to marina)).statusCode()).isEqualTo(404)
+        val createdEdge = save("$path/relationships", "POST", edge)
+        assertThat(createdEdge.statusCode()).isEqualTo(201)
+        val edgeId = json(createdEdge).path("id").asString()
+        assertThat(save("$path/relationships/$edgeId", "PATCH", edge + ("confirmed" to true)).statusCode()).isEqualTo(400)
+        val confirmed = edge + mapOf("confirmed" to true, "sourceLabel" to "Протокол встречи")
+        assertThat(save("$path/relationships/$edgeId", "PATCH", confirmed).statusCode()).isEqualTo(200)
+        val savedEdge = json(editorGet("$path/graph")).path("edges")[0]
+        assertThat(savedEdge.path("confirmed").asBoolean()).isTrue()
+        assertThat(savedEdge.path("sourceLabel").asString()).isEqualTo("Протокол встречи")
+    }
+
+    @Test
+    fun `editor import deduplicates CSV contacts and keeps request drafts scoped to the owner`() {
+        preparedWriter
+        val initiative = "20000000-0000-4000-8000-000000000098"
+        val path = "/api/v1/initiatives/$initiative"
+        val import = "$path/imports/contacts"
+        val save = editorWrites()
+        val contact = mapOf("name" to "Ирина", "department" to "Внедрение", "email" to "import@example.test")
+        assertThat(save(import, "POST", mapOf("contacts" to listOf(contact, contact + ("name" to "")))).statusCode()).isEqualTo(400)
+        val imported = save(import, "POST", mapOf("contacts" to listOf(contact, contact + ("email" to "IMPORT@example.test"))))
+        assertThat(imported.statusCode()).isEqualTo(201)
+        val counts = json(imported)
+        assertThat(counts.path("created").asInt()).isEqualTo(1)
+        assertThat(counts.path("attached").asInt()).isEqualTo(1)
+        assertThat(counts.path("skipped").asInt()).isEqualTo(1)
+
+        val requests = "$path/requests"
+        val request = save(requests, "POST", mapOf("personId" to "", "recipient" to "Мария", "question" to "Когда начнётся пилот?"))
+        assertThat(request.statusCode()).isEqualTo(201)
+        val requestId = json(request).path("id").asString()
+        val otherId = UUID.randomUUID()
+        connect("croc_migrator", migratorPassword).use { connection ->
+            connection.prepareStatement(
+                "INSERT INTO insight.information_requests (id, initiative_id, recipient, question, owner_key) VALUES (?, ?::uuid, 'Ирина', 'Срок?', 'demo-reader')",
+            ).use { statement ->
+                statement.setObject(1, otherId)
+                statement.setString(2, initiative)
+                statement.executeUpdate()
+            }
+        }
+        assertThat(save("$requests/$otherId", "PATCH", mapOf("status" to "DONE")).statusCode()).isEqualTo(404)
+        assertThat(save("$requests/$requestId", "PATCH", mapOf("status" to "DONE")).statusCode()).isEqualTo(200)
+        val ownDrafts = json(editorGet(requests))
+        assertThat(ownDrafts.stringValues("id")).containsExactly(requestId)
+        assertThat(ownDrafts[0].path("status").asString()).isEqualTo("DONE")
+        assertThat(get(requests).statusCode()).isEqualTo(404)
+    }
+
+    private fun editorGet(path: String) = request(path, editorPassword, "GET", "demo-editor")
+
+    private fun editorWrites(): (String, String, Map<String, Any>) -> HttpResponse<String> {
+        val headers = csrf("demo-editor", editorPassword) + ("Content-Type" to "application/json")
+        return { path, method, value -> request(path, editorPassword, method, "demo-editor", headers, mapper.writeValueAsString(value)) }
+    }
+
+    @Test
     fun `editor records an interaction with comments and safely retries the same request`() {
         val initiative = "20000000-0000-4000-8000-000000000098"
         val company = "10000000-0000-4000-8000-000000000098"
@@ -442,6 +534,33 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
     }
 
     @Test
+    fun `keyed model verifies bearer credentials and remains private to the configuring editor`() {
+        val settings = "/api/v1/ai/settings"
+        val editor = csrf("demo-editor", editorPassword) + ("Content-Type" to "application/json")
+        val reader = csrf("demo-reader", apiPassword) + ("Content-Type" to "application/json")
+        val body = """{"provider":"SELF_HOSTED","model":"fixture-keyed","apiKey":"$fixtureModelKey"}"""
+        val advice = """{"days":7,"question":"Что делать дальше?"}"""
+        assertThat(request(settings, apiPassword, "PUT", headers = reader, body = body).statusCode()).isEqualTo(403)
+        assertThat(request(settings, editorPassword, "PUT", "demo-editor", emptyMap(), body).statusCode()).isEqualTo(403)
+        assertThat(request(settings, editorPassword, "PUT", "demo-editor", editor, body.replace(fixtureModelKey, "invalid-key")).statusCode()).isEqualTo(400)
+        try {
+            val connected = request(settings, editorPassword, "PUT", "demo-editor", editor, body)
+            assertThat(connected.statusCode()).isEqualTo(200)
+            assertThat(connected.body()).doesNotContain(fixtureModelKey, "\"apiKey\"")
+            assertThat(json(connected).path("hasApiKey").asBoolean()).isTrue()
+            assertThat(read(settings).path("model").asString()).isEqualTo("fixture-local")
+            val response = request("/api/v1/companies/$northernLine/ai/advice", editorPassword, "POST", "demo-editor", editor, advice)
+            assertThat(response.statusCode()).isEqualTo(200)
+            assertThat(json(response).path("model").asString()).isEqualTo("fixture-keyed")
+            assertThat(modelUsedExpectedKey.get()).isTrue()
+        } finally {
+            val reset = request(settings, editorPassword, "DELETE", "demo-editor", editor)
+            assertThat(reset.statusCode()).isEqualTo(200)
+            assertThat(json(reset).path("hasApiKey").asBoolean()).isFalse()
+        }
+    }
+
+    @Test
     fun `configured local navigator sends authorized facts to the selected model`() {
         val config = read("/api/v1/ai/settings")
         assertThat(config.path("enabled").asBoolean()).isTrue()
@@ -577,13 +696,34 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
         private val editorPassword = UUID.randomUUID().toString()
         private val writerPassword = UUID.randomUUID().toString()
         private val modelRequest = AtomicReference<JsonNode>()
+        private val fixtureModelKey = UUID.randomUUID().toString()
+        private val modelUsedExpectedKey = java.util.concurrent.atomic.AtomicBoolean()
         private val modelThreads = Executors.newVirtualThreadPerTaskExecutor()
         private val localModel by lazy {
             HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
                 executor = modelThreads
+                createContext("/v1/models") { exchange ->
+                    exchange.use {
+                        if (exchange.requestHeaders.getFirst("Authorization") != "Bearer $fixtureModelKey") {
+                            exchange.sendResponseHeaders(401, -1)
+                        } else {
+                            val response = """{"data":[{"id":"fixture-keyed"}]}""".toByteArray()
+                            exchange.sendResponseHeaders(200, response.size.toLong())
+                            exchange.responseBody.write(response)
+                        }
+                    }
+                }
                 createContext("/v1/chat/completions") { exchange ->
                     exchange.use {
                         val request = JsonMapper.builder().build().readTree(exchange.requestBody)
+                        if (request.path("model").asString() == "fixture-keyed") {
+                            val valid = exchange.requestHeaders.getFirst("Authorization") == "Bearer $fixtureModelKey"
+                            modelUsedExpectedKey.set(valid)
+                            if (!valid) {
+                                exchange.sendResponseHeaders(401, -1)
+                                return@use
+                            }
+                        }
                         modelRequest.set(request)
                         val question = request.path("messages").path(1).path("content").asString()
                         val response = if (question.contains("Длинный тестовый ответ")) ByteArray(65_537) { 32 }

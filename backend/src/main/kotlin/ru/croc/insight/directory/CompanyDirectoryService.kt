@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional
 import ru.croc.insight.catalog.CatalogService
 import ru.croc.insight.map.Department
 import ru.croc.insight.map.GraphFilters
+import ru.croc.insight.map.ParticipantRole
 
 @Service
 @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
@@ -28,6 +29,16 @@ class CompanyDirectoryService(
             initiatives = catalog.initiatives(viewer, companyId).orEmpty(),
             contactCount = people.count(companyId),
             keyContacts = summaries(keyPeople, people.assignments(companyId, keyPeople.map { it.id })),
+            roles = jdbc.sql(
+                """
+                SELECT DISTINCT r.code, r.label FROM initiative_participants p
+                JOIN participant_roles r ON r.code = p.role_code
+                WHERE p.company_id = :companyId
+                ORDER BY r.label, r.code
+                """.trimIndent(),
+            ).param("companyId", companyId).query { row, _ ->
+                ParticipantRole(row.getString("code"), row.getString("label"))
+            }.list(),
         )
     }
 

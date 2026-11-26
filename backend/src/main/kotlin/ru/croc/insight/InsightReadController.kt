@@ -18,7 +18,9 @@ import ru.croc.insight.catalog.CompanySummary
 import ru.croc.insight.catalog.InitiativeSummary
 import ru.croc.insight.history.Coverage
 import ru.croc.insight.history.CoverageService
+import ru.croc.insight.history.InteractionManager
 import ru.croc.insight.history.RelationshipHealth
+import ru.croc.insight.history.TimelineFilters
 import ru.croc.insight.history.TouchpointPage
 import ru.croc.insight.history.TouchpointService
 import ru.croc.insight.history.relationshipHealth
@@ -86,6 +88,13 @@ class InsightReadController(
         through?.let(::parseThrough),
     ) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
 
+    @GetMapping("/initiatives/{initiativeId}/interaction-managers")
+    fun interactionManagers(
+        @PathVariable @Pattern(regexp = UUID_PATTERN) initiativeId: String,
+        principal: Principal,
+    ): List<InteractionManager> = touchpoints.managers(principal.name, UUID.fromString(initiativeId))
+        ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
+
     @GetMapping("/companies/{companyId}/events")
     fun companyEvents(
         @PathVariable @Pattern(regexp = UUID_PATTERN) companyId: String,
@@ -94,11 +103,15 @@ class InsightReadController(
         @RequestParam(required = false) @Pattern(regexp = UUID_PATTERN) cursor: String?,
         @RequestParam(required = false) @Size(max = 40) @Pattern(regexp = "[0-9]{4}-.+") through: String?,
         @RequestParam(required = false) @Size(max = 160) responsibleManager: String?,
+        @RequestParam(required = false) @Size(max = 120) q: String?,
+        @RequestParam(required = false) @Pattern(regexp = "MEETING|CALL|EMAIL|NOTE|PROPOSAL") type: String?,
+        @RequestParam(required = false) @Pattern(regexp = UUID_PATTERN) initiativeId: String?,
         principal: Principal,
     ): TouchpointPage = touchpoints.companyHistory(
         principal.name, UUID.fromString(companyId), personId?.let(UUID::fromString),
         limit?.toInt() ?: 20, cursor?.let(UUID::fromString), through?.let(::parseThrough),
         responsibleManager?.trim()?.takeIf(String::isNotEmpty),
+        TimelineFilters(q?.trim()?.takeIf(String::isNotEmpty), type, initiativeId?.let(UUID::fromString)),
     ) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
 
     private fun parseThrough(value: String): Instant = try {

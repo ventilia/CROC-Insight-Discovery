@@ -40,7 +40,7 @@ class GraphService(
     private fun edges(initiativeId: UUID): List<GraphEdge> =
         jdbc.sql(
             """
-            SELECT id, source_contact_id, target_contact_id, type, label, confirmed
+            SELECT id, source_contact_id, target_contact_id, type, label, confirmed, source_label
             FROM relationships
             WHERE initiative_id = :initiativeId
             ORDER BY id
@@ -55,6 +55,7 @@ class GraphService(
                     type = row.getString("type"),
                     label = row.getString("label"),
                     confirmed = row.getBoolean("confirmed"),
+                    sourceLabel = row.getString("source_label"),
                 )
             }
             .list()

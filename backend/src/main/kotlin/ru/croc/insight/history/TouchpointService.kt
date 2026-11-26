@@ -35,6 +35,8 @@ data class Touchpoint(
 )
 
 data class TouchpointParticipant(val id: UUID, val name: String)
+data class InteractionManager(val name: String, val contactIds: List<UUID>)
+data class TimelineFilters(val query: String? = null, val type: String? = null, val initiativeId: UUID? = null)
 
 @Service
 class TouchpointService(
@@ -42,6 +44,22 @@ class TouchpointService(
     private val participants: ParticipantService,
     private val jdbc: JdbcClient,
 ) {
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    fun managers(viewer: String, initiativeId: UUID): List<InteractionManager>? {
+        val initiative = catalog.findInitiative(viewer, initiativeId) ?: return null
+        return jdbc.sql(
+            """
+            SELECT t.responsible_manager, p.contact_id
+            FROM touchpoints t JOIN touchpoint_participants p ON p.touchpoint_id = t.id AND p.initiative_id = t.initiative_id
+            WHERE t.initiative_id = :initiative AND t.responsible_manager IS NOT NULL
+            GROUP BY t.responsible_manager, p.contact_id
+            ORDER BY t.responsible_manager, p.contact_id
+            """.trimIndent(),
+        ).param("initiative", initiative.id).query { row, _ ->
+            row.getString("responsible_manager") to row.getObject("contact_id", UUID::class.java)
+        }.list().groupBy({ it.first }, { it.second }).map { InteractionManager(it.key, it.value) }
+    }
+
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     fun history(
         viewer: String, initiativeId: UUID, personId: UUID?, limit: Int, cursor: UUID?, through: Instant?,
@@ -55,6 +73,7 @@ class TouchpointService(
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     fun companyHistory(
         viewer: String, companyId: UUID, personId: UUID?, limit: Int, cursor: UUID?, through: Instant?, manager: String?,
+        filters: TimelineFilters = TimelineFilters(),
     ): TouchpointPage? {
         val readable = jdbc.sql(
             """
@@ -68,7 +87,7 @@ class TouchpointService(
         ).param("companyId", companyId).param("viewer", viewer).param("personId", personId)
             .query(Boolean::class.javaObjectType).single()
         if (!readable) return null
-        return historyPage(Timeline(companyId, Scope.COMPANY, personId, through, manager), limit, cursor)
+        return historyPage(Timeline(companyId, Scope.COMPANY, personId, through, manager, filters), limit, cursor)
     }
 
     private fun historyPage(timeline: Timeline, limit: Int, cursor: UUID?): TouchpointPage {
@@ -146,6 +165,9 @@ class TouchpointService(
         ).param("scopeId", timeline.id).param("personId", timeline.personId)
             .param("through", timeline.through?.atOffset(ZoneOffset.UTC), Types.TIMESTAMP_WITH_TIMEZONE)
             .param("manager", timeline.manager, Types.VARCHAR)
+            .param("search", timeline.filters.query, Types.VARCHAR)
+            .param("type", timeline.filters.type, Types.VARCHAR)
+            .param("initiative", timeline.filters.initiativeId, Types.OTHER)
 
     private fun eventParticipants(eventIds: List<UUID>): Map<UUID, List<TouchpointParticipant>> =
         jdbc.sql(
@@ -169,6 +191,7 @@ class TouchpointService(
 
     private data class Timeline(
         val id: UUID, val scope: Scope, val personId: UUID?, val through: Instant?, val manager: String?,
+        val filters: TimelineFilters = TimelineFilters(),
     )
 
     private companion object {
@@ -180,6 +203,15 @@ class TouchpointService(
             ))
             AND (CAST(:through AS timestamptz) IS NULL OR t.occurred_at <= :through)
             AND (CAST(:manager AS text) IS NULL OR t.responsible_manager = :manager)
+            AND (CAST(:type AS text) IS NULL OR t.type = :type)
+            AND (CAST(:initiative AS uuid) IS NULL OR t.initiative_id = :initiative)
+            AND (CAST(:search AS text) IS NULL
+                OR strpos(lower(concat_ws(' ', t.subject, t.outcome, t.next_step, t.team, t.comment, t.responsible_manager)), lower(:search)) > 0
+                OR EXISTS (
+                    SELECT 1 FROM touchpoint_participants p JOIN contacts c ON c.id = p.contact_id
+                    WHERE p.touchpoint_id = t.id AND p.initiative_id = t.initiative_id
+                      AND strpos(lower(c.name), lower(:search)) > 0
+                ))
         """
     }
 }

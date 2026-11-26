@@ -22,6 +22,7 @@ data class CompanyProfile(
     val initiatives: List<InitiativeSummary>,
     val contactCount: Long,
     val keyContacts: List<ContactSummary>,
+    val roles: List<ParticipantRole>,
 )
 
 data class ContactSummary(

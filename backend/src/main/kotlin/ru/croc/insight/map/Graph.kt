@@ -25,6 +25,10 @@ data class GraphNode(
     val influenceBasis: String? = null,
     val email: String? = null,
     val phone: String? = null,
+    val mandate: String? = null,
+    val interest: String? = null,
+    val sourceLabel: String? = null,
+    val editVersion: Int = 0,
 )
 
 data class GraphEdge(
@@ -34,6 +38,7 @@ data class GraphEdge(
     val type: String,
     val label: String,
     val confirmed: Boolean,
+    val sourceLabel: String? = null,
 )
 
 data class GraphFilters(val departments: List<Department>, val roles: List<ParticipantRole>)

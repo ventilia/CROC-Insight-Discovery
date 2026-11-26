@@ -37,6 +37,7 @@ class SecurityConfig {
                     .requestMatchers(
                         HttpMethod.GET,
                         "/api/v1/companies",
+                        "/api/v1/contacts/search",
                         "/api/v1/dashboard",
                         "/api/v1/capabilities",
                         "/api/v1/companies/{companyId}",
@@ -49,9 +50,11 @@ class SecurityConfig {
                         "/api/v1/initiatives/{initiativeId}/graph",
                         "/api/v1/initiatives/{initiativeId}/people/{personId}",
                         "/api/v1/initiatives/{initiativeId}/events",
+                        "/api/v1/initiatives/{initiativeId}/interaction-managers",
                         "/api/v1/initiatives/{initiativeId}/coverage",
                         "/api/v1/initiatives/{initiativeId}/relationship-health",
                         "/api/v1/initiatives/{initiativeId}/people/{personId}/demo-source",
+                        "/api/v1/initiatives/{initiativeId}/requests",
                         "/api/v1/csrf",
                         "/api/v1/ai/settings",
                     ).hasRole("DEMO_READER")
@@ -60,12 +63,24 @@ class SecurityConfig {
                         "/api/v1/initiatives/{initiativeId}/ai/advice",
                         "/api/v1/companies/{companyId}/ai/advice",
                     ).hasRole("DEMO_READER")
-                    .requestMatchers(HttpMethod.POST, "/api/v1/initiatives/{initiativeId}/events")
-                    .hasRole("DEMO_EDITOR")
+                    .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/v1/companies/{companyId}/initiatives",
+                        "/api/v1/initiatives/{initiativeId}/events",
+                        "/api/v1/initiatives/{initiativeId}/people",
+                        "/api/v1/initiatives/{initiativeId}/relationships",
+                        "/api/v1/initiatives/{initiativeId}/requests",
+                        "/api/v1/initiatives/{initiativeId}/imports/contacts",
+                    ).hasRole("DEMO_EDITOR")
                     .requestMatchers(
                         HttpMethod.PATCH,
+                        "/api/v1/initiatives/{initiativeId}/people/{personId}",
                         "/api/v1/initiatives/{initiativeId}/people/{personId}/demo-source",
+                        "/api/v1/initiatives/{initiativeId}/relationships/{relationshipId}",
+                        "/api/v1/initiatives/{initiativeId}/requests/{requestId}",
                     ).hasRole("DEMO_EDITOR")
+                    .requestMatchers(HttpMethod.PUT, "/api/v1/ai/settings").hasRole("DEMO_EDITOR")
+                    .requestMatchers(HttpMethod.DELETE, "/api/v1/ai/settings").hasRole("DEMO_EDITOR")
                     .anyRequest().denyAll()
             }
             .httpBasic(withDefaults())

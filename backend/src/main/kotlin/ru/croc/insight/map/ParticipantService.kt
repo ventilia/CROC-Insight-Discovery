@@ -48,7 +48,7 @@ class ParticipantService(private val catalog: CatalogService, private val positi
             """
             SELECT c.id, c.name, c.job_title, d.id AS department_id, d.name AS department_name,
                    r.code AS role_code, r.label AS role_label, p.decision_maker,
-                   p.influence, p.influence_basis, c.email, c.phone
+                   p.influence, p.influence_basis, c.email, c.phone, p.mandate, p.interest, p.source_label, c.edit_version
             FROM initiative_participants p
             JOIN contacts c ON c.id = p.contact_id
             LEFT JOIN departments d ON d.id = c.department_id
@@ -73,6 +73,10 @@ class ParticipantService(private val catalog: CatalogService, private val positi
                     influenceBasis = row.getString("influence_basis"),
                     email = row.getString("email"),
                     phone = row.getString("phone"),
+                    mandate = row.getString("mandate"),
+                    interest = row.getString("interest"),
+                    sourceLabel = row.getString("source_label"),
+                    editVersion = row.getInt("edit_version"),
                 )
             }
 }

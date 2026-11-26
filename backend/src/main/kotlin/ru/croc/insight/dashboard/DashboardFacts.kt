@@ -13,6 +13,26 @@ data class DashboardResponse(
     val latestAsOf: Instant?,
     val riskCount: Long,
     val risks: List<RiskFact>,
+    val companies: List<DashboardCompany>,
+    val recentInteractions: List<DashboardInteraction>,
+)
+
+data class DashboardCompany(
+    val companyId: UUID,
+    val initiativeCount: Long,
+    val contactCount: Long,
+    val departmentCount: Long,
+    val latestAsOf: Instant?,
+)
+
+data class DashboardInteraction(
+    val id: UUID,
+    val initiativeId: UUID,
+    val initiativeName: String,
+    val type: String,
+    val occurredAt: Instant,
+    val subject: String,
+    val team: String,
 )
 
 data class CompanyInsightsResponse(

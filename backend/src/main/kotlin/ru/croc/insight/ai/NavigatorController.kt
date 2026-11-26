@@ -8,9 +8,12 @@ import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 import java.security.Principal
 import java.util.UUID
+import org.springframework.security.core.Authentication
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import ru.croc.insight.UUID_PATTERN
@@ -20,10 +23,25 @@ data class NavigatorQuestion(
     @field:NotBlank @field:Size(max = 400) val question: String,
 )
 
+class LocalModelSelection(
+    val provider: LocalProvider,
+    @field:NotBlank @field:Size(max = 120) @field:Pattern(regexp = "[^\\p{Cntrl}]+") val model: String,
+    @field:Size(max = 500) @field:Pattern(regexp = "[!-~]*") val apiKey: String? = null,
+    val allowExternal: Boolean = false,
+)
+
 @RestController
 class NavigatorController(private val navigator: LocalNavigator) {
     @GetMapping("/api/v1/ai/settings")
-    fun settings(): LocalModelSettings = navigator.settings()
+    fun settings(authentication: Authentication): LocalModelSettings =
+        navigator.settings(authentication.name, authentication.authorities.any { it.authority == "ROLE_DEMO_EDITOR" })
+
+    @PutMapping("/api/v1/ai/settings")
+    fun configure(@Valid @RequestBody input: LocalModelSelection, principal: Principal): LocalModelSettings =
+        navigator.configure(principal.name, input.provider, input.model.trim(), input.apiKey, input.allowExternal)
+
+    @DeleteMapping("/api/v1/ai/settings")
+    fun reset(principal: Principal): LocalModelSettings = navigator.reset(principal.name)
 
     @PostMapping("/api/v1/initiatives/{initiativeId}/ai/advice")
     fun advice(

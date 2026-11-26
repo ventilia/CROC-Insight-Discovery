@@ -23,9 +23,49 @@ class DashboardService(private val jdbc: JdbcClient) {
             }
             .single()
         val risks = risks(viewer, null, days, PORTFOLIO_RISK_LIMIT)
+        val companies = jdbc.sql(
+            """
+            SELECT v.company_id, p.total AS contacts, d.total AS departments,
+                   i.total AS initiatives, i.latest_as_of
+            FROM company_viewers v
+            CROSS JOIN LATERAL (SELECT count(*) AS total FROM contacts WHERE company_id = v.company_id) p
+            CROSS JOIN LATERAL (SELECT count(*) AS total FROM departments WHERE company_id = v.company_id) d
+            CROSS JOIN LATERAL (
+                SELECT count(*) AS total, max(as_of) AS latest_as_of FROM initiatives WHERE company_id = v.company_id
+            ) i
+            WHERE v.viewer_key = :viewer
+            ORDER BY v.company_id
+            """.trimIndent(),
+        ).param("viewer", viewer).query { row, _ ->
+            DashboardCompany(
+                row.getObject("company_id", UUID::class.java), row.getLong("initiatives"),
+                row.getLong("contacts"), row.getLong("departments"), row.instant("latest_as_of"),
+            )
+        }.list()
+        val recent = jdbc.sql(
+            """
+            SELECT t.id, i.id AS initiative_id, i.name, t.type, t.occurred_at, t.subject, t.team
+            FROM company_viewers v
+            JOIN initiatives i ON i.company_id = v.company_id
+            JOIN LATERAL (
+                SELECT id, type, occurred_at, subject, team FROM touchpoints
+                WHERE initiative_id = i.id AND occurred_at <= i.as_of
+                ORDER BY occurred_at DESC, id DESC
+                LIMIT 4
+            ) t ON true
+            WHERE v.viewer_key = :viewer
+            ORDER BY t.occurred_at DESC, t.id DESC
+            LIMIT 4
+            """.trimIndent(),
+        ).param("viewer", viewer).query { r, _ ->
+            DashboardInteraction(
+                r.getObject("id", UUID::class.java), r.getObject("initiative_id", UUID::class.java), r.getString("name"),
+                r.getString("type"), requireNotNull(r.instant("occurred_at")), r.getString("subject"), r.getString("team"),
+            )
+        }.list()
         return DashboardResponse(
             days, VERIFICATION_DAYS, totals.companies, totals.contacts, totals.interactions,
-            totals.earliestAsOf, totals.latestAsOf, risks.total, risks.facts,
+            totals.earliestAsOf, totals.latestAsOf, risks.total, risks.facts, companies, recent,
         )
     }
 

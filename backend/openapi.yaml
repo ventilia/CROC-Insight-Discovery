@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: КРОК Insight
-  version: 0.6.0
+  version: 0.7.0
   description: API карты ЛПР, истории касаний и охвата участников на синтетических данных.
 servers:
   - url: http://127.0.0.1:8080
@@ -176,6 +176,9 @@ paths:
           in: query
           schema: {type: string, format: date-time}
         - $ref: '#/components/parameters/ContactManager'
+        - $ref: '#/components/parameters/ContactSearch'
+        - {name: type, in: query, schema: {type: string, enum: [MEETING, CALL, EMAIL, NOTE, PROPOSAL]}}
+        - {name: initiativeId, in: query, schema: {type: string, format: uuid}}
       responses:
         '200':
           description: Хронология компании или контакта с курсорной пагинацией
@@ -233,6 +236,31 @@ paths:
                   externalValue: ./examples/companies.json
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /api/v1/contacts/search:
+    get:
+      operationId: searchWorkspaceContacts
+      summary: Поиск сотрудников в доступных компаниях
+      parameters:
+        - {name: q, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 120}}
+      responses:
+        '200':
+          description: До пяти подходящих контактов без контактных данных
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 5
+                items:
+                  type: object
+                  required: [id, name, jobTitle, companyId, companyName]
+                  properties:
+                    id: {type: string, format: uuid}
+                    name: {type: string}
+                    jobTitle: {type: [string, 'null']}
+                    companyId: {type: string, format: uuid}
+                    companyName: {type: string}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
   /api/v1/companies/{companyId}/initiatives:
     get:
       operationId: listInitiatives
@@ -262,6 +290,28 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createProject
+      summary: Создать проект клиента
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProjectChange'}
+      responses:
+        '201':
+          description: Успешный результат
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SavedWorkspaceItem'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: Требуются права редактора и CSRF}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: Запись изменилась или уже существует}
   /api/v1/initiatives/{initiativeId}/graph:
     get:
       operationId: getInitiativeGraph
@@ -334,6 +384,29 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateParticipant
+      summary: Изменить данные участника
+      parameters:
+        - $ref: '#/components/parameters/InitiativeId'
+        - $ref: '#/components/parameters/CsrfHeader'
+        - {name: personId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ParticipantChange'}
+      responses:
+        '200':
+          description: Успешный результат
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SavedWorkspaceItem'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: Требуются права редактора и CSRF}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: Запись изменилась или уже существует}
   /api/v1/initiatives/{initiativeId}/events:
     get:
       operationId: listTouchpoints
@@ -416,6 +489,27 @@ paths:
           description: ID уже использован для другой записи
         '503':
           description: Запись взаимодействий недоступна
+  /api/v1/initiatives/{initiativeId}/interaction-managers:
+    get:
+      operationId: listInteractionManagers
+      summary: Ответственные и контакты, с которыми они взаимодействовали в проекте
+      parameters:
+        - $ref: '#/components/parameters/InitiativeId'
+      responses:
+        '200':
+          description: Список менеджеров и уникальные ID участников в истории
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [name, contactIds]
+                  properties:
+                    name: {type: string}
+                    contactIds: {type: array, items: {type: string, format: uuid}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
   /api/v1/initiatives/{initiativeId}/coverage:
     get:
       operationId: getInitiativeCoverage
@@ -554,23 +648,52 @@ paths:
   /api/v1/ai/settings:
     get:
       operationId: getLocalModelSettings
-      summary: Настройки локальной модели
+      summary: Настройки модели текущего пользователя
       responses:
         '200':
           description: Наличие серверных настроек и имя модели
           content:
             application/json:
-              schema:
-                type: object
-                required: [enabled, model]
-                properties:
-                  enabled: {type: boolean}
-                  model: {type: [string, 'null']}
-              examples:
-                disabled:
-                  externalValue: ./examples/local-model-disabled.json
+              schema: {$ref: '#/components/schemas/ModelSettings'}
         '401':
           $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: configureModel
+      summary: Проверить и подключить модель пользователя
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ModelSelection'}
+      responses:
+        '200':
+          description: Успешный результат
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ModelSettings'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: Требуются права редактора и CSRF}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: Запись изменилась или уже существует}
+    delete:
+      operationId: resetModel
+      summary: Сбросить настройку модели пользователя
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: Успешный результат
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ModelSettings'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: Требуются права редактора и CSRF}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: Запись изменилась или уже существует}
   /api/v1/initiatives/{initiativeId}/ai/advice:
     post:
       operationId: requestLocalAdvice
@@ -658,6 +781,159 @@ paths:
           description: Локальная модель не настроена
         '504':
           description: Локальная модель превысила время ожидания
+  /api/v1/initiatives/{initiativeId}/people:
+    post:
+      operationId: createParticipant
+      summary: Добавить участника
+      parameters:
+        - $ref: '#/components/parameters/InitiativeId'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ParticipantChange'}
+      responses:
+        '201':
+          description: Успешный результат
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SavedWorkspaceItem'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: Требуются права редактора и CSRF}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: Запись изменилась или уже существует}
+  /api/v1/initiatives/{initiativeId}/relationships:
+    post:
+      operationId: createRelationship
+      summary: Создать направленную связь
+      parameters:
+        - $ref: '#/components/parameters/InitiativeId'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RelationshipChange'}
+      responses:
+        '201':
+          description: Успешный результат
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SavedWorkspaceItem'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: Требуются права редактора и CSRF}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: Запись изменилась или уже существует}
+  /api/v1/initiatives/{initiativeId}/relationships/{relationshipId}:
+    patch:
+      operationId: updateRelationship
+      summary: Изменить направленную связь
+      parameters:
+        - $ref: '#/components/parameters/InitiativeId'
+        - $ref: '#/components/parameters/CsrfHeader'
+        - {name: relationshipId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RelationshipChange'}
+      responses:
+        '200':
+          description: Успешный результат
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SavedWorkspaceItem'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: Требуются права редактора и CSRF}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: Запись изменилась или уже существует}
+  /api/v1/initiatives/{initiativeId}/requests:
+    get:
+      operationId: listInformationRequests
+      summary: Получить свои черновики
+      parameters:
+        - $ref: '#/components/parameters/InitiativeId'
+      responses:
+        '200':
+          description: Успешный результат
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/InformationRequest'}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    post:
+      operationId: createInformationRequest
+      summary: Сохранить новый черновик
+      parameters:
+        - $ref: '#/components/parameters/InitiativeId'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/InformationRequestChange'}
+      responses:
+        '201':
+          description: Успешный результат
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SavedWorkspaceItem'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: Требуются права редактора и CSRF}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: Запись изменилась или уже существует}
+  /api/v1/initiatives/{initiativeId}/requests/{requestId}:
+    patch:
+      operationId: updateInformationRequest
+      summary: Изменить статус черновика
+      parameters:
+        - $ref: '#/components/parameters/InitiativeId'
+        - $ref: '#/components/parameters/CsrfHeader'
+        - {name: requestId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/InformationRequestStatus'}
+      responses:
+        '200':
+          description: Успешный результат
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SavedWorkspaceItem'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: Требуются права редактора и CSRF}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: Запись изменилась или уже существует}
+  /api/v1/initiatives/{initiativeId}/imports/contacts:
+    post:
+      operationId: importContacts
+      summary: Добавить участников из нормализованных строк CSV
+      parameters:
+        - $ref: '#/components/parameters/InitiativeId'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ContactImport'}
+      responses:
+        '201':
+          description: Успешный результат
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ImportCounts'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: Требуются права редактора и CSRF}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: Запись изменилась или уже существует}
 components:
   parameters:
     CompanyId:
@@ -735,6 +1011,114 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    SavedWorkspaceItem:
+      type: object
+      required: [id]
+      properties:
+        id: {type: string, format: uuid}
+    ProjectChange:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 200}
+        stage: {type: [string, 'null'], maxLength: 100}
+        owner: {type: [string, 'null'], maxLength: 200}
+        due: {type: [string, 'null'], format: date}
+        nextStep: {type: [string, 'null'], maxLength: 500}
+    ContactImport:
+      type: object
+      required: [contacts]
+      properties:
+        contacts: {type: array, minItems: 1, maxItems: 500, items: {$ref: '#/components/schemas/ContactChange'}}
+    ContactChange:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 200}
+        jobTitle: {type: [string, 'null'], maxLength: 300}
+        department: {type: [string, 'null'], maxLength: 160}
+        email: {type: [string, 'null'], maxLength: 254}
+        phone: {type: [string, 'null'], maxLength: 60}
+    ParticipantChange:
+      allOf:
+        - $ref: '#/components/schemas/ContactChange'
+        - type: object
+          required: [decisionMaker]
+          properties:
+            decisionMaker: {type: boolean}
+            roleLabel: {type: [string, 'null'], maxLength: 120}
+            influence: {type: [string, 'null'], enum: [HIGH, MEDIUM, LOW, null]}
+            influenceBasis: {type: [string, 'null'], maxLength: 500}
+            mandate: {type: [string, 'null'], maxLength: 200}
+            interest: {type: [string, 'null'], maxLength: 500}
+            sourceLabel: {type: [string, 'null'], maxLength: 300}
+            expectedVersion: {type: integer, minimum: 0, description: Обязательно при правке}
+    RelationshipChange:
+      type: object
+      required: [source, target, type, label, confirmed]
+      properties:
+        source: {type: string, format: uuid}
+        target: {type: string, format: uuid}
+        type: {type: string, enum: [APPROVAL, COORDINATION, EXPERTISE]}
+        label: {type: string, minLength: 1, maxLength: 300}
+        confirmed: {type: boolean}
+        sourceLabel: {type: [string, 'null'], maxLength: 500}
+    InformationRequestChange:
+      type: object
+      required: [recipient, question]
+      properties:
+        personId: {type: [string, 'null'], format: uuid}
+        recipient: {type: string, minLength: 1, maxLength: 200}
+        question: {type: string, minLength: 1, maxLength: 1000}
+    InformationRequestStatus:
+      type: object
+      required: [status]
+      properties:
+        status: {type: string, enum: [DRAFT, DONE]}
+    InformationRequest:
+      allOf:
+        - $ref: '#/components/schemas/InformationRequestChange'
+        - $ref: '#/components/schemas/InformationRequestStatus'
+        - type: object
+          required: [id, createdAt]
+          properties:
+            id: {type: string, format: uuid}
+            createdAt: {type: string, format: date-time}
+    ImportCounts:
+      type: object
+      required: [created, attached, skipped]
+      properties:
+        created: {type: integer, minimum: 0}
+        attached: {type: integer, minimum: 0}
+        skipped: {type: integer, minimum: 0}
+    ModelSelection:
+      type: object
+      required: [provider, model]
+      properties:
+        provider: {type: string, enum: [OLLAMA, LM_STUDIO, SELF_HOSTED, OPENAI, OPENROUTER]}
+        model: {type: string, minLength: 1, maxLength: 120}
+        apiKey: {type: [string, 'null'], writeOnly: true, maxLength: 500}
+        allowExternal: {type: boolean, default: false}
+    ModelSettings:
+      type: object
+      required: [enabled, model, provider, canConfigure, hasApiKey, external, providers]
+      properties:
+        enabled: {type: boolean}
+        model: {type: [string, 'null']}
+        provider: {type: [string, 'null']}
+        canConfigure: {type: boolean}
+        hasApiKey: {type: boolean}
+        external: {type: boolean}
+        providers:
+          type: array
+          items:
+            type: object
+            required: [id, label, port, external]
+            properties:
+              id: {type: string}
+              label: {type: string}
+              port: {type: [integer, 'null']}
+              external: {type: boolean}
     TouchpointChange:
       type: object
       required: [id, type, occurredAt, team, subject, responsibleManager, participantIds]
@@ -755,6 +1139,8 @@ components:
       properties:
         mode: {type: string}
         canCreateEvents: {type: boolean}
+        canManageWorkspace: {type: boolean}
+        canImportContacts: {type: boolean}
     Dashboard:
       type: object
       required: [days, verificationDays, accessibleCompanyCount, registeredContactCount, activeInteractionCount, earliestAsOf, latestAsOf, riskCount, risks]
@@ -768,6 +1154,31 @@ components:
         latestAsOf: {type: [string, 'null'], format: date-time}
         riskCount: {type: integer, minimum: 0}
         risks: {type: array, maxItems: 8, items: {$ref: '#/components/schemas/RiskFact'}}
+        companies:
+          type: array
+          items:
+            type: object
+            required: [companyId, initiativeCount, contactCount, departmentCount, latestAsOf]
+            properties:
+              companyId: {type: string, format: uuid}
+              initiativeCount: {type: integer, minimum: 0}
+              contactCount: {type: integer, minimum: 0}
+              departmentCount: {type: integer, minimum: 0}
+              latestAsOf: {type: [string, 'null'], format: date-time}
+        recentInteractions:
+          type: array
+          maxItems: 4
+          items:
+            type: object
+            required: [id, initiativeId, initiativeName, type, occurredAt, subject, team]
+            properties:
+              id: {type: string, format: uuid}
+              initiativeId: {type: string, format: uuid}
+              initiativeName: {type: string}
+              type: {type: string}
+              occurredAt: {type: string, format: date-time}
+              subject: {type: string}
+              team: {type: string}
     CompanyInsights:
       type: object
       required: [companyId, companyName, days, verificationDays, registeredContactCount, activeInteractionCount, earliestAsOf, latestAsOf, initiatives, riskCount, risks]
@@ -910,6 +1321,11 @@ components:
       type: object
       required: [id, companyId, name, asOf]
       properties:
+        stage: {type: [string, 'null']}
+        owner: {type: [string, 'null']}
+        due: {type: [string, 'null'], format: date}
+        nextStep: {type: [string, 'null']}
+        participantCount: {type: integer, minimum: 0}
         id:
           type: string
           format: uuid
