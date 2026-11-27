@@ -7,54 +7,296 @@
     .empty-state,
     .error-banner,
     .event-dialog,
+    .contact-drawer.full-profile
+  ) {
+  border-radius: var(--radius-panel);
+}
+
+.kit-app
+  :is(
     .insight-grid article,
     .request-list li,
     .department-cards > div,
     .key-people > button,
     .project-index article,
-    .project-bridge article,
-    .contact-drawer
+    .project-bridge article
   ) {
-  border-radius: 0;
+  border-radius: var(--radius-control);
+}
+
+.kit-app :is(.primary, .secondary, .icon-button, .sidebar nav button, input, select, textarea) {
+  border-radius: var(--radius-control);
+}
+
+.kit-app .contact-drawer:not(.full-profile) {
+  border-radius: var(--radius-panel) 0 0 var(--radius-panel);
+}
+
+@media (max-width: 450px) {
+  .kit-app .contact-drawer:not(.full-profile) {
+    border-radius: 0;
+  }
 }
 
 .main-content.client-content {
   max-width: 1860px;
   padding-inline: clamp(22px, 2.6vw, 52px);
   margin-block: 0;
-}
-
-.main-content.client-map {
-  max-width: 2100px;
-  padding-top: 19px;
-  padding-inline: clamp(18px, 2vw, 40px);
-}
-
-.main-content:is(.client-contacts, .client-history, .client-insights) {
-  --workspace-inset: clamp(16px, 2vw, 28px);
-  --workspace-muted: #53695b;
-  max-width: 2060px;
   min-width: 0;
-  padding-inline: clamp(16px, 1.65vw, 36px);
-}
-
-html[data-theme="dark"]
-  .main-content:is(.client-contacts, .client-history, .client-insights) {
+  --workspace-inset: clamp(16px, 2vw, 28px);
   --workspace-muted: var(--ink-muted);
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
+.kit-app .topbar {
+  height: 62px;
+  gap: 16px;
+}
+
+.kit-app .main-content {
+  padding-block: 20px 28px;
+  position: relative;
+}
+
+.kit-app .updating {
+  position: absolute;
+  inset: 2px max(12px, 2vw) auto auto;
+  margin: 0;
+}
+
+.kit-app .page-title {
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.kit-app .page-title p {
+  margin-top: 4px;
+}
+
+.kit-app .page-title h1 {
+  font-size: clamp(23px, 2.4vw, 32px);
+  line-height: 1.2;
+}
+
+.kit-app .kit-brand {
+  padding-bottom: 13px;
+}
+
+.kit-app .sidebar-context {
+  padding-bottom: 13px;
+  gap: 9px;
+}
+
+.kit-app .nav-caption {
+  padding-bottom: 6px;
+}
+
+.kit-app .sidebar nav button {
+  min-height: 36px;
+  padding-block: 7px;
+}
+
+.kit-app .sidebar-theme-toggle {
+  padding-block: 9px;
+}
+
+.kit-app .sidebar-footer {
+  padding-top: 9px;
+}
+
+.kit-app .section-heading {
+  padding-block: 13px;
+  gap: 10px;
+}
+
+.kit-app .section-heading.outside {
+  padding: 0;
+  margin-block: 20px 10px;
+}
+
+.kit-app .section-heading h2 {
+  font-size: clamp(17px, 1.65vw, 21px);
+  line-height: 1.25;
+}
+
+.kit-app :is(.metric-grid, .company-grid, .dashboard-bottom, .overview-columns) {
+  gap: 12px;
+}
+
+.kit-app .metric-card {
+  padding: 13px 15px;
+}
+
+.kit-app .metric-card > strong {
+  margin-block: 6px 4px;
+  font-size: 29px;
+}
+
+.kit-app .company-card {
+  padding: 13px 16px;
+}
+
+.kit-app .company-card h3 {
+  margin-top: 8px;
+  font-size: 19px;
+}
+
+.kit-app .company-card-stats {
+  gap: 8px 16px;
+  padding-block: 10px;
+}
+
+.kit-app .company-card-footer {
+  padding-top: 8px;
+}
+
+.kit-app .dashboard-bottom {
+  margin-top: 14px;
+}
+
+.kit-app .risk-list > button {
+  padding-block: 8px;
+}
+
+.kit-app .risk-list strong {
+  line-height: 1.4;
+}
+
+.kit-app .risk-list small {
+  margin-top: 2px;
+}
+
+.kit-app .company-summary {
+  gap: 16px 24px;
+  padding: 16px 20px;
+  margin-bottom: 14px;
+}
+
+.kit-app .company-summary h2 {
+  font-size: 20px;
+}
+
+.kit-app .company-summary p {
+  margin-block: 6px 12px;
+  line-height: 1.5;
+}
+
+.kit-app .company-facts {
+  gap: 10px;
+}
+
+.kit-app .company-facts strong {
+  font-size: 20px;
+}
+
+.kit-app .overview-columns {
+  margin-bottom: 14px;
+}
+
+.kit-app .persisted-panel > summary {
+  padding: 12px 16px;
+}
+
+.kit-app .persisted-panel > summary h2 {
+  font-size: 16px;
+}
+
+.kit-app :is(.department-cards > div, .key-people > button, .request-list li) {
+  padding-block: 8px;
+}
+
+.kit-app .project-panel {
+  margin-block-end: 14px;
+}
+
+.kit-app :is(.project-index, .project-bridge) {
+  gap: 10px;
+  padding-block-end: 14px;
+}
+
+.kit-app :is(.project-index, .project-bridge) article {
+  padding: 12px;
+}
+
+.kit-app .project-index dl {
+  gap: 8px;
+  margin-block: 9px;
+}
+
+.kit-app .profile-hero {
+  padding-block: 14px;
+}
+
+.kit-app .profile-section {
+  padding-block: 12px;
+}
+
+.kit-app .activity-list > li:not(:last-child) {
+  margin-block-end: 8px;
+  padding-block-end: 10px;
+}
+
+.kit-app .client-tabs button {
+  padding-bottom: 10px;
+  font-weight: 500;
+}
+
+.kit-app .client-tabs button[aria-current="page"] {
+  font-weight: 500;
+}
+
 .client-content > .page-title {
-  margin-bottom: 17px;
+  flex-wrap: nowrap;
+  margin-bottom: 14px;
 }
-.client-map > .page-title {
-  margin-bottom: 10px;
+
+.client-content > .page-title > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
-.client-map > .page-title h1 {
-  font-size: 28px;
+
+.client-actions {
+  position: relative;
+  flex-shrink: 0;
+  z-index: 2;
 }
-.client-map > .page-title p {
-  margin-top: 5px;
+
+.client-actions summary {
+  list-style: none;
+  cursor: pointer;
 }
+
+.client-actions summary::-webkit-details-marker {
+  display: none;
+}
+
+.client-action-menu {
+  position: absolute;
+  inset: calc(100% + 5px) 0 auto auto;
+  display: grid;
+  padding: 4px;
+  min-width: min(225px, calc(100vw - 32px));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+}
+
+.client-action-menu button {
+  background: transparent;
+  border: 0;
+  border-radius: calc(var(--radius-control) - 4px);
+  padding: 8px 11px;
+  min-height: 38px;
+  text-align: start;
+}
+
+.client-action-menu button:is(:hover, :focus-visible):not(:disabled) {
+  background: var(--soft);
+}
+
 .client-content > .client-tabs {
   margin-bottom: 16px;
 }
@@ -62,9 +304,6 @@ html[data-theme="dark"]
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-.client-map > .client-tabs {
-  margin-bottom: 11px;
 }
 .client-map .scope-bar {
   align-items: end;
@@ -105,6 +344,31 @@ html[data-theme="dark"]
 }
 .sidebar-ai + .sidebar-theme-toggle {
   margin-top: 0;
+}
+
+.sidebar-project {
+  padding-inline: 4px;
+  margin-top: 13px;
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+
+.sidebar-project select {
+  max-width: 100%;
+  min-width: 0;
+  text-overflow: ellipsis;
+  min-height: 36px;
+  font-size: 12px;
+}
+
+.client-profile-title {
+  font-size: clamp(19px, 2vw, 26px);
+  line-height: 1.25;
+}
+
+.preview-more {
+  min-height: 36px;
+  margin: 0 24px 12px;
 }
 .section-actions {
   display: flex;
@@ -173,13 +437,51 @@ html[data-theme="dark"]
   align-items: end;
 }
 .company-directory .directory-filters {
-  padding: 0 var(--workspace-inset) 24px;
+  grid-template-columns: minmax(160px, 1.5fr) auto minmax(140px, 1fr) auto;
+  padding: 0 var(--workspace-inset) 14px;
+}
+
+.directory-options {
+  margin: 0 var(--workspace-inset) 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--soft);
+}
+
+.directory-extra-filters {
+  grid-template-columns: repeat(auto-fit, minmax(min(145px, 100%), 1fr));
+}
+
+.directory-columns-toggle {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-muted);
+  font-size: 13px;
+  flex-direction: row;
+}
+
+.directory-columns-toggle input {
+  width: auto;
+  accent-color: var(--accent);
+}
+
+.directory-filter-toggle {
+  white-space: nowrap;
+  min-height: 38px;
+}
+
+.directory-table {
+  table-layout: fixed;
+  overflow-wrap: anywhere;
 }
 .project-contacts .smart-filters {
-  padding: 0 var(--workspace-inset) 24px;
+  padding: 0 var(--workspace-inset) 14px;
 }
 .history-surface .history-filters {
-  padding: 0 var(--workspace-inset) 20px;
+  padding: 0 var(--workspace-inset) 12px;
   margin-bottom: 8px;
   border-bottom: 1px solid var(--line);
 }
@@ -194,7 +496,7 @@ html[data-theme="dark"]
 :is(.company-directory, .project-contacts, .history-surface)
   .filter-grid
   :is(input, select) {
-  min-height: 44px;
+  min-height: 38px;
   font-size: 14px;
   font-weight: 400;
 }
@@ -213,7 +515,7 @@ html[data-theme="dark"]
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 44px;
+  min-height: 38px;
   padding: 8px 12px;
   border: 1px solid var(--accent);
   border-radius: 8px;
@@ -239,7 +541,7 @@ html[data-theme="dark"] .decision-maker-filter[aria-pressed="true"] {
   outline-offset: -2px;
 }
 :is(.company-directory, .project-contacts) :is(th, td) {
-  padding: 13px 16px;
+  padding: 9px 14px;
 }
 :is(.company-directory, .project-contacts) th {
   font-size: 13px;
@@ -295,7 +597,7 @@ html[data-theme="dark"] .decision-maker-filter[aria-pressed="true"] {
   grid-template-columns: minmax(96px, 130px) minmax(0, 1fr);
   gap: 12px 20px;
   margin: 0;
-  padding: 20px 0;
+  padding: 12px 0;
 }
 .activity-date {
   display: flex;
@@ -359,7 +661,7 @@ html[data-theme="dark"] .decision-maker-filter[aria-pressed="true"] {
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   align-items: start;
   gap: 12px 24px;
-  padding: 16px 0;
+  padding: 12px 0;
   border: 0;
   border-top: 1px solid var(--line);
   background: transparent;
@@ -409,6 +711,18 @@ html[data-theme="dark"] .client-insights .insight-grid article {
 }
 
 @media (max-width: 720px) {
+  .kit-app .topbar {
+    min-height: 62px;
+    height: auto;
+    gap: 9px;
+    padding-block: 8px;
+  }
+  .kit-app .company-card {
+    padding-inline: 12px;
+  }
+  .kit-app .company-summary {
+    padding-inline: 14px;
+  }
   .main-content.client-content {
     padding-inline: 12px;
   }
@@ -421,13 +735,50 @@ html[data-theme="dark"] .client-insights .insight-grid article {
   .client-map .scope-bar > button {
     min-height: 36px;
   }
-  :is(.client-map, .client-contacts, .client-history, .client-insights) > .client-tabs {
+  .client-content > .client-tabs {
     margin-inline: -12px;
     padding-inline: 12px;
   }
   .contact-scope > label:first-child,
   .client-insights .scope-bar > label:first-child {
     flex-basis: 100%;
+  }
+  .company-directory .directory-table,
+  .directory-table tbody {
+    display: block;
+    min-width: 0;
+  }
+  .directory-table thead {
+    position: absolute;
+    clip-path: inset(50%);
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .directory-table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 12px;
+    padding: 10px var(--workspace-inset);
+    border-top: 1px solid var(--line);
+  }
+  .company-directory .directory-table td {
+    display: block;
+    border: 0;
+    padding: 0;
+    font-size: 13px;
+  }
+  .company-directory .directory-table td:first-child {
+    grid-column: 1 / -1;
+    min-width: 0;
+    width: auto;
+  }
+  .directory-table td[data-label]::before {
+    content: attr(data-label) / "";
+    display: block;
+    color: var(--ink-muted);
+    font-size: 11px;
   }
   .project-contacts .section-heading {
     align-items: flex-start;

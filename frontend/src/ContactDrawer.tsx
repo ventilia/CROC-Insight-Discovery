@@ -8,6 +8,7 @@ import {
   Link2,
   Plus,
   Copy,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -106,9 +107,9 @@ export function ContactDrawer({
   useEffect(() => {
     if (presentation === "page") return;
     const opener = document.activeElement;
-    heading.current?.focus();
+    heading.current?.focus({ preventScroll: true });
     return () => {
-      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true });
     };
   }, [personId, presentation]);
   async function copy() {
@@ -177,50 +178,62 @@ export function ContactDrawer({
               Открыть карточку
             </button>
           )}
-          {onMap && (
-            <button className="secondary" onClick={onMap}>
-              Окружение на карте
-            </button>
-          )}
-          {onManage && (
-            <>
-              <button
-                className="secondary"
-                onClick={() =>
-                  onManage({
-                    kind: "edit",
-                    iid: item.initiative.id,
-                    pid: personId,
-                  })
-                }
-              >
-                Уточнить запись
-              </button>
-              <button
-                className="secondary"
-                onClick={() =>
-                  onManage({
-                    kind: "request",
-                    iid: item.initiative.id,
-                    pid: personId,
-                  })
-                }
-              >
-                Запросить информацию
-              </button>
-            </>
-          )}
-
-          <button type="button" className="secondary" onClick={copy}>
-            <Copy size={14} />
-            Копировать
-          </button>
           {canEdit && (
             <button type="button" className="primary" onClick={onEvent}>
               <Plus size={14} />
               Взаимодействие
             </button>
           )}
+          <details
+            className="client-actions profile-more"
+            onClick={(event) => {
+              if ((event.target as Element).closest("button")) {
+                event.currentTarget.open = false;
+              }
+            }}
+          >
+            <summary className="secondary">
+              Ещё <ChevronDown size={14} aria-hidden="true" />
+            </summary>
+            <div className="client-action-menu">
+              {onMap && (
+                <button onClick={onMap}>
+                  Окружение на карте
+                </button>
+              )}
+              {onManage && (
+                <>
+                  <button
+                    onClick={() =>
+                      onManage({
+                        kind: "edit",
+                        iid: item.initiative.id,
+                        pid: personId,
+                      })
+                    }
+                  >
+                    Уточнить запись
+                  </button>
+                  <button
+                    onClick={() =>
+                      onManage({
+                        kind: "request",
+                        iid: item.initiative.id,
+                        pid: personId,
+                      })
+                    }
+                  >
+                    Запросить информацию
+                  </button>
+                </>
+              )}
+
+              <button type="button" onClick={copy}>
+                <Copy size={14} />
+                Копировать
+              </button>
+            </div>
+          </details>
         </div>
         <div className="profile-context-bar">
           <span className="copy-result" role="status">

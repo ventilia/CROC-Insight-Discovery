@@ -33,13 +33,12 @@ export function ContactPage({
   const person = item?.graph.nodes.find((p) => p.id === personId);
   useLayoutEffect(() => {
     if (!person) return;
-    window.scrollTo(0, 0);
     heading.current?.focus({ preventScroll: true });
   }, [person?.id]);
   if (!item || !person)
     return (
       <div className="empty-state">
-        <h1>Контакт недоступен</h1>
+        <h2>Контакт недоступен</h2>
         <p>Проверьте выбранный проект или вернитесь к списку клиентов.</p>
         <button className="secondary" onClick={() => go("/companies")}>
           К клиентам
@@ -74,9 +73,9 @@ export function ContactPage({
             <ArrowLeft size={16} aria-hidden="true" />
             {returnTo ? "К карте связей" : "К контактам компании"}
           </button>
-          <h1 ref={heading} tabIndex={-1}>
+          <h2 className="client-profile-title" ref={heading} tabIndex={-1}>
             {person.name}
-          </h1>
+          </h2>
           <p>
             {person.jobTitle ?? "Должность не указана"} · {item.initiative.name}
           </p>

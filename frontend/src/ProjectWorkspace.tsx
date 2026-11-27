@@ -162,7 +162,6 @@ export function ProjectLinks({
       <div className="section-heading">
         <div>
           <h2>Связи проектов</h2>
-          <p>Общие участники и их роли в инициативах одной компании.</p>
         </div>
         <button className="secondary" onClick={onCreate} disabled={!canManage}>
           Новый проект
@@ -318,7 +317,6 @@ export function ProjectIndex({
       <div className="section-heading">
         <div>
           <h2>Проекты компании</h2>
-          <p>Ответственные, этапы и ближайшие шаги.</p>
         </div>
       </div>
       <div className="project-index">

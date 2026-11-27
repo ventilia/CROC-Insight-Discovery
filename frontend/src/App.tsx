@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Building2,
   CalendarDays,
+  ChevronDown,
   ChevronRight,
   LayoutDashboard,
   Menu,
@@ -109,7 +110,8 @@ export function App() {
   const params = new URLSearchParams(query);
   const isClient = parts[0] === "client";
   const isCompanies = parts[0] === "companies";
-  const tab = ["person", "directory"].includes(parts[2])
+  const contactDetail = ["person", "directory"].includes(parts[2]);
+  const tab = contactDetail
     ? "contacts"
     : tabs.some((entry) => entry.key === parts[2])
       ? parts[2]
@@ -133,7 +135,7 @@ export function App() {
     companyId: isClient ? parts[1] : undefined,
     projectId,
     view: isClient
-      ? ["person", "directory"].includes(parts[2])
+      ? contactDetail
         ? parts[2]
         : tab
       : undefined,
@@ -308,28 +310,7 @@ export function App() {
               ))}
             </select>
           </label>
-          {active && tab !== "map" && (
-            <label>
-              Проект
-              <select
-                aria-label="Проект в рабочем пространстве"
-                value={active.initiative.id}
-                onChange={(event) =>
-                  go(
-                    `/client/${company!.id}/${tab}?initiative=${event.target.value}`,
-                  )
-                }
-              >
-                {items.map((entry) => (
-                  <option key={entry.initiative.id} value={entry.initiative.id}>
-                    {entry.initiative.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
         </div>
-        <span className="nav-caption">Разделы</span>
         <nav aria-label="Основная навигация">
           <button
             className={!isClient && !isCompanies ? "active" : ""}
@@ -396,6 +377,26 @@ export function App() {
             Запросы
           </button>
         </nav>
+        {active && (contactDetail || ["overview", "history", "projects"].includes(tab)) && (
+          <label className="sidebar-project">
+            Проект
+            <select
+              aria-label="Проект в рабочем пространстве"
+              value={active.initiative.id}
+              onChange={(event) =>
+                go(
+                  `/client/${company!.id}/${tab}?initiative=${event.target.value}`,
+                )
+              }
+            >
+              {items.map((entry) => (
+                <option key={entry.initiative.id} value={entry.initiative.id}>
+                  {entry.initiative.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {server && (
           <button
             type="button"
@@ -580,42 +581,6 @@ export function App() {
                     К списку клиентов
                   </button>
                 </div>
-              ) : isClient &&
-                company &&
-                parts[2] === "directory" &&
-                parts[3] ? (
-                <DirectoryContact
-                  companyId={company.id}
-                  personId={parts[3]}
-                  revision={workspace.revision}
-                  go={go}
-                />
-              ) : isClient &&
-                company &&
-                parts[2] === "person" &&
-                parts[3] &&
-                workspace.loading &&
-                !active?.graph.nodes.some((entry) => entry.id === parts[3]) ? (
-                <p className="empty-inline" role="status">
-                  Загружаем карточку…
-                </p>
-              ) : isClient && company && parts[2] === "person" && parts[3] ? (
-                <ContactPage
-                  onRefresh={workspace.refresh}
-                  item={active}
-                  personId={parts[3]}
-                  items={items}
-                  dark={theme === "dark"}
-                  canEdit={canEdit}
-                  server={server}
-                  go={go}
-                  returnTo={mapReturn}
-                  onEvent={() =>
-                    active &&
-                    setForm({ iid: active.initiative.id, pid: parts[3] })
-                  }
-                  onManage={canManage ? setEditor : undefined}
-                />
               ) : isClient && company ? (
                 <>
                   <div className="page-title">
@@ -627,40 +592,56 @@ export function App() {
                         {formatDate(snapshot(items))}
                       </p>
                     </div>
-                    {tab !== "map" && (
-                      <div className="page-actions">
-                        {canManage && (
-                          <button
-                            className="secondary"
-                            disabled={!canManage}
-                            onClick={() =>
-                              setEditor({ kind: "project", cid: company.id })
-                            }
-                          >
-                            Новый проект
-                          </button>
-                        )}
-                        {canEdit && (
-                          <button
-                            className="primary"
-                            disabled={!canEdit || !active}
-                            onClick={() =>
-                              active && setForm({ iid: active.initiative.id })
-                            }
-                          >
-                            <Plus size={18} />
-                            Взаимодействие
-                          </button>
-                        )}
-                      </div>
+                    {(canManage || canEdit) && (
+                      <details
+                        className="client-actions"
+                        key={company.id + ":" + tab}
+                        onClick={(event) => {
+                          if ((event.target as Element).closest("button")) {
+                            event.currentTarget.open = false;
+                          }
+                        }}
+                      >
+                        <summary className="secondary">
+                          <Plus size={16} aria-hidden="true" /> Добавить
+                          <ChevronDown size={14} aria-hidden="true" />
+                        </summary>
+                        <div className="client-action-menu">
+                          {canManage && (
+                            <button onClick={() => setEditor({ kind: "project", cid: company.id })}>
+                              Новый проект
+                            </button>
+                          )}
+                          {canEdit && (
+                            <button
+                              disabled={!active}
+                              onClick={() => active && setForm({ iid: active.initiative.id })}
+                            >
+                              Взаимодействие
+                            </button>
+                          )}
+                          {canManage && active && (tab === "map" || (tab === "contacts" && projectId)) && (
+                            <button onClick={() => setEditor({ kind: "person", iid: active.initiative.id })}>
+                              Новый участник
+                            </button>
+                          )}
+                          {canManage && active && tab === "map" && (
+                            <button
+                              disabled={active.graph.nodes.length < 2}
+                              onClick={() => setEditor({ kind: "relationship", iid: active.initiative.id })}
+                            >
+                              Добавить связь
+                            </button>
+                          )}
+                          {canManage && active && tab === "contacts" && projectId && (
+                            <button onClick={() => setEditor({ kind: "request", iid: active.initiative.id })}>
+                              Запросить информацию
+                            </button>
+                          )}
+                        </div>
+                      </details>
                     )}
                   </div>
-                  {!canEdit && tab === "overview" && (
-                    <p className="read-only-note">
-                      Доступен просмотр. Для добавления взаимодействий нужен
-                      доступ редактора.
-                    </p>
-                  )}
                   <nav className="client-tabs" aria-label="Разделы клиента">
                     {tabs.map((item) => (
                       <button
@@ -677,170 +658,60 @@ export function App() {
                       </button>
                     ))}
                   </nav>
-                  {tab === "contacts" && items.length > 0 && (
-                    <div className="scope-bar contact-scope">
-                      <label>
-                        Список контактов
-                        <select
-                          value={projectId ?? ""}
-                          onChange={(event) => {
-                            const initiative = event.target.value;
-                            const scope = initiative
-                              ? `?${new URLSearchParams({ initiative })}`
-                              : "";
-                            go(`/client/${company.id}/contacts${scope}`);
-                          }}
-                        >
-                          <option value="">Все контакты компании</option>
-                          {items.map((item) => (
-                            <option
-                              key={item.initiative.id}
-                              value={item.initiative.id}
-                            >
-                              {item.initiative.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      {canManage && projectId && active && (
-                        <>
-                          <button
-                            className="secondary"
-                            onClick={() =>
-                              setEditor({
-                                kind: "person",
-                                iid: active.initiative.id,
-                              })
-                            }
-                          >
-                            Новый участник
-                          </button>
-                          <button
-                            className="secondary"
-                            onClick={() =>
-                              setEditor({
-                                kind: "request",
-                                iid: active.initiative.id,
-                              })
-                            }
-                          >
-                            Запросить информацию
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  )}
-                  {tab === "overview" &&
-                  server &&
-                  !profile &&
-                  workspace.loading ? (
-                    <p className="empty-inline" role="status">
-                      Загружаем компанию…
-                    </p>
-                  ) : tab === "overview" ? (
-                    <>
-                      <CompanyOverview
-                        company={company}
-                        items={items}
-                        profile={profile}
-                        latest={
-                          data.companyEvents
-                            ? historyEntries(data.companyEvents.items)
-                            : undefined
-                        }
-                        onDirectory={(id) => directoryPerson(company.id, id)}
-                        onPerson={openPerson}
-                        onMap={() => go(`/client/${company.id}/map`)}
-                      />
-                      <ProjectIndex items={items} go={go} />
-                    </>
-                  ) : tab === "projects" ? (
-                    <ProjectLinks
-                      key={company.id + items.length}
-                      items={items}
-                      server={server}
-                      go={go}
-                      onPerson={fullPerson}
-                      canManage={canManage}
-                      onCreate={() =>
-                        setEditor({ kind: "project", cid: company.id })
-                      }
-                    />
-                  ) : tab === "history" ? (
-                    server ? (
-                      <PersistedPanel key={company.id} id={company.id + ".history"} title="Хронология">
-                      <CompanyTimeline
-                        key={company.id}
-                        companyId={company.id}
-                        initiatives={profile?.initiatives ?? []}
-                        revision={workspace.revision}
-                        onPerson={fullPerson}
-                      />
-                      </PersistedPanel>
-                    ) : (
-                      <PersistedPanel key={company.id} id={company.id + ".history"} title="Хронология">
-                        <HistoryPanel entries={history(items)} onPerson={openPerson} />
-                      </PersistedPanel>
-                    )
-                  ) : tab === "contacts" &&
-                    !projectId &&
-                    (profile || !server) ? (
-                    <CompanyDirectory
-                      key={company.id}
-                      profile={profile}
-                      localItems={server ? undefined : items}
-                      days={days}
-                      revision={workspace.revision}
-                      onPerson={(id) => {
-                        if (server) {
-                          directoryPerson(company.id, id);
-                        } else {
-                          const project = items.find((item) =>
-                            item.graph.nodes.some((person) => person.id === id),
-                          );
-                          if (project) openPerson(project.initiative.id, id);
-                        }
-                      }}
-                    />
-                  ) : workspace.loading &&
-                    server &&
-                    (!profile ||
-                      !active ||
-                      (tab === "map" && !active.graph.nodes.length)) ? (
-                    <p className="empty-inline" role="status">
-                      Загружаем раздел…
-                    </p>
-                  ) : tab === "insights" && !active && server ? (
-                    <Insights
-                      key={company.id}
+                  {parts[2] === "directory" && parts[3] ? (
+                    <DirectoryContact
                       companyId={company.id}
-                      days={days}
-                      facts={companyInsights}
-                      server={server}
-                      loading={workspace.loading}
-                      revision={modelRevision}
+                      personId={parts[3]}
+                      revision={workspace.revision}
                       go={go}
-                      onContacts={() => go(`/client/${company.id}/contacts`)}
                     />
-                  ) : !active ? (
-                    <div className="empty-state">
-                      <h2>Проекты пока не указаны</h2>
-                      <p>Карта появится после добавления проектов.</p>
-                    </div>
+                  ) : parts[2] === "person" &&
+                    parts[3] &&
+                    workspace.loading &&
+                    !active?.graph.nodes.some((entry) => entry.id === parts[3]) ? (
+                    <p className="empty-inline" role="status">
+                      Загружаем карточку…
+                    </p>
+                  ) : parts[2] === "person" && parts[3] ? (
+                    <ContactPage
+                      onRefresh={workspace.refresh}
+                      item={active}
+                      personId={parts[3]}
+                      items={items}
+                      dark={theme === "dark"}
+                      canEdit={canEdit}
+                      server={server}
+                      go={go}
+                      returnTo={mapReturn}
+                      onEvent={() =>
+                        active &&
+                        setForm({ iid: active.initiative.id, pid: parts[3] })
+                      }
+                      onManage={canManage ? setEditor : undefined}
+                    />
                   ) : (
                     <>
-                      {tab !== "contacts" && (
-                        <div className="scope-bar">
+                      {!canEdit && tab === "overview" && (
+                        <p className="read-only-note">
+                          Доступен просмотр. Для добавления взаимодействий нужен
+                          доступ редактора.
+                        </p>
+                      )}
+                      {tab === "contacts" && items.length > 0 && (
+                        <div className="scope-bar contact-scope">
                           <label>
-                            Проект
+                            Список контактов
                             <select
-                              value={tab === "insights" ? params.get("initiative") ?? "" : active.initiative.id}
+                              value={projectId ?? ""}
                               onChange={(event) => {
-                                const id = event.target.value;
-                                go(`/client/${company.id}/${tab}${id ? `?initiative=${id}` : ""}`);
+                                const initiative = event.target.value;
+                                const scope = initiative
+                                  ? `?${new URLSearchParams({ initiative })}`
+                                  : "";
+                                go(`/client/${company.id}/contacts${scope}`);
                               }}
                             >
-                              {tab === "insights" && <option value="">Все проекты</option>}
+                              <option value="">Все контакты компании</option>
                               {items.map((item) => (
                                 <option
                                   key={item.initiative.id}
@@ -851,109 +722,198 @@ export function App() {
                               ))}
                             </select>
                           </label>
-                          {tab === "map" && (
-                            <>
-                              {canManage && (
-                                <button
-                                  className="secondary"
-                                  onClick={() =>
-                                    setEditor({
-                                      kind: "person",
-                                      iid: active.initiative.id,
-                                    })
-                                  }
-                                >
-                                  <Plus size={16} /> Участник
-                                </button>
-                              )}
-                              {canEdit && (
-                                <button
-                                  className="secondary"
-                                  onClick={() =>
-                                    setForm({ iid: active.initiative.id })
-                                  }
-                                >
-                                  <Plus size={16} /> Взаимодействие
-                                </button>
-                              )}
-                            </>
-                          )}
                         </div>
                       )}
-                      {tab === "requests" ? (
-                        <Requests
-                          key={active.initiative.id + contentVersion}
-                          item={active}
-                          canManage={canManage}
+                      {tab === "overview" &&
+                      server &&
+                      !profile &&
+                      workspace.loading ? (
+                        <p className="empty-inline" role="status">
+                          Загружаем компанию…
+                        </p>
+                      ) : tab === "overview" ? (
+                        <>
+                          <CompanyOverview
+                            company={company}
+                            items={items}
+                            profile={profile}
+                            latest={
+                              data.companyEvents
+                                ? historyEntries(data.companyEvents.items)
+                                : undefined
+                            }
+                            onDirectory={(id) => directoryPerson(company.id, id)}
+                            onPerson={openPerson}
+                            onMap={() => go(`/client/${company.id}/map`)}
+                          />
+                          <ProjectIndex items={items} go={go} />
+                        </>
+                      ) : tab === "projects" ? (
+                        <ProjectLinks
+                          key={company.id + items.length}
+                          items={items}
+                          server={server}
+                          go={go}
                           onPerson={fullPerson}
+                          canManage={canManage}
                           onCreate={() =>
-                            setEditor({
-                              kind: "request",
-                              iid: active.initiative.id,
-                            })
+                            setEditor({ kind: "project", cid: company.id })
                           }
                         />
-                      ) : tab === "map" ? (
-                        <InfluenceMap
-                          key={active.initiative.id + query}
-                          item={active}
-                          initialFocus={params.get("focus")}
-                          initialDepartment={params.get("department")}
-                          initialDepth={params.get("depth") === "2" ? 2 : 1}
-                          initialSharedOnly={params.get("sharedOnly") !== "0"}
-                          onlyIds={params.get("shared")?.split(",")}
-                          onAddRelationship={
-                            canManage
-                              ? () =>
-                                  setEditor({
-                                    kind: "relationship",
-                                    iid: active.initiative.id,
-                                  })
-                              : undefined
-                          }
-                          darkTheme={theme === "dark"}
-                          selectedId={
-                            params.get("participant") ?? params.get("focus")
-                          }
-                          onSelect={(id, context) =>
-                            mapPerson(active.initiative.id, id, context)
-                          }
-                          onEditRelationship={
-                            canManage && server
-                              ? (edge) =>
-                                  setEditor({
-                                    kind: "relationship",
-                                    iid: active.initiative.id,
-                                    edgeId: edge.id,
-                                  })
-                              : undefined
-                          }
+                      ) : tab === "history" ? (
+                        server ? (
+                          <PersistedPanel key={company.id} id={company.id + ".history"} title="Хронология">
+                          <CompanyTimeline
+                            key={company.id}
+                            companyId={company.id}
+                            initiatives={profile?.initiatives ?? []}
+                            revision={workspace.revision}
+                            onPerson={fullPerson}
+                          />
+                          </PersistedPanel>
+                        ) : (
+                          <PersistedPanel key={company.id} id={company.id + ".history"} title="Хронология">
+                            <HistoryPanel entries={history(items)} onPerson={openPerson} />
+                          </PersistedPanel>
+                        )
+                      ) : tab === "contacts" &&
+                        !projectId &&
+                        (profile || !server) ? (
+                        <CompanyDirectory
+                          key={company.id}
+                          profile={profile}
+                          localItems={server ? undefined : items}
+                          days={days}
+                          revision={workspace.revision}
+                          onPerson={(id) => {
+                            if (server) {
+                              directoryPerson(company.id, id);
+                            } else {
+                              const project = items.find((item) =>
+                                item.graph.nodes.some((person) => person.id === id),
+                              );
+                              if (project) openPerson(project.initiative.id, id);
+                            }
+                          }}
                         />
-                      ) : tab === "contacts" ? (
-                        <ContactTable
-                          key={active.initiative.id}
-                          item={active}
-                          onPerson={openPerson}
-                          toast={setToast}
-                        />
-                      ) : (
+                      ) : workspace.loading &&
+                        server &&
+                        (!profile ||
+                          !active ||
+                          (tab === "map" && !active.graph.nodes.length)) ? (
+                        <p className="empty-inline" role="status">
+                          Загружаем раздел…
+                        </p>
+                      ) : tab === "insights" && !active && server ? (
                         <Insights
-                          key={active.initiative.id}
-                          item={active}
+                          key={company.id}
                           companyId={company.id}
-                          initiativeScope={params.get("initiative") ?? undefined}
                           days={days}
                           facts={companyInsights}
                           server={server}
                           loading={workspace.loading}
                           revision={modelRevision}
                           go={go}
-                          onContacts={() =>
-                            go(
-                              `/client/${company.id}/contacts?initiative=${active.initiative.id}`,
-                            )
-                          }
+                          onContacts={() => go(`/client/${company.id}/contacts`)}
                         />
+                      ) : !active ? (
+                        <div className="empty-state">
+                          <h2>Проекты пока не указаны</h2>
+                          <p>Карта появится после добавления проектов.</p>
+                        </div>
+                      ) : (
+                        <>
+                          {tab !== "contacts" && (
+                            <div className="scope-bar">
+                              <label>
+                                Проект
+                                <select
+                                  value={tab === "insights" ? params.get("initiative") ?? "" : active.initiative.id}
+                                  onChange={(event) => {
+                                    const id = event.target.value;
+                                    go(`/client/${company.id}/${tab}${id ? `?initiative=${id}` : ""}`);
+                                  }}
+                                >
+                                  {tab === "insights" && <option value="">Все проекты</option>}
+                                  {items.map((item) => (
+                                    <option
+                                      key={item.initiative.id}
+                                      value={item.initiative.id}
+                                    >
+                                      {item.initiative.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            </div>
+                          )}
+                          {tab === "requests" ? (
+                            <Requests
+                              key={active.initiative.id + contentVersion}
+                              item={active}
+                              canManage={canManage}
+                              onPerson={fullPerson}
+                              onCreate={() =>
+                                setEditor({
+                                  kind: "request",
+                                  iid: active.initiative.id,
+                                })
+                              }
+                            />
+                          ) : tab === "map" ? (
+                            <InfluenceMap
+                              key={active.initiative.id + query}
+                              item={active}
+                              initialFocus={params.get("focus")}
+                              initialDepartment={params.get("department")}
+                              initialDepth={params.get("depth") === "2" ? 2 : 1}
+                              initialSharedOnly={params.get("sharedOnly") !== "0"}
+                              onlyIds={params.get("shared")?.split(",")}
+                              darkTheme={theme === "dark"}
+                              selectedId={
+                                params.get("participant") ?? params.get("focus")
+                              }
+                              onSelect={(id, context) =>
+                                mapPerson(active.initiative.id, id, context)
+                              }
+                              onEditRelationship={
+                                canManage && server
+                                  ? (edge) =>
+                                      setEditor({
+                                        kind: "relationship",
+                                        iid: active.initiative.id,
+                                        edgeId: edge.id,
+                                      })
+                                  : undefined
+                              }
+                            />
+                          ) : tab === "contacts" ? (
+                            <ContactTable
+                              key={active.initiative.id}
+                              item={active}
+                              onPerson={openPerson}
+                              toast={setToast}
+                            />
+                          ) : (
+                            <Insights
+                              key={active.initiative.id}
+                              item={active}
+                              companyId={company.id}
+                              initiativeScope={params.get("initiative") ?? undefined}
+                              days={days}
+                              facts={companyInsights}
+                              server={server}
+                              loading={workspace.loading}
+                              revision={modelRevision}
+                              go={go}
+                              onContacts={() =>
+                                go(
+                                  `/client/${company.id}/contacts?initiative=${active.initiative.id}`,
+                                )
+                              }
+                            />
+                          )}
+                        </>
                       )}
                     </>
                   )}
@@ -962,12 +922,7 @@ export function App() {
                 <>
                   <div className="page-title">
                     <div>
-                      <span className="eyebrow">Компании</span>
                       <h1>Клиенты</h1>
-                      <p>
-                        Структура, контакты и состояние отношений с каждой
-                        компанией
-                      </p>
                     </div>
                     <span className="total-label">
                       Всего: {companies.length}
@@ -1140,6 +1095,7 @@ function Dashboard({
   go: (path: string) => void;
   onPerson: (iid: string, pid: string) => void;
 }) {
+  const [showMoreRisks, setShowMoreRisks] = useState(false);
   const stats = portfolioStats(data);
   const riskItems =
     data.dashboard?.risks.map((entry) => ({
@@ -1176,25 +1132,22 @@ function Dashboard({
       label: "Компании",
       value: stats.companies,
 
-      note: "Доступны вашей команде",
     },
     {
-      label: "Контакты в базе",
+      label: "Контакты",
       value: stats.contacts,
 
-      note: "Сотрудники компаний",
     },
     {
       label: "Взаимодействия",
       value: stats.events,
 
-      note: "За 30 дней до указанной даты",
+      note: "За 30 дней",
     },
     {
       label: "Замечания",
       value: stats.risks,
 
-      note: "По данным проектов",
     },
   ];
   return (
@@ -1202,7 +1155,6 @@ function Dashboard({
       <div className="page-title">
         <div>
           <h1>Работа с клиентами</h1>
-          <p>Компании, контакты и последние записи.</p>
         </div>
         <span className="snapshot-label">
           <CalendarDays size={16} />
@@ -1216,14 +1168,13 @@ function Dashboard({
               <span>{metric.label}</span>
             </div>
             <strong>{metric.value}</strong>
-            <small>{metric.note}</small>
+            {metric.note && <small>{metric.note}</small>}
           </div>
         ))}
       </section>
       <div className="section-heading outside">
         <div>
           <h2>Клиенты</h2>
-          <p>Контакты и история работы с каждой компанией.</p>
         </div>
         <button className="text-button" onClick={() => go("/companies")}>
           Все клиенты
@@ -1236,12 +1187,11 @@ function Dashboard({
           <div className="section-heading">
             <div>
               <h2>Что нужно проверить</h2>
-              <p>По истории общения и данным сотрудников.</p>
             </div>
           </div>
           <div className="risk-list">
             {riskItems
-              .slice(0, 4)
+              .slice(0, showMoreRisks ? 4 : 2)
               .map(
                 ({
                   key,
@@ -1274,16 +1224,25 @@ function Dashboard({
               <p className="empty-inline">Замечаний по текущим данным нет.</p>
             )}
           </div>
+          {riskItems.length > 2 && (
+            <button
+              type="button"
+              className="text-button preview-more"
+              aria-expanded={showMoreRisks}
+              onClick={() => setShowMoreRisks(!showMoreRisks)}
+            >
+              {showMoreRisks ? "Свернуть замечания" : `Ещё ${Math.min(4, riskItems.length) - 2}`}
+            </button>
+          )}
         </section>
         <section className="surface">
           <div className="section-heading">
             <div>
               <h2>Последние взаимодействия</h2>
-              <p>Встречи, звонки и переписка.</p>
             </div>
             <CalendarDays size={19} />
           </div>
-          <HistoryList entries={latest} onPerson={onPerson} compact />
+          <HistoryList entries={latest} onPerson={onPerson} compact previewCount={2} />
         </section>
       </div>
     </div>
@@ -1402,7 +1361,7 @@ function CompanyOverview({
     <>
       <section className="company-summary surface">
         <div>
-          <h2>{company.name}</h2>
+          <h2>О компании</h2>
           <p>{company.description ?? "Описание компании не заполнено."}</p>
           <button className="primary" disabled={!items.length} onClick={onMap}>
             <Network size={17} />
@@ -1511,6 +1470,7 @@ function CompanyOverview({
           entries={latest ?? history(items)}
           onPerson={onPerson}
           compact
+          previewCount={2}
         />
       </PersistedPanel>
     </>
@@ -1560,7 +1520,6 @@ function ContactTable({
             Контакты проекта{" "}
             <span className="count-badge">{visible.length}</span>
           </h2>
-          <p>Роли, влияние и история общения</p>
         </div>
         <button className="secondary" disabled={!visible.length} onClick={copy}>
           <Copy size={16} />

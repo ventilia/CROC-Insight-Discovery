@@ -260,9 +260,6 @@ html[data-theme="dark"] .sidebar-footer strong {
   margin-top: 0;
   padding-bottom: 0;
 }
-.dashboard :is(.metric-card, .surface) {
-  border-radius: 0;
-}
 .graph-footer {
   padding: 8px 16px;
   gap: 6px 12px;
