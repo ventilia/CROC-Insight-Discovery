@@ -581,7 +581,12 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
         val received = modelRequest.get()
         assertThat(received.path("model").asString()).isEqualTo("fixture-local")
         assertThat(received.path("messages").get(1).path("content").asString())
-            .contains("Кого стоит проверить?", "Дарья Белова").doesNotContain("Закрытая компания")
+            .contains(
+                "Кого стоит проверить?", "Дарья Белова", "Модернизация инфраструктуры",
+                "Предоставить расчёт затрат к 24 ноября", "decisionMakerTouches", "lastVerifiedAt",
+                "BUDGET_APPROVER", "HIGH", "APPROVAL", "Передаёт расчёт затрат на согласование",
+            )
+            .doesNotContain("Закрытая компания", "m.orlova@severnaya.example", "Проверяет требования к безопасности пилота")
     }
 
     @Test
@@ -608,7 +613,10 @@ class ReadApiTest(@LocalServerPort private val port: Int) {
         assertThat(response.statusCode()).isEqualTo(200)
         assertThat(json(response).path("model").asString()).isEqualTo("fixture-local")
         assertThat(modelRequest.get().path("messages").path(1).path("content").asString())
-            .contains("Какие подразделения стоит проверить?", "Северная линия", "UNCONTACTED_DEPARTMENT", "STALE_CONTACT_VERIFICATION")
+            .contains(
+                "Какие подразделения стоит проверить?", "Северная линия", "UNCONTACTED_DEPARTMENT",
+                "STALE_CONTACT_VERIFICATION", "Пилот защиты данных", "activeInteractionCount", "verificationDays",
+            )
             .doesNotContain("Закрытая компания", "Меридиан")
     }
 

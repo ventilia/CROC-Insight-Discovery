@@ -19,6 +19,18 @@ type Settings = {
 };
 type Answer = { model: string; answer: string; asOf: string | null };
 
+const companyQuestions = [
+  { label: "Приоритеты", question: "Какие три действия важнее всего для этой компании? Укажи проект, основание и ответственного, если он известен." },
+  { label: "Где теряем связь", question: "Какие контакты и подразделения требуют внимания? Раздели давнее взаимодействие, отсутствие истории и устаревшие данные." },
+  { label: "Риски портфеля", question: "В каких проектах отношения наиболее уязвимы? Объясни почему и что проверить первым." },
+];
+
+const projectQuestions = [
+  { label: "Следующие шаги", question: "Какие три действия сделать дальше по этому проекту? Укажи основание и что следует уточнить." },
+  { label: "Подготовиться к встрече", question: "С кем встретиться и что обсудить на основе последних взаимодействий, ролей и открытых вопросов?" },
+  { label: "Где пробелы", question: "С какими ЛПР и подразделениями связь слаба? Отдели подтверждённые риски от пробелов в истории." },
+];
+
 export function Navigator({
   initiativeId,
   companyId,
@@ -40,14 +52,18 @@ export function Navigator({
   const [answer, setAnswer] = useState<Answer>();
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [allowExternal, setAllowExternal] = useState(false);
   const inFlight = useRef(false);
   const id = useId();
+  const questions = initiativeId ? projectQuestions : companyQuestions;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!question.trim() || !settings.data?.enabled || inFlight.current) return;
+    if (settings.data.external && !allowExternal) return;
     inFlight.current = true;
     setPending(true);
+    setAllowExternal(false);
     setError("");
     setAnswer(undefined);
     try {
@@ -58,6 +74,7 @@ export function Navigator({
         await apiWrite<Answer>(scope + "/ai/advice", "POST", {
           days,
           question: question.trim(),
+          allowExternal,
         }),
       );
     } catch (failure) {
@@ -66,6 +83,8 @@ export function Navigator({
         setError("Модель не успела ответить. Попробуйте снова.");
       else if (status === 429)
         setError("Модель сейчас занята. Попробуйте снова.");
+      else if (status === 400)
+        setError("Проверьте вопрос и подтверждение отправки внешнему провайдеру.");
       else
         setError("Модель недоступна. Проверьте подключение в настройках ИИ.");
     } finally {
@@ -109,12 +128,25 @@ export function Navigator({
       )}
       {settings.data?.enabled && (
         <form onSubmit={submit}>
+          <div className="navigator-prompts" role="group" aria-label="Примеры вопросов">
+            {questions.map((preset) => (
+              <button
+                key={preset.label}
+                className="secondary"
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  setQuestion(preset.question);
+                  setAllowExternal(false);
+                }}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
           <label htmlFor={id + "-question"}>
             {initiativeId ? "Вопрос по проекту" : "Вопрос по компании"}
           </label>
-          {settings.data.external && (
-            <p>Вопрос и обезличенные показатели будут переданы провайдеру.</p>
-          )}
           <div className="navigator-input">
             <textarea
               id={id + "-question"}
@@ -122,17 +154,31 @@ export function Navigator({
               maxLength={400}
               required
               value={question}
-              onChange={(event) => setQuestion(event.target.value)}
+              onChange={(event) => {
+                setQuestion(event.target.value);
+                setAllowExternal(false);
+              }}
               disabled={pending}
             />
             <button
               type="submit"
               className="primary"
-              disabled={pending || !question.trim()}
+              disabled={pending || !question.trim() || (settings.data.external && !allowExternal)}
             >
               {pending ? "Модель отвечает…" : "Спросить"}
             </button>
           </div>
+          {settings.data.external && (
+            <label className="navigator-consent">
+              <input
+                type="checkbox"
+                checked={allowExternal}
+                onChange={(event) => setAllowExternal(event.target.checked)}
+                disabled={pending}
+              />
+              Разрешаю отправить этот вопрос и обезличенные показатели внешнему провайдеру. Не включаю в вопрос имена и конфиденциальные сведения.
+            </label>
+          )}
         </form>
       )}
       {error && <p role="alert">{error}</p>}

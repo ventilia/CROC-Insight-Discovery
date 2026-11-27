@@ -24,6 +24,7 @@ export function workspaceStore({
       source_label: "TEXT",
     },
     relationships: { source_label: "TEXT" },
+    touchpoints: { comment: "TEXT", created_at: "TEXT" },
   })) {
     const existing = new Set(
       all(`PRAGMA table_info(${table})`).map((c) => c.name),

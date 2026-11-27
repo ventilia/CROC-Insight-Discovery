@@ -694,6 +694,21 @@ tr.selected td {
   align-items: end;
   flex-wrap: wrap;
 }
+.navigator-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.navigator form .navigator-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+}
+.navigator-consent input {
+  flex: none;
+}
 .navigator-input textarea {
   flex: 1 1 220px;
   min-width: 0;

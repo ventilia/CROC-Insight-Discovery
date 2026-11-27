@@ -703,7 +703,7 @@ paths:
   /api/v1/initiatives/{initiativeId}/ai/advice:
     post:
       operationId: requestLocalAdvice
-      summary: Запросить совет у локальной модели по доступной инициативе
+      summary: Получить рекомендацию по доступному проекту
       parameters:
         - $ref: '#/components/parameters/InitiativeId'
         - $ref: '#/components/parameters/CsrfHeader'
@@ -717,6 +717,10 @@ paths:
               properties:
                 days: {type: integer, minimum: 1, maximum: 365}
                 question: {type: string, minLength: 1, maxLength: 400}
+                allowExternal:
+                  type: boolean
+                  default: false
+                  description: Явное согласие передать этот вопрос и обезличенные факты внешнему провайдеру
       responses:
         '200':
           description: Текстовая подсказка
@@ -748,7 +752,7 @@ paths:
   /api/v1/companies/{companyId}/ai/advice:
     post:
       operationId: requestCompanyLocalAdvice
-      summary: Получить рекомендацию локальной модели по рискам компании
+      summary: Получить рекомендацию по рискам и следующим шагам компании
       parameters:
         - $ref: '#/components/parameters/CompanyId'
         - $ref: '#/components/parameters/CsrfHeader'
@@ -762,6 +766,10 @@ paths:
               properties:
                 days: {type: integer, minimum: 1, maximum: 365}
                 question: {type: string, minLength: 1, maxLength: 400}
+                allowExternal:
+                  type: boolean
+                  default: false
+                  description: Явное согласие передать этот вопрос и обезличенные факты внешнему провайдеру
       responses:
         '200':
           description: Текст рекомендации с датой последнего среза

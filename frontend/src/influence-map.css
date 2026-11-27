@@ -166,10 +166,14 @@
   flex-direction: column;
   container: map-inspector / inline-size;
   min-width: 0;
+  height: var(--graph-frame-height);
+  overflow: auto;
+  overscroll-behavior-y: contain;
   border: 1px solid var(--line);
   border-radius: var(--radius-panel);
   background: var(--panel);
   color: inherit;
+  scrollbar-gutter: stable;
 }
 
 .graph-inspector > :is(.graph-inspector-heading, .graph-detail) {
@@ -335,9 +339,10 @@
   list-style: none;
 }
 
-.graph-list-toggle {
-  min-height: 34px;
-  margin-inline: 12px;
+.graph-inspector-lists :is(.graph-roster-list, .graph-adjacent ul) {
+  max-height: 230px;
+  overflow: auto;
+  overscroll-behavior-y: contain;
 }
 
 .graph-roster-list li + li,
@@ -436,8 +441,27 @@
 
 @container map-inspector (min-width: 420px) {
   .graph-inspector-lists {
+    flex: 1;
     display: grid;
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    min-height: 9rem;
+  }
+
+  .graph-inspector-lists > :is(.graph-roster, .graph-adjacent) {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .graph-inspector-lists :is(.graph-roster-heading, .graph-adjacent h3) {
+    flex: none;
+  }
+
+  .graph-inspector-lists :is(.graph-roster-list, .graph-adjacent ul) {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
   }
 
   .graph-roster:only-child {
@@ -532,8 +556,68 @@
 }
 
 @media (min-width: 1041px) {
+  .main-shell:has(.profile-page) {
+    height: 100dvh;
+    min-height: 640px;
+  }
+
+  .main-shell:has(.profile-page) > .topbar {
+    flex-shrink: 0;
+  }
+
+  .main-content:has(> .profile-page) {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-width: none;
+  }
+
+  .profile-page,
+  .profile-page .contact-page-network,
+  .profile-page .graph-profile-map,
+  .profile-page .graph-profile-map .graph-workspace,
+  .profile-page .graph-board {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
+
   .profile-page .page-title {
+    flex-shrink: 0;
     margin-bottom: 16px;
+  }
+
+  .profile-page .contact-page-grid {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .profile-page .graph-profile-map .graph-map-head {
+    flex-shrink: 0;
+  }
+
+  .profile-page .graph-profile-map .graph-workspace {
+    align-items: stretch;
+  }
+
+  .profile-page .graph-profile-map .force-stage {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+  }
+
+  .profile-page .contact-drawer.full-profile {
+    min-height: 0;
+  }
+
+  .profile-page .full-profile .drawer-scroll {
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-gutter: stable;
   }
 }
 
@@ -547,6 +631,16 @@
     height: clamp(320px, 56dvh, 510px);
   }
 
+  .graph-inspector {
+    display: block;
+    height: auto;
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
+
+  .graph-inspector .graph-inspector-lists :is(.graph-roster-list, .graph-adjacent ul) {
+    max-height: 230px;
+  }
 }
 
 @media (max-width: 1040px) {

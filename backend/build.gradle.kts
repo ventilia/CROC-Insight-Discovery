@@ -21,6 +21,31 @@ repositories {
     mavenCentral()
 }
 
+val showcaseScripts = listOf("load", "enrich", "compact")
+    .map { layout.projectDirectory.file("docker/postgres/$it-demo-showcase.sql") }
+val showcaseMigration = layout.buildDirectory.file("generated/showcase/R__seed_kit_showcase.sql")
+
+val generateShowcaseMigration by tasks.registering {
+    inputs.files(showcaseScripts)
+    outputs.file(showcaseMigration)
+    doLast {
+        val sql = showcaseScripts.joinToString("\n\n") { script ->
+            script.asFile.readLines(Charsets.UTF_8)
+                .filterNot { line -> line.startsWith("\\set ") || line == "BEGIN;" || line == "COMMIT;" }
+                .joinToString("\n")
+        }
+        showcaseMigration.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText(sql, Charsets.UTF_8)
+        }
+    }
+}
+
+tasks.processResources {
+    dependsOn(generateShowcaseMigration)
+    from(showcaseMigration) { into("db/showcase") }
+}
+
 dependencies {
     implementation(platform(SpringBootPlugin.BOM_COORDINATES))
     implementation("org.springframework.boot:spring-boot-starter-actuator")

@@ -1,3 +1,4 @@
+import { seedShowcase } from "./showcase-seed.mjs";
 import { workspaceStore } from "./workspace-store.mjs";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
@@ -44,7 +45,7 @@ const recent = (at, asOf, days) =>
 
 export function createStore(filename) {
   const db = new DatabaseSync(filename);
-  db.exec(`PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;
+  db.exec(`PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL;
     CREATE TABLE IF NOT EXISTS companies (id TEXT PRIMARY KEY, name TEXT NOT NULL, industry TEXT, description TEXT);
     CREATE TABLE IF NOT EXISTS company_viewers (viewer_key TEXT, company_id TEXT REFERENCES companies(id), PRIMARY KEY(viewer_key,company_id));
     CREATE TABLE IF NOT EXISTS departments (id TEXT PRIMARY KEY, company_id TEXT REFERENCES companies(id), name TEXT);
@@ -184,6 +185,8 @@ export function createStore(filename) {
         sourceLabel: e.source_label,
         responsibleManager: e.responsible_manager,
         author: e.created_by,
+        comment: e.comment,
+        createdAt: e.created_at,
         participants: all(
           "SELECT c.id,c.name FROM contacts c JOIN touchpoint_participants p ON p.contact_id=c.id WHERE p.touchpoint_id=? ORDER BY c.id",
           e.id,
@@ -447,6 +450,12 @@ export function createStore(filename) {
     member,
     HttpError,
   });
+  try {
+    seedShowcase(db);
+  } catch (error) {
+    db.close();
+    throw error;
+  }
   return {
     ...workspace,
     close: () => db.close(),

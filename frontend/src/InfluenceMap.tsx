@@ -6,7 +6,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
 import {
   ArrowDownLeft,
@@ -62,33 +61,6 @@ const relationshipTypes: Record<string, string> = {
   COORDINATION: "Координация",
   EXPERTISE: "Экспертиза",
 };
-
-function InspectorList({ children, className }: {
-  children: ReactNode[];
-  className?: string;
-}) {
-  const id = useId();
-  const [expanded, setExpanded] = useState(false);
-  const previewSize = 6;
-  return (
-    <>
-      <ul id={id} className={className}>
-        {expanded ? children : children.slice(0, previewSize)}
-      </ul>
-      {children.length > previewSize && (
-        <button
-          type="button"
-          className="text-button graph-list-toggle"
-          aria-controls={id}
-          aria-expanded={expanded}
-          onClick={() => setExpanded(!expanded)}
-        >
-          {expanded ? "Свернуть список" : `Показать все · ${children.length}`}
-        </button>
-      )}
-    </>
-  );
-}
 
 export type MapNavigationContext = {
   focus: string | null;
@@ -448,6 +420,7 @@ export function InfluenceMap({
           ) : null}
 
           {focus && depthControl}
+          {connectionControl}
           <button
             className="secondary graph-filter-toggle"
             type="button"
@@ -472,7 +445,6 @@ export function InfluenceMap({
             }}
           />
           <div className="graph-toolbar graph-display-options">
-            {connectionControl}
             <label className="graph-color-control">
               Тип связи
               <select
@@ -864,7 +836,7 @@ export function InfluenceMap({
                   </button>
                 </div>
                 {visible.nodes.length ? (
-                  <InspectorList className="graph-roster-list">
+                  <ul className="graph-roster-list">
                     {visible.nodes.map((person) => (
                       <li key={person.id}>
                         <button
@@ -890,7 +862,7 @@ export function InfluenceMap({
                         </button>
                       </li>
                     ))}
-                  </InspectorList>
+                  </ul>
                 ) : (
                   <p>Нет участников для выбранных фильтров.</p>
                 )}
@@ -904,7 +876,7 @@ export function InfluenceMap({
                     Связи участника <span>{adjacent.length}</span>
                   </h3>
                   {adjacent.length ? (
-                    <InspectorList key={participant.id}>
+                    <ul key={participant.id}>
                       {adjacent.map((edge) => {
                         const outgoing = edge.source === participant.id;
                         const personId = outgoing ? edge.target : edge.source;
@@ -937,7 +909,7 @@ export function InfluenceMap({
                           </li>
                         );
                       })}
-                    </InspectorList>
+                    </ul>
                   ) : (
                     <p>Связи по этому проекту пока не указаны.</p>
                   )}

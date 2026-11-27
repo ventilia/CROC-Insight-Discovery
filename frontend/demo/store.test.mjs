@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { DatabaseSync } from "node:sqlite";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -24,7 +25,7 @@ const payload = () => ({
 test("демосрез: профили, компании, пагинация и история по инициативе", () => {
   const store = createStore(":memory:");
   try {
-    assert.equal(store.companies().length, 2);
+    assert.equal(store.companies().length, 10);
     assert.equal(store.graph(iid).nodes.length, 4);
     const filtered = store.graph(iid, { roleCode: "BUDGET_APPROVER" });
     assert.equal(filtered.nodes.length, 1);
@@ -50,6 +51,35 @@ test("демосрез: профили, компании, пагинация и 
     );
   } finally {
     store.close();
+  }
+});
+test("витрина содержит 21 проект, 689 контактов и полный граф Атлас Север", () => {
+  const dir = mkdtempSync(join(tmpdir(), "kit-showcase-"));
+  const filename = join(dir, "test.sqlite");
+  const store = createStore(filename);
+  const sqlite = new DatabaseSync(filename, { readOnly: true });
+  try {
+    const atlas = "92000001-0000-4000-8000-000000000001";
+    const flagship = "92000002-0000-4000-8000-000000000101";
+    const projects = store.companies().flatMap(({ id }) => store.initiatives(id));
+    assert.equal(projects.length, 21);
+    assert.equal(sqlite.prepare("SELECT count(*) AS total FROM contacts").get().total, 689);
+    assert.deepEqual(sqlite.prepare("PRAGMA foreign_key_check").all(), []);
+    assert.equal(store.initiatives(atlas).length, 4);
+    assert.ok(projects.find(({ id }) => id === flagship).nextStep);
+    const graph = store.graph(flagship);
+    assert.equal(graph.nodes.length, 540);
+    assert.equal(graph.edges.length, 1105);
+    assert.ok(graph.nodes.find((node) => node.decisionMaker && node.mandate));
+    assert.ok(store.events(flagship).nextCursor);
+    assert.ok(store.events(flagship).items.some(({ comment, createdAt }) => comment && createdAt));
+    assert.throws(() => store.graph("92000002-0000-4000-8000-000000000105"), {
+      status: 404,
+    });
+  } finally {
+    sqlite.close();
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 test("сохранение атомарно, повтор запроса не дублирует событие, данные переживают перезапуск", () => {

@@ -21,6 +21,7 @@ import ru.croc.insight.UUID_PATTERN
 data class NavigatorQuestion(
     @field:Min(1) @field:Max(365) val days: Int,
     @field:NotBlank @field:Size(max = 400) val question: String,
+    val allowExternal: Boolean = false,
 )
 
 class LocalModelSelection(
@@ -48,12 +49,12 @@ class NavigatorController(private val navigator: LocalNavigator) {
         @PathVariable @Pattern(regexp = UUID_PATTERN) initiativeId: String,
         @Valid @RequestBody input: NavigatorQuestion,
         principal: Principal,
-    ): NavigatorAnswer = navigator.advise(principal.name, UUID.fromString(initiativeId), input.days, input.question)
+    ): NavigatorAnswer = navigator.advise(principal.name, UUID.fromString(initiativeId), input.days, input.question, input.allowExternal)
 
     @PostMapping("/api/v1/companies/{companyId}/ai/advice")
     fun companyAdvice(
         @PathVariable @Pattern(regexp = UUID_PATTERN) companyId: String,
         @Valid @RequestBody input: NavigatorQuestion,
         principal: Principal,
-    ): NavigatorAnswer = navigator.adviseCompany(principal.name, UUID.fromString(companyId), input.days, input.question)
+    ): NavigatorAnswer = navigator.adviseCompany(principal.name, UUID.fromString(companyId), input.days, input.question, input.allowExternal)
 }
