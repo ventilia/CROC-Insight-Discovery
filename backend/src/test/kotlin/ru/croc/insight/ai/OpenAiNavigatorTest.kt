@@ -32,6 +32,9 @@ import ru.croc.insight.map.GraphFilters
 import ru.croc.insight.map.GraphNode
 import ru.croc.insight.map.GraphService
 import ru.croc.insight.map.ParticipantRole
+import ru.croc.insight.source.PositionRevision
+import ru.croc.insight.source.PositionService
+import ru.croc.insight.source.Stance
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
 
@@ -50,6 +53,10 @@ class OpenAiNavigatorTest {
         val touchpoints = mock(TouchpointService::class.java)
         val dashboard = mock(DashboardService::class.java)
         val graphs = mock(GraphService::class.java)
+        val positions = mock(PositionService::class.java)
+        `when`(positions.currentForContacts(projectId, listOf(contactId, sourceId))).thenReturn(
+            mapOf(contactId to PositionRevision(1, Stance.DOUBTS, "Частное основание оценки", viewer, asOf)),
+        )
         `when`(catalog.findInitiative(viewer, projectId)).thenReturn(
             InitiativeSummary(projectId, companyId, "Частный проект", asOf,
                 "Закрытая стадия", "Частный руководитель", LocalDate.parse("2026-12-01"), "Внутренний следующий шаг", 2),
@@ -92,7 +99,7 @@ class OpenAiNavigatorTest {
         }
         server.start()
         try {
-            val navigatorContext = NavigatorContext(catalog, coverage, touchpoints, dashboard, graphs)
+            val navigatorContext = NavigatorContext(catalog, coverage, touchpoints, dashboard, graphs, positions)
             val modelEndpoint = URI.create("http://127.0.0.1:${server.address.port}/v1/chat/completions")
             LocalNavigator(navigatorContext, mapper, "", "", 2_000, "mock-test-key", "", modelEndpoint).use { navigator ->
                 val settings = navigator.settings(viewer, false)
@@ -106,7 +113,8 @@ class OpenAiNavigatorTest {
                 assertThat(denied.statusCode.value()).isEqualTo(400)
                 assertThat(requests).isEmpty()
 
-                val answer = navigator.advise(viewer, projectId, 30, "Кого проверить?", allowExternal = true)
+                val answer = navigator.advise(viewer, projectId, 30, "Кого проверить?", allowExternal = true,
+                    mode = NavigatorMode.TEST_HYPOTHESIS)
                 val (authorization, body) = checkNotNull(requests.poll(1, TimeUnit.SECONDS))
                 assertThat(authorization).isEqualTo("Bearer mock-test-key")
                 assertThat(body.path("model").asString()).isEqualTo("gpt-4.1-mini")
@@ -114,9 +122,11 @@ class OpenAiNavigatorTest {
                 assertThat(body.path("max_completion_tokens").asInt()).isPositive()
                 assertThat(body.path("messages").path(1).path("content").asString())
                     .contains("Кого проверить?", "C1", "2026-12-01", "MEETING", "UNKNOWN", "nextStepRecorded",
-                        "BUDGET_APPROVER", "HIGH", "APPROVAL", "sourceRef", "targetRef")
+                        "BUDGET_APPROVER", "HIGH", "APPROVAL", "sourceRef", "targetRef", "DOUBTS", "recordedPosition")
                     .doesNotContain("Частн", "Закрытая стадия", "Внутренний следующий шаг", "EXPERTISE", projectId.toString(), contactId.toString())
+                assertThat(body.path("messages").path(0).path("content").asString()).contains("альтернативное объяснение")
                 assertThat(answer.answer).isEqualTo("Уточните данные у [Частное лицо].")
+                assertThat(answer.sources).containsExactly(NavigatorSource("C1", "Частное лицо", "CONTACT", contactId, projectId))
             }
         } finally {
             server.stop(0)

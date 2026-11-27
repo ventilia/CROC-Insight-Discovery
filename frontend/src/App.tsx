@@ -56,7 +56,6 @@ import {
   influenceLabels,
   portfolioStats,
   roleTone,
-  snapshot,
   uniquePeople,
   useWorkspace,
   emptyProject,
@@ -588,8 +587,7 @@ export function App() {
                       <h1>{company.name}</h1>
                       <p>
                         {company.industry ?? "Отрасль пока не указана"} ·
-                        проектов: {items.length} · данные на{" "}
-                        {formatDate(snapshot(items))}
+                        проектов: {items.length}
                       </p>
                     </div>
                     {(canManage || canEdit) && (
@@ -1156,10 +1154,6 @@ function Dashboard({
         <div>
           <h1>Работа с клиентами</h1>
         </div>
-        <span className="snapshot-label">
-          <CalendarDays size={16} />
-          {formatDate(data.dashboard?.latestAsOf ?? snapshot(data.initiatives))}
-        </span>
       </div>
       <section className="metric-grid" aria-label="Основные показатели">
         {metrics.map((metric) => (
@@ -1298,16 +1292,13 @@ function CompanyGrid({
                 Подразделений: {facts?.departmentCount ?? departments.size}
               </span>
             </div>
-            <div className="company-card-footer">
-              {!facts && (
+            {!facts && (
+              <div className="company-card-footer">
                 <span className={risks ? "attention-text" : ""}>
                   {risks ? `Замечаний: ${risks}` : "Нет замечаний"}
                 </span>
-              )}
-              <small>
-                Обновлено {formatDate(facts?.latestAsOf ?? snapshot(items))}
-              </small>
-            </div>
+              </div>
+            )}
           </button>
         );
         return collapsible ? (
@@ -1382,8 +1373,8 @@ function CompanyOverview({
             <span>проектов</span>
           </div>
           <div>
-            <strong>{formatDate(snapshot(items))}</strong>
-            <span>последний срез</span>
+            <strong>{keyPeople.length}</strong>
+            <span>{profile ? "ключевых контактов в сводке" : "ЛПР"}</span>
           </div>
         </div>
       </section>
@@ -1688,15 +1679,27 @@ function Insights({
   const [limit, setLimit] = useState(12);
   const fallback =
     item && !server ? relationshipHealth(item.coverage).risks : [];
-  if (server && !facts) {
-    return loading ? (
-      <p className="empty-inline" role="status">
-        Загружаем индекс отношений и сигналы риска…
-      </p>
-    ) : null;
-  }
   return (
     <>
+      <Navigator
+        key={`${companyId}-${initiativeScope ?? "all"}-${days}-${revision}`}
+        companyId={companyId}
+        initiativeId={initiativeScope}
+        days={days}
+        revision={revision}
+        onSource={(source) => {
+          if (source.kind === "PROJECT") {
+            go(`/client/${companyId}/map?initiative=${source.id}`);
+          } else if (source.initiativeId) {
+            go(`/client/${companyId}/person/${source.id}?initiative=${source.initiativeId}`);
+          } else {
+            go(`/client/${companyId}/directory/${source.id}`);
+          }
+        }}
+      />
+      {server && !facts && loading && (
+        <p className="empty-inline" role="status">Загружаем индекс отношений и сигналы риска…</p>
+      )}
       {server && (
         <PersistedPanel id={companyId + ".lost-connections"} title="Потерянные связи">
           <LostConnections
@@ -1754,7 +1757,7 @@ function Insights({
               )}
             </article>
           ))}
-          {!risks.length && !fallback.length && (
+          {(!server || facts) && !risks.length && !fallback.length && (
             <p className="empty-inline">
               Замечаний по текущим данным нет. Добавляйте результаты встреч и
               звонков.
@@ -1775,22 +1778,6 @@ function Insights({
           </button>
         </div>
       </PersistedPanel>
-      <Navigator
-        key={`company-${companyId}-${days}-${revision}`}
-        companyId={companyId}
-        days={days}
-        asOf={facts?.latestAsOf ?? item?.initiative.asOf ?? null}
-        revision={revision}
-      />
-      {item && (
-        <Navigator
-          key={`project-${item.initiative.id}-${days}-${revision}`}
-          initiativeId={item.initiative.id}
-          days={days}
-          asOf={item.initiative.asOf}
-          revision={revision}
-        />
-      )}
     </>
   );
 }

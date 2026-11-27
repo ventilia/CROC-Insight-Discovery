@@ -717,6 +717,7 @@ paths:
               properties:
                 days: {type: integer, minimum: 1, maximum: 365}
                 question: {type: string, minLength: 1, maxLength: 400}
+                mode: {$ref: '#/components/schemas/NavigatorMode'}
                 allowExternal:
                   type: boolean
                   default: false
@@ -728,11 +729,14 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [model, answer, asOf]
+                required: [model, answer, asOf, sources]
                 properties:
                   model: {type: string}
                   answer: {type: string}
                   asOf: {type: string, format: date-time}
+                  sources:
+                    type: array
+                    items: {$ref: '#/components/schemas/NavigatorSource'}
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -766,6 +770,7 @@ paths:
               properties:
                 days: {type: integer, minimum: 1, maximum: 365}
                 question: {type: string, minLength: 1, maxLength: 400}
+                mode: {$ref: '#/components/schemas/NavigatorMode'}
                 allowExternal:
                   type: boolean
                   default: false
@@ -777,11 +782,14 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [model, answer, asOf]
+                required: [model, answer, asOf, sources]
                 properties:
                   model: {type: string}
                   answer: {type: string}
                   asOf: {type: [string, 'null'], format: date-time}
+                  sources:
+                    type: array
+                    items: {$ref: '#/components/schemas/NavigatorSource'}
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '403':
@@ -1114,10 +1122,23 @@ components:
       type: object
       required: [provider, model]
       properties:
-        provider: {type: string, enum: [OLLAMA, LM_STUDIO, SELF_HOSTED, OPENAI, OPENROUTER]}
+        provider: {type: string, enum: [OLLAMA, LM_STUDIO, SELF_HOSTED, OPENAI, OPENROUTER, GEMINI]}
         model: {type: string, minLength: 1, maxLength: 120}
         apiKey: {type: [string, 'null'], writeOnly: true, maxLength: 500}
         allowExternal: {type: boolean, default: false}
+    NavigatorMode:
+      type: string
+      enum: [QUESTION, MEETING_BRIEF, TEST_HYPOTHESIS, CONTACT_FALLBACK]
+      default: QUESTION
+    NavigatorSource:
+      type: object
+      required: [ref, label, kind, id, initiativeId]
+      properties:
+        ref: {type: string}
+        label: {type: string}
+        kind: {type: string, enum: [CONTACT, PROJECT]}
+        id: {type: string, format: uuid}
+        initiativeId: {type: [string, 'null'], format: uuid}
     ModelSettings:
       type: object
       required: [enabled, model, provider, canConfigure, hasApiKey, external, providers]

@@ -15,11 +15,14 @@ import ru.croc.insight.history.Recency
 import ru.croc.insight.history.TouchpointService
 import ru.croc.insight.history.relationshipHealth
 import ru.croc.insight.map.GraphService
+import ru.croc.insight.source.PositionService
+
+data class NavigatorSource(val ref: String, val label: String, val kind: String, val id: UUID, val initiativeId: UUID? = null)
 
 data class NavigatorSnapshot(
     val asOf: Instant?,
     val facts: Map<String, Any?>,
-    val privateLabels: Map<String, String>,
+    val sources: Map<String, NavigatorSource>,
 )
 
 @Service
@@ -30,6 +33,7 @@ class NavigatorContext(
     private val touchpoints: TouchpointService,
     private val dashboard: DashboardService,
     private val graphs: GraphService,
+    private val positions: PositionService,
 ) {
     fun initiative(viewer: String, initiativeId: UUID, days: Int, external: Boolean): NavigatorSnapshot? {
         val project = catalog.findInitiative(viewer, initiativeId) ?: return null
@@ -55,7 +59,8 @@ class NavigatorContext(
             it.touchStatus == Recency.RECENT && it.verificationStatus == Recency.RECENT
         }.take(3)
         val selected = (prioritized.take(MAX_CONTACTS - anchors.size) + anchors + prioritized).distinctBy { it.id }.take(MAX_CONTACTS)
-        val contactRefs = selected.associate { it.id to refs.contact(it.id, it.name) }
+        val recordedPositions = positions.currentForContacts(project.id, selected.map { it.id })
+        val contactRefs = selected.associate { it.id to refs.contact(it.id, it.name, project.id) }
         val cutoff = snapshot.asOf.minus(Duration.ofDays(days.toLong()))
         val confirmedLinks = graph.edges.asSequence().filter {
             it.confirmed && it.source in contactRefs && it.target in contactRefs
@@ -103,9 +108,19 @@ class NavigatorContext(
                     put("touchStatus", contact.touchStatus)
                     put("lastVerifiedAt", contact.lastVerifiedAt?.toString())
                     put("verificationStatus", contact.verificationStatus)
+                    val position = recordedPositions[contact.id]
+                    put("recordedPosition", position?.let {
+                        buildMap {
+                            put("stance", it.stance)
+                            put("recordedAt", it.changedAt.toString())
+                            if (!external) put("basis", it.basis.take(240))
+                        }
+                    })
                     if (!external) {
                         put("jobTitle", contact.jobTitle?.take(120))
                         put("roleLabel", role?.label?.take(120))
+                        put("recordedInterest", node?.interest?.take(200))
+                        put("mandate", node?.mandate?.take(160))
                     }
                 }
             },
@@ -141,7 +156,7 @@ class NavigatorContext(
                     if (!external) put("label", link.label.take(160))
                 }
             }.toList(),
-        ), refs.privateLabels())
+        ), refs.sources())
     }
 
     fun company(viewer: String, companyId: UUID, days: Int, external: Boolean): NavigatorSnapshot? {
@@ -182,25 +197,25 @@ class NavigatorContext(
                     "asOf" to it.asOf.toString(),
                 )
             },
-        ), refs.privateLabels())
+        ), refs.sources())
     }
 
     private class References(private val external: Boolean) {
         private val byCategory = mutableMapOf<String, MutableMap<UUID, String>>()
-        private val labels = mutableMapOf<String, String>()
+        private val sources = mutableMapOf<String, NavigatorSource>()
 
-        fun company(id: UUID, name: String) = reference("O", id, name)
-        fun project(id: UUID, name: String) = reference("P", id, name)
-        fun department(id: UUID, name: String) = reference("D", id, name)
-        fun contact(id: UUID, name: String) = reference("C", id, name)
+        fun company(id: UUID, name: String) = reference("O", id, name, "COMPANY")
+        fun project(id: UUID, name: String) = reference("P", id, name, "PROJECT", id)
+        fun department(id: UUID, name: String) = reference("D", id, name, "DEPARTMENT")
+        fun contact(id: UUID, name: String, initiativeId: UUID? = null) = reference("C", id, name, "CONTACT", initiativeId)
 
-        fun describe(ref: String) = if (external) mapOf("ref" to ref) else mapOf("ref" to ref, "name" to labels.getValue(ref))
-        fun privateLabels(): Map<String, String> = if (external) labels else emptyMap()
+        fun describe(ref: String) = if (external) mapOf("ref" to ref) else mapOf("ref" to ref, "name" to sources.getValue(ref).label)
+        fun sources(): Map<String, NavigatorSource> = sources
 
-        private fun reference(category: String, id: UUID, name: String): String {
+        private fun reference(category: String, id: UUID, name: String, kind: String, initiativeId: UUID? = null): String {
             val references = byCategory.getOrPut(category) { mutableMapOf() }
             return references.getOrPut(id) {
-                "$category${references.size + 1}".also { labels[it] = name.take(160) }
+                "$category${references.size + 1}".also { sources[it] = NavigatorSource(it, name.take(160), kind, id, initiativeId) }
             }
         }
     }

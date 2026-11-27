@@ -42,6 +42,23 @@ class PositionService(
             .optional()
             .orElse(null)
 
+    internal fun currentForContacts(initiativeId: UUID, ids: List<UUID>): Map<UUID, PositionRevision> {
+        if (ids.isEmpty()) return emptyMap()
+        return reader.sql(
+            """
+            SELECT DISTINCT ON (contact_id) contact_id, version, stance, basis, changed_by, changed_at
+            FROM stance_revisions
+            WHERE initiative_id = :initiativeId AND contact_id IN (:ids)
+            ORDER BY contact_id, version DESC
+            """.trimIndent(),
+        )
+            .param("initiativeId", initiativeId)
+            .param("ids", ids)
+            .query { row, _ -> row.getObject("contact_id", UUID::class.java) to revision(row) }
+            .list()
+            .toMap()
+    }
+
     internal fun save(
         initiativeId: UUID, personId: UUID, author: String, expectedVersion: Int, stance: Stance, basis: String,
     ): PositionRevision = try {

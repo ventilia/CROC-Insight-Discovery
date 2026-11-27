@@ -68,7 +68,6 @@ export default function LostConnections({ facts, loading, initiativeId, onProjec
                     <strong>{statusLabels[signal.category][signal.evidenceStatus]}</strong>
                     {category === "VERIFICATION" && signal.lastVerifiedAt && <span>Проверка · {formatDate(signal.lastVerifiedAt)}</span>}
                     <span>{signal.lastInteractionAt ? `Последний контакт · ${formatDate(signal.lastInteractionAt)}` : "Последний контакт неизвестен"}</span>
-                    <span>Срез · {formatDate(signal.asOf)}</span>
                   </div>
                   {category === "DEPARTMENT" ? (
                     <button className="secondary" type="button" onClick={() => onMap(signal.initiativeId, signal.subjectId)}><Map size={16} aria-hidden="true" /> На карте</button>

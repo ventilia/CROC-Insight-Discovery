@@ -16,11 +16,6 @@ jobs:
     defaults:
       run:
         working-directory: backend
-    env:
-      # secrets stay in GitHub and are never written to the repository
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || secrets.OPENAI_API_KEY }}
-      GEMINI_MODEL: ${{ secrets.GEMINI_MODEL || 'gemini-2.0-flash' }}
     services:
       postgres:
         image: postgres:17
@@ -58,3 +53,45 @@ jobs:
 
       - name: test backend
         run: ./gradlew test --no-daemon
+
+  gemini:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: check gemini with a synthetic question
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.5-flash-lite' }}
+        run: |
+          python3 - <<'PY'
+          import http.client
+          import json
+          import os
+
+          key = os.environ["GEMINI_API_KEY"]
+          if not key:
+              raise SystemExit("GEMINI_API_KEY is missing")
+          payload = {
+              "model": os.environ["GEMINI_MODEL"],
+              "messages": [{"role": "user", "content": "Reply with OK only."}],
+              "max_tokens": 128,
+          }
+          conn = http.client.HTTPSConnection("generativelanguage.googleapis.com", timeout=20)
+          conn.request(
+              "POST",
+              "/v1beta/openai/chat/completions",
+              body=json.dumps(payload),
+              headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
+          )
+          try:
+              response = conn.getresponse()
+              if response.status != 200:
+                  raise SystemExit(f"Gemini rejected the probe: HTTP {response.status}")
+              result = json.load(response)
+          finally:
+              conn.close()
+          choices = result.get("choices") or [{}]
+          if not choices[0].get("message", {}).get("content"):
+              raise SystemExit("Gemini returned no text")
+          print("Gemini returned a response")
+          PY

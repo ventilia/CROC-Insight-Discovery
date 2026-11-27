@@ -1,7 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import { Sparkles, X } from "lucide-react";
+import { ArrowUpRight, ClipboardList, Copy, GitBranch, ScanSearch, Sparkles, X } from "lucide-react";
 import { ApiError, apiWrite, useRemote } from "./api";
-import { formatDate } from "./coverage";
 
 type Settings = {
   enabled: boolean;
@@ -17,45 +16,57 @@ type Settings = {
   hasApiKey?: boolean;
   external?: boolean;
 };
-type Answer = { model: string; answer: string; asOf: string | null };
+export type NavigatorSource = {
+  ref: string;
+  label: string;
+  kind: "CONTACT" | "PROJECT";
+  id: string;
+  initiativeId: string | null;
+};
+type Answer = { model: string; answer: string; sources?: NavigatorSource[] };
+type Mode = "QUESTION" | "MEETING_BRIEF" | "TEST_HYPOTHESIS" | "CONTACT_FALLBACK";
 
-const companyQuestions = [
-  { label: "Приоритеты", question: "Какие три действия важнее всего для этой компании? Укажи проект, основание и ответственного, если он известен." },
-  { label: "Где теряем связь", question: "Какие контакты и подразделения требуют внимания? Раздели давнее взаимодействие, отсутствие истории и устаревшие данные." },
-  { label: "Риски портфеля", question: "В каких проектах отношения наиболее уязвимы? Объясни почему и что проверить первым." },
-];
-
-const projectQuestions = [
-  { label: "Следующие шаги", question: "Какие три действия сделать дальше по этому проекту? Укажи основание и что следует уточнить." },
-  { label: "Подготовиться к встрече", question: "С кем встретиться и что обсудить на основе последних взаимодействий, ролей и открытых вопросов?" },
-  { label: "Где пробелы", question: "С какими ЛПР и подразделениями связь слаба? Отдели подтверждённые риски от пробелов в истории." },
-];
+const scenarios = [
+  { id: "QUESTION", label: "Следующий шаг", note: "Что сделать первым", question: "Какой следующий шаг даст больше всего пользы и почему?", icon: Sparkles },
+  { id: "MEETING_BRIEF", label: "Бриф встречи", note: "Кого позвать и что спросить", question: "Подготовь бриф для ближайшей встречи на основе среза.", icon: ClipboardList },
+  { id: "TEST_HYPOTHESIS", label: "Проверить гипотезу", note: "Факты, версии и вопрос для проверки", question: "Какую гипотезу о затруднении в коммуникации стоит проверить первой?", icon: ScanSearch },
+  { id: "CONTACT_FALLBACK", label: "Если выпадет ЛПР", note: "Зависимость и запасная точка входа", question: "Что изменится, если самый задействованный ЛПР временно недоступен?", icon: GitBranch },
+] as const;
 
 export function Navigator({
   initiativeId,
   companyId,
   days,
-  asOf,
   revision = 0,
+  onSource,
 }: {
   initiativeId?: string;
   companyId?: string;
   days: number;
-  asOf: string | null;
   revision?: number;
+  onSource: (source: NavigatorSource) => void;
 }) {
   const [attempt, setAttempt] = useState(0);
   const settings = useRemote<Settings>("/ai/settings", attempt + revision);
-  const [question, setQuestion] = useState(
-    "С кем стоит связаться в первую очередь?",
-  );
+  const [mode, setMode] = useState<Mode>("QUESTION");
+  const [question, setQuestion] = useState<string>(scenarios[0].question);
   const [answer, setAnswer] = useState<Answer>();
+  const [copyStatus, setCopyStatus] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const [allowExternal, setAllowExternal] = useState(true);
+  const [allowExternal, setAllowExternal] = useState(false);
   const inFlight = useRef(false);
   const id = useId();
-  const questions = initiativeId ? projectQuestions : companyQuestions;
+  useEffect(() => setCopyStatus(""), [answer]);
+
+  async function copyAnswer(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyStatus("Текст скопирован.");
+    } catch {
+      setCopyStatus("Скопируйте текст вручную.");
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -63,7 +74,7 @@ export function Navigator({
     if (settings.data.external && !allowExternal) return;
     inFlight.current = true;
     setPending(true);
-    setAllowExternal(settings.data.external ? true : false);
+    setAllowExternal(false);
     setError("");
     setAnswer(undefined);
     try {
@@ -74,6 +85,7 @@ export function Navigator({
         await apiWrite<Answer>(scope + "/ai/advice", "POST", {
           days,
           question: question.trim(),
+          mode,
           allowExternal,
         }),
       );
@@ -102,11 +114,11 @@ export function Navigator({
         </h2>
         {settings.data?.enabled && (
           <small>
-            {answer?.model ?? settings.data.model} · данные на{" "}
-            {formatDate(answer?.asOf ?? asOf)}
+            {answer?.model ?? settings.data.model}
           </small>
         )}
       </div>
+      <p>Подготовьте разговор, проверьте гипотезу или найдите запасную точку входа по данным KIT.</p>
       {settings.loading && <p role="status">Проверяем настройки модели…</p>}
       {settings.error && (
         <p role="alert">
@@ -128,19 +140,24 @@ export function Navigator({
       )}
       {settings.data?.enabled && (
         <form onSubmit={submit}>
-          <div className="navigator-prompts" role="group" aria-label="Примеры вопросов">
-            {questions.map((preset) => (
+          <div className="navigator-prompts" role="group" aria-label="Сценарии анализа">
+            {scenarios.map((preset) => (
               <button
-                key={preset.label}
+                key={preset.id}
                 className="secondary"
                 type="button"
+                aria-pressed={mode === preset.id}
                 disabled={pending}
                 onClick={() => {
+                  setMode(preset.id);
                   setQuestion(preset.question);
-                  setAllowExternal(settings.data?.external ? true : false);
+                  setAllowExternal(false);
+                  setAnswer(undefined);
+                  setError("");
                 }}
               >
-                {preset.label}
+                <preset.icon size={18} aria-hidden="true" />
+                <span><strong>{preset.label}</strong><small>{preset.note}</small></span>
               </button>
             ))}
           </div>
@@ -156,7 +173,9 @@ export function Navigator({
               value={question}
               onChange={(event) => {
                 setQuestion(event.target.value);
-                setAllowExternal(settings.data?.external ? true : false);
+                setAllowExternal(false);
+                setAnswer(undefined);
+                setError("");
               }}
               disabled={pending}
             />
@@ -165,7 +184,7 @@ export function Navigator({
               className="primary"
               disabled={pending || !question.trim() || (settings.data.external && !allowExternal)}
             >
-              {pending ? "Модель отвечает…" : "Спросить"}
+              {pending ? "Модель отвечает…" : "Разобрать"}
             </button>
           </div>
           {settings.data.external && (
@@ -184,8 +203,23 @@ export function Navigator({
       {error && <p role="alert">{error}</p>}
       {answer && (
         <div className="navigator-answer" role="status">
-          <strong>Ответ модели</strong>
+          <div className="navigator-meta">
+            <strong>Ответ модели</strong>
+            <button type="button" className="secondary" onClick={() => void copyAnswer(answer.answer)}>
+              <Copy size={14} aria-hidden="true" /> Копировать ответ
+            </button>
+          </div>
+          {copyStatus && <small>{copyStatus}</small>}
           <p>{answer.answer}</p>
+          {!!answer.sources?.length && (
+            <div className="navigator-sources" aria-label="Карточки упомянутых контактов и проектов">
+              {answer.sources.map((source) => (
+                <button key={source.ref} className="secondary" type="button" onClick={() => onSource(source)}>
+                  {source.label} <ArrowUpRight size={14} aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </section>
@@ -326,7 +360,7 @@ export function LocalModelDialog({
                     : provider === "OPENAI"
                       ? "gpt-4o-mini"
                       : provider === "GEMINI"
-                        ? "gemini-2.0-flash"
+                        ? "gemini-3.5-flash-lite"
                       : "qwen2.5:7b"
                 }
               />
