@@ -1,0 +1,60 @@
+name: backend ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # secrets stay in GitHub and are never written to the repository
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || secrets.OPENAI_API_KEY }}
+      GEMINI_MODEL: ${{ secrets.GEMINI_MODEL || 'gemini-2.0-flash' }}
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: croc_insight
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d croc_insight"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: configure demo database
+        shell: bash
+        run: |
+          cat > .env <<'EOF'
+          CROC_DB_ADMIN_PASSWORD=postgres
+          CROC_DB_MIGRATOR_PASSWORD=postgres
+          CROC_DB_READER_PASSWORD=postgres
+          CROC_DEMO_API_PASSWORD=ci-demo-reader
+          CROC_DB_WRITER_PASSWORD=postgres
+          EOF
+
+      - name: test backend
+        run: ./gradlew test --no-daemon

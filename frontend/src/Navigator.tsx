@@ -52,7 +52,7 @@ export function Navigator({
   const [answer, setAnswer] = useState<Answer>();
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const [allowExternal, setAllowExternal] = useState(false);
+  const [allowExternal, setAllowExternal] = useState(true);
   const inFlight = useRef(false);
   const id = useId();
   const questions = initiativeId ? projectQuestions : companyQuestions;
@@ -63,7 +63,7 @@ export function Navigator({
     if (settings.data.external && !allowExternal) return;
     inFlight.current = true;
     setPending(true);
-    setAllowExternal(false);
+    setAllowExternal(settings.data.external ? true : false);
     setError("");
     setAnswer(undefined);
     try {
@@ -137,7 +137,7 @@ export function Navigator({
                 disabled={pending}
                 onClick={() => {
                   setQuestion(preset.question);
-                  setAllowExternal(false);
+                  setAllowExternal(settings.data?.external ? true : false);
                 }}
               >
                 {preset.label}
@@ -156,7 +156,7 @@ export function Navigator({
               value={question}
               onChange={(event) => {
                 setQuestion(event.target.value);
-                setAllowExternal(false);
+                setAllowExternal(settings.data?.external ? true : false);
               }}
               disabled={pending}
             />
@@ -325,6 +325,8 @@ export function LocalModelDialog({
                     ? "openrouter/free"
                     : provider === "OPENAI"
                       ? "gpt-4o-mini"
+                      : provider === "GEMINI"
+                        ? "gemini-2.0-flash"
                       : "qwen2.5:7b"
                 }
               />

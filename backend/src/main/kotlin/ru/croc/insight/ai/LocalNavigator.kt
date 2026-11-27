@@ -31,6 +31,7 @@ enum class LocalProvider(val label: String, val baseUrl: String?, val external: 
     SELF_HOSTED("Локальный сервер организации", null, false),
     OPENAI("OpenAI", "https://api.openai.com/v1", true),
     OPENROUTER("OpenRouter", "https://openrouter.ai/api/v1", true),
+    GEMINI("Gemini", "https://generativelanguage.googleapis.com/v1beta/openai", true),
 }
 
 data class LocalProviderOption(val id: LocalProvider, val label: String, val port: Int?, val external: Boolean)
@@ -55,6 +56,9 @@ class LocalNavigator internal constructor(
     openAiKey: String,
     openAiModel: String,
     private val openAiEndpoint: URI,
+    geminiKey: String = "",
+    geminiModel: String = "",
+    private val geminiEndpoint: URI = URI.create("${LocalProvider.GEMINI.baseUrl}/chat/completions"),
 ) : AutoCloseable {
     @Autowired
     constructor(
@@ -65,8 +69,10 @@ class LocalNavigator internal constructor(
         @Value("\${croc.ai.request-timeout-ms:45000}") requestTimeoutMs: Long,
         @Value("\${OPENAI_API_KEY:}") openAiKey: String,
         @Value("\${OPENAI_MODEL:}") openAiModel: String,
+        @Value("\${GEMINI_API_KEY:}") geminiKey: String,
+        @Value("\${GEMINI_MODEL:}") geminiModel: String,
     ) : this(context, json, baseUrl, modelId, requestTimeoutMs, openAiKey, openAiModel,
-        URI.create("${LocalProvider.OPENAI.baseUrl}/chat/completions"))
+        URI.create("${LocalProvider.OPENAI.baseUrl}/chat/completions"), geminiKey, geminiModel)
 
     private val localModel = modelId.trim().takeIf { it.isNotEmpty() }
     private val localConfig = endpoint(baseUrl.trim(), localModel)?.let { endpoint ->
@@ -79,7 +85,13 @@ class LocalNavigator internal constructor(
         require(model.length <= 120 && model.none(Char::isISOControl)) { "OPENAI_MODEL has an invalid format" }
         ModelConfig(openAiEndpoint, model, LocalProvider.OPENAI, key)
     }
-    private val defaultConfig = localConfig ?: serverOpenAiConfig
+    private val serverGeminiConfig = geminiKey.trim().takeIf { it.isNotEmpty() }?.let { key ->
+        val model = geminiModel.trim().ifEmpty { DEFAULT_GEMINI_MODEL }
+        require(key.length <= 500 && key.all { it in '!'..'~' }) { "GEMINI_API_KEY has an invalid format" }
+        require(model.length <= 120 && model.none(Char::isISOControl)) { "GEMINI_MODEL has an invalid format" }
+        ModelConfig(geminiEndpoint, model, LocalProvider.GEMINI, key)
+    }
+    private val defaultConfig = localConfig ?: serverGeminiConfig ?: serverOpenAiConfig
     private val overrides = ConcurrentHashMap<String, ModelConfig>()
     private val requests = Semaphore(2)
     private val http = HttpClient.newBuilder()
@@ -111,11 +123,13 @@ class LocalNavigator internal constructor(
         val key = apiKey?.trim()?.takeIf { it.isNotEmpty() }
             ?: overrides[viewer]?.takeIf { it.provider == provider }?.apiKey
             ?: serverOpenAiConfig?.takeIf { provider == LocalProvider.OPENAI }?.apiKey
+            ?: serverGeminiConfig?.takeIf { provider == LocalProvider.GEMINI }?.apiKey
         if (provider.external && (key == null || !allowExternal)) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Укажите ключ и подтвердите передачу данных провайдеру.")
         }
         val endpoint = when (provider) {
             LocalProvider.OPENAI -> openAiEndpoint
+            LocalProvider.GEMINI -> geminiEndpoint
             LocalProvider.SELF_HOSTED -> localConfig?.endpoint
                 ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Локальный сервер организации не настроен.")
             else -> URI.create("${provider.baseUrl}/chat/completions")
@@ -278,6 +292,7 @@ class LocalNavigator internal constructor(
     private companion object {
         const val MAX_RESPONSE = 64 * 1024
         const val DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
+        const val DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"
         val REFERENCE = Regex("""\[([OPDC][1-9]\d*)\]""")
         val NAVIGATOR_PROMPT = """
             Ты аналитик отношений с клиентом. Ответь по-русски на заданный вопрос по данным выбранного проекта или компании.
